@@ -271,7 +271,7 @@ export interface LibrariesProvider {
 /** A library a libraries provider found in the project, which Parity reads with a file in its registry. */
 export interface DetectedLibrary {
   /**
-   * The package whose newest file in Parity's registry describes it, as `@buildkitgg/shadcn-baseui-nova`, whether or not
+   * The package whose newest file in Parity's registry describes it, as `shadcn-base-nova`, whether or not
    * that package is installed.
    */
   registry: string

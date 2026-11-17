@@ -4,7 +4,7 @@
   "name": "Shadcn Luma",
   "description": "Every shadcn component on Base UI, in the luma style, kept in step with upstream.",
   "package": {
-    "name": "@buildkitgg/shadcn-baseui-luma",
+    "name": "shadcn-base-luma",
     "version": "0.2.0"
   },
   "styles": "tailwind.css",
@@ -15882,16 +15882,16 @@
   "decorators": [
     {
       "wrap": {
-        "import": "@buildkitgg/shadcn-baseui-luma",
+        "import": "shadcn-base-luma",
         "component": "TooltipProvider"
       }
     },
     {
       "add": {
-        "import": "@buildkitgg/shadcn-baseui-luma",
+        "import": "shadcn-base-luma",
         "component": "Toaster"
       }
     }
   ],
-  "edits": "buildkit-baseui.edits.json"
+  "edits": "shadcn-base.edits.json"
 }

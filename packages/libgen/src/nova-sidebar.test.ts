@@ -40,7 +40,7 @@ beforeAll(async () => {
   // The shadcn extension's detection of the components shadcn-sync generated in the example, read with Nova's file.
   const libraries: DetectedLibrary[] = [
     {
-      registry: "@buildkitgg/shadcn-baseui-nova",
+      registry: "shadcn-base-nova",
       package: "@buildkitgg/shadcn",
       name: "Shadcn Nova",
       description: "Every shadcn component on Base UI, in the nova style."

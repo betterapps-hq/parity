@@ -143,25 +143,25 @@ export const MaterialUI: Story = { ...library("@mui+material.lib.par"), name: "M
  * stories match. Look at the doubled colors, the animation settings listed as animations, and the percentages under
  * Other.
  */
-export const ShadcnLuma: Story = { ...library("@buildkitgg+shadcn-baseui-luma.lib.par"), name: "Shadcn Luma" }
+export const ShadcnLuma: Story = { ...library("shadcn-base-luma.lib.par"), name: "Shadcn Luma" }
 
 /** Shadcn Lyra, whose tokens are the same as Shadcn Luma's. */
-export const ShadcnLyra: Story = { ...library("@buildkitgg+shadcn-baseui-lyra.lib.par"), name: "Shadcn Lyra" }
+export const ShadcnLyra: Story = { ...library("shadcn-base-lyra.lib.par"), name: "Shadcn Lyra" }
 
 /** Shadcn Maia, whose tokens are the same as Shadcn Luma's. */
-export const ShadcnMaia: Story = { ...library("@buildkitgg+shadcn-baseui-maia.lib.par"), name: "Shadcn Maia" }
+export const ShadcnMaia: Story = { ...library("shadcn-base-maia.lib.par"), name: "Shadcn Maia" }
 
 /** Shadcn Mira, whose tokens are the same as Shadcn Luma's. */
-export const ShadcnMira: Story = { ...library("@buildkitgg+shadcn-baseui-mira.lib.par"), name: "Shadcn Mira" }
+export const ShadcnMira: Story = { ...library("shadcn-base-mira.lib.par"), name: "Shadcn Mira" }
 
 /** Shadcn Nova, whose tokens are the same as Shadcn Luma's. */
-export const ShadcnNova: Story = { ...library("@buildkitgg+shadcn-baseui-nova.lib.par"), name: "Shadcn Nova" }
+export const ShadcnNova: Story = { ...library("shadcn-base-nova.lib.par"), name: "Shadcn Nova" }
 
 /** Shadcn Rhea, whose tokens are the same as Shadcn Luma's. */
-export const ShadcnRhea: Story = { ...library("@buildkitgg+shadcn-baseui-rhea.lib.par"), name: "Shadcn Rhea" }
+export const ShadcnRhea: Story = { ...library("shadcn-base-rhea.lib.par"), name: "Shadcn Rhea" }
 
 /** Shadcn Sera, whose tokens are the same as Shadcn Luma's. */
-export const ShadcnSera: Story = { ...library("@buildkitgg+shadcn-baseui-sera.lib.par"), name: "Shadcn Sera" }
+export const ShadcnSera: Story = { ...library("shadcn-base-sera.lib.par"), name: "Shadcn Sera" }
 
 /** Shadcn Vega, whose tokens are the same as Shadcn Luma's. */
-export const ShadcnVega: Story = { ...library("@buildkitgg+shadcn-baseui-vega.lib.par"), name: "Shadcn Vega" }
+export const ShadcnVega: Story = { ...library("shadcn-base-vega.lib.par"), name: "Shadcn Vega" }

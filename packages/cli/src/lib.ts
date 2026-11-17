@@ -34,20 +34,21 @@ export async function runLib(packageName: string | undefined, options: LibOption
   const { appManifestPath, generateLibrary, manifestText, mergeManifest, presets, reviseLibrary } =
     await import("@parity-app/libgen")
 
-  const { covers, registryDir, registryEntries, registryFileName } = await import("@parity-app/registry")
+  const { covers, registryDir, registryEntries, registryFileName, registryName } = await import("@parity-app/registry")
   const spec = packageName === undefined ? undefined : packageSpec(packageName)
   let root = resolve(options.root ?? ".")
-  // A shadcn style, named by its kit as `@buildkitgg/shadcn-baseui-nova`, is built by shadcn-sync, at the version
-  // given or npm's latest, and described from the package sync builds.
-  const synced = spec && !options.root ? presets.get(spec.name)?.sync : undefined
+  // A shadcn style, named by its base and style as `shadcn-base-nova`, is built by shadcn-sync, at the version given
+  // or npm's latest, and described from the package sync builds. A retired kit's name is its style's.
+  const style = spec && !options.root ? registryName(spec.name) : undefined
+  const synced = style ? presets.get(style)?.sync : undefined
   let describe: LibInputs["describe"]
 
-  if (spec && synced) {
+  if (style && synced) {
     const { publishedVersion, syncedPackage, syncedStyle } = await import("@parity-app/libgen/published")
     const version = await publishedVersion("@buildkitgg/shadcn-sync", spec.version ?? "latest")
-    stderr(`Building ${spec.name} with shadcn-sync ${version} --base ${synced.base} --style ${synced.style}…`)
+    stderr(`Building ${style} with shadcn-sync ${version} --base ${synced.base} --style ${synced.style}…`)
     root = await syncedStyle(synced, version)
-    describe = { package: syncedPackage, as: spec.name }
+    describe = { package: syncedPackage, as: style }
   } else if (spec && (spec.version !== undefined || (options.registry && !options.root))) {
     // A package named with a version, or one written into the registry with no project given, is installed on its own
     // at that version, so describing it needs no project that has it. Regenerating a registry file reads the version
@@ -77,7 +78,8 @@ export async function runLib(packageName: string | undefined, options: LibOption
   const recordedId =
     options.registry && spec
       ? (options.id ??
-        (await registryEntries()).find((entry) => entry.manifest.package?.name === spec.name)?.manifest.id)
+        (await registryEntries()).find((entry) => entry.manifest.package?.name === (describe?.as ?? spec.name))
+          ?.manifest.id)
       : undefined
 
   const appErrors = recordedId ? await readAppErrors(registryDir(), recordedId) : undefined

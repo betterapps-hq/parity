@@ -1419,7 +1419,7 @@ describe("providers (PAR-1095)", () => {
 
   it("asks a libraries provider what it found, how to set one up and take it out, and refuses a plan that isn't one", async () => {
     const nova = {
-      registry: "@buildkitgg/shadcn-baseui-nova",
+      registry: "shadcn-base-nova",
       package: "@buildkitgg/shadcn",
       name: "Shadcn Nova",
       description: "Every shadcn component on Base UI, in the nova style."

@@ -4,7 +4,7 @@
   "name": "Shadcn Maia",
   "description": "Every shadcn component on Base UI, in the maia style, kept in step with upstream.",
   "package": {
-    "name": "@buildkitgg/shadcn-baseui-maia",
+    "name": "shadcn-base-maia",
     "version": "0.2.0"
   },
   "styles": "tailwind.css",
@@ -15882,16 +15882,16 @@
   "decorators": [
     {
       "wrap": {
-        "import": "@buildkitgg/shadcn-baseui-maia",
+        "import": "shadcn-base-maia",
         "component": "TooltipProvider"
       }
     },
     {
       "add": {
-        "import": "@buildkitgg/shadcn-baseui-maia",
+        "import": "shadcn-base-maia",
         "component": "Toaster"
       }
     }
   ],
-  "edits": "buildkit-baseui.edits.json"
+  "edits": "shadcn-base.edits.json"
 }

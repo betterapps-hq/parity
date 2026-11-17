@@ -1,10 +1,10 @@
 {
   "version": 4,
-  "id": "sera",
-  "name": "Shadcn Sera",
-  "description": "Every shadcn component on Base UI, in the sera style, kept in step with upstream.",
+  "id": "nova",
+  "name": "Shadcn Nova",
+  "description": "Every shadcn component on Base UI, in the nova style, kept in step with upstream.",
   "package": {
-    "name": "@buildkitgg/shadcn-baseui-sera",
+    "name": "shadcn-base-nova",
     "version": "0.2.0"
   },
   "styles": "tailwind.css",
@@ -17,9 +17,9 @@
         "$ref": "#/modifiers/theme"
       }
     ],
-    "name": "shadcn sera",
+    "name": "shadcn nova",
     "version": "2025.10",
-    "description": "The default tokens of the shadcn sera style, in light and dark themes.",
+    "description": "The default tokens of the shadcn nova style, in light and dark themes.",
     "sets": {
       "shadcn": {
         "sources": [
@@ -848,7 +848,7 @@
     },
     "$extensions": {
       "gg.buildkit": {
-        "style": "sera",
+        "style": "nova",
         "palette": "neutral",
         "upstream": {
           "repository": "https://github.com/shadcn-ui/ui",
@@ -15716,10 +15716,11 @@
         "declaration": "ui/trace.d.ts",
         "group": "Trace",
         "parents": [
+          "Collapsible",
           "Trace",
           "TraceCollapsible"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "app",
         "optionalParents": [
           "Trace"
         ],
@@ -15882,16 +15883,16 @@
   "decorators": [
     {
       "wrap": {
-        "import": "@buildkitgg/shadcn-baseui-sera",
+        "import": "shadcn-base-nova",
         "component": "TooltipProvider"
       }
     },
     {
       "add": {
-        "import": "@buildkitgg/shadcn-baseui-sera",
+        "import": "shadcn-base-nova",
         "component": "Toaster"
       }
     }
   ],
-  "edits": "buildkit-baseui.edits.json"
+  "edits": "shadcn-base.edits.json"
 }
