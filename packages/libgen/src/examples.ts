@@ -27,6 +27,8 @@ const run = promisify(execFile)
 export interface ExampleHints {
   /** The repository, when it isn't the package's own: a styled kit's examples live upstream. */
   repo?: string
+  /** The tag to read them at, when the package's own name and version don't name one, as `shadcn@4.23.0`. */
+  tag?: string
   /** Folders to search, relative to the repository; unset searches the whole repository. */
   paths?: string[]
   /** Folders where every JSX file is an example, whatever it's called (MUI's `docs/data` demos). */
@@ -82,7 +84,7 @@ export async function fetchExamples(
   }
 
   try {
-    const found = await findCommit(repo, pkg, upstream?.revision, cacheRoot)
+    const found = await findCommit(repo, pkg, upstream?.revision, cacheRoot, hints.tag)
 
     if (!found) {
       return { files: [], note: `No commit of ${repo} could be matched to ${pkg.name} ${pkg.version}.` }
@@ -162,10 +164,18 @@ async function findCommit(
   repo: string,
   pkg: PackageManifest,
   upstream: string | undefined,
-  cacheRoot: string
+  cacheRoot: string,
+  tag?: string
 ): Promise<{ commit: string; how: ExampleSource["how"] } | undefined> {
   if (upstream && /^[0-9a-f]{40}$/.test(upstream)) {
     return { commit: upstream, how: "upstream" }
+  }
+
+  // A tag the preset names, as `shadcn@4.23.0`, is the only one looked for.
+  if (tag) {
+    const sha = (await remoteTags(repo)).get(tag)
+
+    return sha ? { commit: sha, how: "tag" } : undefined
   }
 
   const published = await npmVersion(pkg)
@@ -176,20 +186,7 @@ async function findCommit(
 
   const name = pkg.name ?? ""
   const version = pkg.version ?? ""
-  const tags = new Map<string, string>()
-  const { stdout } = await git(["ls-remote", "--tags", repo], undefined, 60_000)
-
-  for (const line of stdout.split("\n")) {
-    const [sha, ref] = line.trim().split(/\s+/)
-
-    if (!sha || !ref) {
-      continue
-    }
-
-    // An annotated tag's own object comes first; the commit it points at is the `^{}` line.
-    tags.set(ref.replace(/^refs\/tags\//, "").replace(/\^\{\}$/, ""), sha)
-  }
-
+  const tags = await remoteTags(repo)
   const short = name.replace(/^@[^/]+\//, "")
 
   for (const tag of [`v${version}`, `${name}@${version}`, `${short}@${version}`, `${short}-v${version}`, version]) {
@@ -217,6 +214,25 @@ async function findCommit(
   const { stdout: commit } = await git(["rev-list", "-1", `--before=${published.time}`, "FETCH_HEAD"], dir)
 
   return commit.trim() ? { commit: commit.trim(), how: "date" } : undefined
+}
+
+/** A repository's tags, each with the commit it points at. */
+async function remoteTags(repo: string): Promise<Map<string, string>> {
+  const tags = new Map<string, string>()
+  const { stdout } = await git(["ls-remote", "--tags", repo], undefined, 60_000)
+
+  for (const line of stdout.split("\n")) {
+    const [sha, ref] = line.trim().split(/\s+/)
+
+    if (!sha || !ref) {
+      continue
+    }
+
+    // An annotated tag's own object comes first; the commit it points at is the `^{}` line.
+    tags.set(ref.replace(/^refs\/tags\//, "").replace(/\^\{\}$/, ""), sha)
+  }
+
+  return tags
 }
 
 /** What npm records of a version: the commit it was published from, and when. */
