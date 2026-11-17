@@ -961,6 +961,30 @@ export function describeProjectDoc(provider: DocProvider, options: { replicas?: 
         expect(layer(b, "app.par#home", "title")).toMatchObject({ text: "Oh ZHelloY!" })
       })
 
+      it("undoes typing in a long text the other edited at both ends, without matching all of it", () => {
+        const { a, b, exchange } = together()
+        const long = "word ".repeat(4000)
+
+        const edit = (doc: ProjectDoc, at: number, insert: string) =>
+          apply(doc, [
+            { op: "editText", design: "app.par#home", node: "title", edit: { kind: "splice", at, remove: 0, insert } }
+          ])
+
+        apply(a, [{ op: "editText", design: "app.par#home", node: "title", edit: { kind: "replace", text: long } }])
+        exchange()
+        edit(a, 10_000, "X")
+        exchange()
+        edit(b, long.length + 1, "Y")
+        edit(b, 0, "Z")
+        exchange()
+
+        const started = performance.now()
+        a.undo()
+        expect(performance.now() - started).toBeLessThan(1000)
+        exchange()
+        expect(layer(b, "app.par#home", "title")).toMatchObject({ text: `Z${long}Y` })
+      })
+
       it("lands two layers inserted before the same sibling, in the same order on both", () => {
         const { a, b, exchange } = together()
         apply(a, [{ op: "insert", design: "app.par#home", parent: "row", before: "b", node: text("x") }])

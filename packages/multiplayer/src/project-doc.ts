@@ -945,30 +945,84 @@ function kept(before: string, after: string): number[] {
     where[before.length - 1 - index] = after.length - 1 - index
   }
 
-  // The middles, by the longest common subsequence.
+  // The middles, by Myers' difference: its cost grows with how much others changed, not with the text's length.
   const a = before.slice(head, before.length - tail)
   const b = after.slice(head, after.length - tail)
-  const lengths = Array.from({ length: a.length + 1 }, () => Array.from({ length: b.length + 1 }, () => 0))
 
-  for (let i = a.length - 1; i >= 0; i--) {
-    for (let j = b.length - 1; j >= 0; j--) {
-      lengths[i]![j] = a[i] === b[j] ? lengths[i + 1]![j + 1]! + 1 : Math.max(lengths[i + 1]![j]!, lengths[i]![j + 1]!)
-    }
-  }
-
-  for (let i = 0, j = 0; i < a.length && j < b.length;) {
-    if (a[i] === b[j]) {
-      where[head + i] = head + j
-      i++
-      j++
-    } else if (lengths[i + 1]![j]! >= lengths[i]![j + 1]!) {
-      i++
-    } else {
-      j++
-    }
+  for (const [i, j] of sharedRun(a, b)) {
+    where[head + i] = head + j
   }
 
   return where
+}
+
+/** The most changes `sharedRun` looks through before it gives up and treats the rest as changed. */
+const mostChanges = 2000
+
+/**
+ * The characters `a` and `b` share, in order, as pairs of positions: Myers' O(ND) difference, which keeps one row per
+ * change it looks through. Past `mostChanges` it gives up and shares nothing, so a far-apart pair costs no more than that.
+ */
+function sharedRun(a: string, b: string): [number, number][] {
+  const offset = Math.min(a.length + b.length, mostChanges) + 1
+  const furthest = new Int32Array(2 * offset + 1)
+  const rows: Int32Array[] = []
+
+  for (let changes = 0; changes < offset; changes++) {
+    rows.push(furthest.slice())
+
+    for (let diagonal = -changes; diagonal <= changes; diagonal += 2) {
+      const down =
+        diagonal === -changes ||
+        (diagonal !== changes && furthest[offset + diagonal - 1]! < furthest[offset + diagonal + 1]!)
+
+      let x = down ? furthest[offset + diagonal + 1]! : furthest[offset + diagonal - 1]! + 1
+      let y = x - diagonal
+
+      while (x < a.length && y < b.length && a[x] === b[y]) {
+        x++
+        y++
+      }
+
+      furthest[offset + diagonal] = x
+
+      if (x >= a.length && y >= b.length) {
+        return backtrack(rows, offset, a.length, b.length, a, b)
+      }
+    }
+  }
+
+  return []
+}
+
+/** The shared pairs on the path `sharedRun` found, walked back from the end through the rows it kept. */
+function backtrack(rows: Int32Array[], offset: number, n: number, m: number, a: string, b: string): [number, number][] {
+  const pairs: [number, number][] = []
+  let x = n
+  let y = m
+
+  for (let changes = rows.length - 1; changes >= 0; changes--) {
+    const row = rows[changes]!
+    const diagonal = x - y
+
+    const down =
+      diagonal === -changes || (diagonal !== changes && row[offset + diagonal - 1]! < row[offset + diagonal + 1]!)
+
+    const previous = down ? diagonal + 1 : diagonal - 1
+    const fromX = row[offset + previous]!
+    const fromY = fromX - previous
+
+    while (x > fromX && y > fromY && a[x - 1] === b[y - 1]) {
+      x--
+      y--
+      pairs.push([x, y])
+    }
+
+    x = fromX
+    y = fromY
+  }
+
+  return pairs.reverse()
 }
 
 /**
