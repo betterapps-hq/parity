@@ -11,10 +11,13 @@ import {
 import { windowAgents } from "@parity-app/extension-host/window-agents"
 import { windowCanvas } from "@parity-app/extension-host/window-canvas"
 import { windowPresence } from "@parity-app/extension-host/window-presence"
+import { extensionsSnapshot } from "@parity-app/extension-host/window-snapshot"
 import { type Opening, type SyncDocument, type SyncPort, windowSync } from "@parity-app/extension-host/window-sync"
 import { registeredEvents } from "@parity-app/telemetry"
 import type { ExtensionStatus, LogLine } from "../shared/protocol.ts"
 import type { ServiceParams } from "../shared/service-params.ts"
+import { extensionTitled, setExtensionsSnapshot } from "./extension-errors.ts"
+import { extensionTime, measureExtensions } from "./extension-time.ts"
 import { type EditorRequest, extensionsOf, type ProjectExtensions } from "./extensions.ts"
 import { clearProjectExtensionSetting, setProjectExtensionSetting } from "./project-settings.ts"
 import { track } from "./report-error.ts"
@@ -22,7 +25,7 @@ import { request } from "./service.ts"
 import type { Store } from "./store.ts"
 import { TabSlot } from "./tab-slot.ts"
 import { notify } from "./toasts.tsx"
-import { windowCanvasPort } from "./window-canvas.tsx"
+import { tabShown, windowCanvasPort } from "./window-canvas.tsx"
 import { windowModules as windowModuleList } from "./window-module-list.ts"
 import { windowAgentsPort, windowPresencePort } from "./window-seams.ts"
 import type { ProjectSession } from "./workspace.ts"
@@ -47,6 +50,33 @@ const running = new Map<string, WindowModules>()
 
 /** What `extension.capabilityMissing` has been sent for in this window, so each is sent once a session. */
 const reported = new Set<string>()
+
+/** Each extension's name as people see it, from the last tab that started its window module. */
+const names = new Map<string, string>()
+
+// Every error from the editor window carries `extensions.json` while a window module runs (PAR-1283).
+setExtensionsSnapshot(() => extensionsSnapshot(running.values()))
+
+/** Starts measuring window modules' time on the main thread, once a tab has some. */
+function measure(): void {
+  measureExtensions({
+    activeShown: () =>
+      [...running].flatMap(([tab, modules]) =>
+        tabShown(tab)
+          ? modules
+              .facts()
+              .extensions.filter((extension) => extension.halves.window === "active")
+              .map((extension) => ({ extension: extension.id, layers: extension.layers.length }))
+          : []
+      ),
+    stop(extension) {
+      for (const modules of running.values()) {
+        modules.stop(extension)
+      }
+    },
+    displayName: (extension) => names.get(extension) ?? extension
+  })
+}
 
 /** The window modules running in a project's tab, if any are. */
 export function windowModulesFor(session: Pick<ProjectSession, "id">): WindowModules | undefined {
@@ -200,6 +230,11 @@ export async function startTabModules(
       const agents = windowAgents(windowAgentsPort(slot, tab))
       stopAgents = () => agents.dispose()
       modules = start(slot, project, extensions, agents, seam)
+      measure()
+    }
+
+    for (const extension of found) {
+      names.set(extension.id, extension.displayName)
     }
 
     running.set(project.id, modules)
@@ -358,6 +393,7 @@ function start(
       extensions.logged(extension, line)
     },
     record: track,
+    meter: extensionTime,
     // An extension's own events, as the multiplayer extension's `room.*`, checked against their schemas as they're sent.
     recordOwn(extension, event, attributes) {
       if (!registeredEvents.some((each) => each.name === event)) {
@@ -369,9 +405,16 @@ function start(
       // SAFETY: the event is registered, and `track` checks the attributes against its schema.
       track(event as never, attributes as never)
     },
-    // Sentry loads with the first error, so nothing here pulls it into the tab's code.
+    // Sentry loads with the first error, so nothing here pulls it into the tab's code. The issue's title starts with
+    // the extension's name, so issues group by extension.
     report: (error, tags) =>
-      void import("@sentry/electron/renderer").then((Sentry) => Sentry.captureException(error, { tags })),
+      void import("@sentry/electron/renderer").then((Sentry) =>
+        Sentry.withScope((scope) => {
+          scope.setTags(tags)
+          scope.addEventProcessor((event) => extensionTitled(event, name(tags.extension)))
+          Sentry.captureException(error)
+        })
+      ),
     stopped: (extension) =>
       notify.warning(`${name(extension.id)} stopped working in this project`, {
         description: "Reopen the project to start it again."

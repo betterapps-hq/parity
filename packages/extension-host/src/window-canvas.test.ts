@@ -392,3 +392,28 @@ describe("parity.canvas.hold", () => {
     ])
   })
 })
+
+describe("what an extension has open on the canvas, for extensions.json", () => {
+  it("lists its layers and counts its open previews and holds, as they open and close", async () => {
+    const test = driven()
+    const { runtime, previews } = await tab(test.module)
+
+    const opened = () => {
+      const [facts] = runtime.facts().extensions
+
+      return facts && { layers: facts.layers, previews: facts.previews, holds: facts.holds }
+    }
+
+    const shown = test.api.previewBoard("card", "peer-3")
+    test.api.previewBoard("menu", "peer-4")
+    const held = test.api.hold("card")
+
+    expect(opened()).toEqual({ layers: ["stest.shading", "stest.people"], previews: 2, holds: 1 })
+
+    shown.settleOnWrite()
+    previews[0]?.land()
+    held.dispose()
+
+    expect(opened()).toEqual({ layers: ["stest.shading", "stest.people"], previews: 1, holds: 0 })
+  })
+})

@@ -70,6 +70,15 @@ export default defineConfig(({ mode }) => {
           render: resolve(import.meta.dirname, "src/renderer/render.html"),
           // Settings' own page, which main shows over the window and which loads no project code (PAR-1090).
           settings: resolve(import.meta.dirname, "src/renderer/settings.html")
+        },
+        output: {
+          // A window module's chunk is named after its package, so a long frame can be put down to its extension
+          // (renderer/extension-time.ts, PAR-1283). Every other chunk keeps Vite's name.
+          chunkFileNames: (chunk) => {
+            const folder = /[\\/](extension-[^\\/]+)[\\/]src[\\/]window\.tsx?$/.exec(chunk.facadeModuleId ?? "")?.[1]
+
+            return folder ? `assets/${folder}-window-[hash].js` : "assets/[name]-[hash].js"
+          }
         }
       }
     }

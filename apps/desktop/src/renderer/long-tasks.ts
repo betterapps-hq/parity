@@ -1,3 +1,4 @@
+import type { LongFrame } from "@parity-app/extension-host/main-thread"
 import { type registeredEvents, slowThresholdMs, type Telemetry } from "@parity-app/telemetry"
 import type { Attributes } from "./chrome/event-attributes.ts"
 
@@ -38,4 +39,39 @@ export function watchLongTasks(telemetry: Telemetry<typeof registeredEvents>): v
       telemetry.track("renderer.long_task", task)
     }
   }).observe({ type: "longtask", buffered: true })
+}
+
+/** A `long-animation-frame` entry's script, as Chromium gives it: `PerformanceScriptTiming`, which TypeScript lacks. */
+interface ScriptTiming {
+  sourceURL: string
+  duration: number
+}
+
+/** A `long-animation-frame` entry: `PerformanceLongAnimationFrameTiming`, which TypeScript lacks. */
+interface FrameTiming extends PerformanceEntry {
+  blockingDuration: number
+  scripts: readonly ScriptTiming[]
+}
+
+/**
+ * Gives `frame` each animation frame over 50 ms, through `PerformanceObserver`, with the scripts it ran and their files,
+ * which `longtask` entries can't name. Window modules' time is put down to them by those files (`extension-time.ts`).
+ */
+export function watchLongFrames(frame: (frame: LongFrame) => void): void {
+  if (!PerformanceObserver.supportedEntryTypes.includes("long-animation-frame")) {
+    return
+  }
+
+  new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) {
+      // SAFETY: entries of this type are long animation frames.
+      const timing = entry as FrameTiming
+
+      frame({
+        durationMs: timing.duration,
+        blockingMs: timing.blockingDuration,
+        scripts: timing.scripts.map((script) => ({ sourceURL: script.sourceURL, durationMs: script.duration }))
+      })
+    }
+  }).observe({ type: "long-animation-frame", buffered: false })
 }

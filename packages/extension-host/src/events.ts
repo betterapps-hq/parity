@@ -22,3 +22,21 @@ export type RecordExtensionEvent = <Name extends ExtensionEventName>(
   name: Name,
   attributes: EventAttributes<Events, Name>
 ) => void
+
+/**
+ * Whether to send `extension.halfUnavailable` for an extension now: the first for it in a minute, then one in ten, by
+ * the window's or the service's clock.
+ */
+export function halfUnavailableSampler(now: () => number): (extension: string) => boolean {
+  const counted = new Map<string, { since: number; count: number }>()
+
+  return (extension) => {
+    const at = now()
+    const seen = counted.get(extension)
+    const minute = seen && at - seen.since <= 60_000 ? seen : { since: at, count: 0 }
+    minute.count += 1
+    counted.set(extension, minute)
+
+    return minute.count % 10 === 1
+  }
+}

@@ -109,7 +109,7 @@ export const extensionHalfUnavailable = defineEvent(
   }),
   {
     level: "warn",
-    sentBy: ["renderer"],
+    sentBy: ["renderer", "service"],
     when: "A call to the other half rejects with `HalfUnavailableError`. After the first for an extension in a minute, one in ten."
   }
 )
@@ -148,6 +148,48 @@ export const extensionCapabilityMissing = defineEvent(
   }
 )
 
+export const extensionSlow = defineEvent(
+  "extension.slow",
+  z.object({
+    extension,
+    kind: z
+      .enum(["frame", "callback"])
+      .describe("A long animation frame whose scripts were mostly its window module's, or one call into it over 16 ms"),
+    api: z.string().optional().describe("For a call: what core called, as `presence.onPointer`"),
+    durationMs,
+    blockingMs: z.number().nonnegative().describe("How long it kept input waiting, past 50 ms, in milliseconds")
+  }),
+  {
+    level: "warn",
+    sentBy: ["renderer"],
+    when: "A long frame is mostly a window module's chunk, or one call into it takes over 16 ms. At most one per extension a minute; the rest are counted in `extension.mainThread`."
+  }
+)
+
+export const extensionMainThread = defineEvent(
+  "extension.mainThread",
+  z.object({
+    extension,
+    callbacks: z.number().int().nonnegative().describe("How many calls core made into its window module this minute"),
+    callbackMs: z.number().nonnegative().describe("How long those calls took in all, in milliseconds"),
+    callbackP95Ms: z.number().nonnegative().describe("The 95th percentile of those calls, in milliseconds"),
+    longFrames: z.number().int().nonnegative().describe("Long animation frames put down to it this minute"),
+    slow: z.number().int().nonnegative().describe("Slow calls and frames this minute, `extension.slow` sent or not"),
+    layers: z.number().int().nonnegative().describe("How many layers it draws"),
+    layerRenders: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe("How many times its layers rendered, where React's Profiler reports renders: not in production builds")
+  }),
+  {
+    level: "info",
+    sentBy: ["renderer"],
+    when: "Once a minute while a window module is active in a visible tab."
+  }
+)
+
 export const extensionEvents = [
   extensionActivated,
   extensionActivateFailed,
@@ -157,7 +199,9 @@ export const extensionEvents = [
   extensionStoppedInTab,
   extensionHalfUnavailable,
   extensionManifestRefused,
-  extensionCapabilityMissing
+  extensionCapabilityMissing,
+  extensionSlow,
+  extensionMainThread
 ] as const
 
 const sentBy = ["renderer"] as const

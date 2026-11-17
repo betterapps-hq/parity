@@ -22,9 +22,10 @@ import {
 } from "@parity-app/extension/internal"
 import { fits } from "@parity-app/extension/manifest"
 import { z } from "zod"
-import type { RecordExtensionEvent } from "./events.ts"
+import { halfUnavailableSampler, type RecordExtensionEvent } from "./events.ts"
 import type { ExtensionStatus, HostState } from "./hosts.ts"
 import { storedKey } from "./settings.ts"
+import type { ExtensionFacts, FailureFacts, SurfaceFacts, TabFacts } from "./window-snapshot.ts"
 
 /*
  * Internal extensions' window modules in one project tab (docs/proposals/extensions-in-the-window.md). A window module
@@ -140,6 +141,14 @@ export interface WindowSurface {
   capability?: Capability
   /** Makes it for one extension in this tab, the first time that extension reads it. */
   make(context: SurfaceContext): object
+  /** What the extension has open through it now, for `extensions.json`. */
+  describe?(extension: string): SurfaceFacts
+}
+
+/** Told how long each call core makes into a window module takes on the main thread (`main-thread.ts`). */
+export interface CallMeter {
+  /** A call into `extension`'s module, for `api`, took `ms` before it returned or awaited. */
+  called(extension: string, api: string, ms: number): void
 }
 
 /** What's on `WindowParity` through `options.surfaces`, which the app gives. */
@@ -180,10 +189,14 @@ export interface WindowModulesOptions {
   reported?: Set<string>
   /** What needs a capability, by its name on `WindowParity`, as `canvas`. */
   surfaces?: Partial<Record<SurfaceName, WindowSurface>>
+  /** Told how long each call into a module takes, for `extension.slow` and `extension.mainThread`. */
+  meter?: CallMeter
   /** How many failures in a tab stop a module there. 5 unless given. */
   failureLimit?: number
   /** The time, in milliseconds. `Date.now` unless given. */
   now?: () => number
+  /** A clock for timing calls, in milliseconds. `performance.now` unless given. */
+  clock?: () => number
 }
 
 /** One project tab's window modules. */
@@ -203,6 +216,10 @@ export interface WindowModules {
   callFromNode(extension: string, method: string, args: JsonValue[]): Promise<JsonValue | undefined>
   /** Where each module is, by extension. */
   states(): Record<string, ModuleState>
+  /** What each extension is doing in this tab, for `extensions.json` (`extensionsSnapshot`). */
+  facts(): TabFacts
+  /** Stops a module in this tab until the tab opens again, as the person asked. */
+  stop(extension: string): void
   /** Resolves once every activation started so far has settled, activated or not. */
   activating(): Promise<void>
   /** The tab closed: deactivates every module. */
@@ -230,9 +247,14 @@ interface Entry {
   began: number
   /** Its latest run, loading or active; none while it's off. */
   current?: Run
-  /** `extension.halfUnavailable` sent this minute, for its sampling. */
-  unavailable: { since: number; count: number }
+  /** Its latest failures in this tab, oldest first, for `extensions.json`. */
+  recent: FailureFacts[]
+  /** How many other copies are in the room, as it last recorded. */
+  peers?: number
 }
+
+/** How many failures `extensions.json` keeps for each extension in a tab. */
+const recentLimit = 5
 
 /**
  * What one activation of a module set up. Each run keeps its own, so one that's turned off while it loads is torn down
@@ -287,11 +309,16 @@ function newRun(): Run {
 
 const json: z.ZodType<JsonValue> = z.json()
 
+/** How many others are in the room, as the room's own events say. */
+const peerCount = z.number().int().nonnegative()
+
 /** One project tab's window modules. */
 export function windowModules(options: WindowModulesOptions): WindowModules {
   const { tab } = options
   const limit = options.failureLimit ?? 5
   const now = options.now ?? (() => Date.now())
+  const clock = options.clock ?? (() => performance.now())
+  const sampled = halfUnavailableSampler(now)
   const reported = options.reported ?? new Set<string>()
   const entries = new Map<string, Entry>()
   /** Activations not yet settled, for `activating`. */
@@ -324,6 +351,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
 
     const stopping = current && entry.failures >= limit && entry.state !== "inactive" && !entry.stopped
     const { message } = error
+    entry.recent = [...entry.recent, { api, message, at: now() }].slice(-recentLimit)
     logError(entry, `${api} failed: ${message}`, error)
     options.report?.(error, { extension: entry.extension.id, extension_half: "window", tab })
     options.record?.("extension.callFailed", {
@@ -343,10 +371,21 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     }
   }
 
+  /** Runs a call into the module, telling the meter how long it held the main thread. */
+  const timed = <T>(entry: Entry, api: string, call: () => T): T => {
+    const began = clock()
+
+    try {
+      return call()
+    } finally {
+      options.meter?.called(entry.extension.id, api, clock() - began)
+    }
+  }
+
   /** Calls into the module for core, as a listener: a failure is counted and goes no further. */
   const guarded = (entry: Entry, run: Run | undefined, api: string, call: () => void | Promise<void>) => {
     try {
-      const result = call()
+      const result = timed(entry, api, call)
 
       if (result instanceof Promise) {
         result.catch((error) => fail(entry, run, api, errorOf(error)))
@@ -364,7 +403,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     call: () => T | Promise<T>
   ): Promise<T> => {
     try {
-      return await call()
+      return await timed(entry, api, call)
     } catch (error) {
       fail(entry, run, api, errorOf(error))
       throw error
@@ -377,16 +416,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     method: string,
     state: Exclude<HalfState, "ready">
   ) => {
-    const at = now()
-
-    if (at - entry.unavailable.since > 60_000) {
-      entry.unavailable = { since: at, count: 0 }
-    }
-
-    entry.unavailable.count += 1
-
-    // The first in a minute, then one in ten.
-    if (entry.unavailable.count % 10 === 1) {
+    if (sampled(entry.extension.id)) {
       options.record?.("extension.halfUnavailable", { extension: entry.extension.id, from, method, state })
     }
   }
@@ -573,7 +603,16 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
             : options.log(extension.id, "error", message)
       },
       telemetry: {
-        record: (event, attributes) => options.recordOwn?.(extension.id, event, attributes)
+        record(event, attributes) {
+          // The room's own events say how many others are in it, which `extensions.json` keeps.
+          const peers = peerCount.safeParse(attributes.peers)
+
+          if (peers.success) {
+            entry.peers = peers.data
+          }
+
+          options.recordOwn?.(extension.id, event, attributes)
+        }
       },
       host: hostLink(entry, run),
       extensions: { get: other }
@@ -689,7 +728,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     let activated: Activated
 
     try {
-      activated = await module.activateWindow(parityFor(entry, run))
+      activated = await timed(entry, "activateWindow", () => module.activateWindow(parityFor(entry, run)))
     } catch (error) {
       if (entry.current === run) {
         failedToActivate(entry, "activate", errorOf(error))
@@ -879,6 +918,40 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     }
   }
 
+  /** What an extension is doing in this tab, from its entry and what each surface knows of it. */
+  const factsOf = (entry: Entry): ExtensionFacts => {
+    const { extension } = entry
+
+    const facts: ExtensionFacts = {
+      id: extension.id,
+      version: extension.version,
+      displayName: extension.displayName,
+      halves: { window: entry.stopped ? "stopped" : entry.state },
+      capabilities: extension.capabilities,
+      layers: [],
+      previews: 0,
+      holds: 0,
+      failures: entry.recent
+    }
+
+    if (extension.node) {
+      facts.halves.node = entry.half
+    }
+
+    for (const surface of Object.values(options.surfaces ?? {})) {
+      const { layers, previews, holds, room } = surface.describe?.(extension.id) ?? {}
+      facts.layers.push(...(layers ?? []))
+      facts.previews += previews ?? 0
+      facts.holds += holds ?? 0
+
+      if (room) {
+        facts.room = entry.peers === undefined ? room : { ...room, peers: entry.peers }
+      }
+    }
+
+    return facts
+  }
+
   return {
     update(extensions) {
       const given = new Map(
@@ -905,7 +978,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
             failures: 0,
             stopped: false,
             began: 0,
-            unavailable: { since: 0, count: 0 }
+            recent: []
           })
         }
       }
@@ -986,6 +1059,17 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     },
     states() {
       return Object.fromEntries([...entries].map(([id, entry]) => [id, entry.state]))
+    },
+    facts() {
+      return { tab, extensions: [...entries.values()].map(factsOf) }
+    },
+    stop(extension) {
+      const entry = entries.get(extension)
+
+      if (entry && !entry.stopped) {
+        entry.stopped = true
+        void deactivate(entry, "turnedOff")
+      }
     },
     async dispose() {
       const all = [...entries.values()]

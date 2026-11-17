@@ -49,17 +49,22 @@ Across all of them:
   derives the location when that's on: country, and also region and city where it can.
 - **Sentry's own sessions** come from main, so crash-free rates exist for the app. The CLI sends none.
 - **Extensions say which they are** (PAR-1235). Every error from an internal extension's window module carries the tags
-  `extension` (its id), `extension_half` (`window`) and `tab`, and both halves' lifecycle is recorded as `extension.*`
-  events: activating, failing to, stopping, crashing, failed calls into a window module, one stopped in a tab, calls to
-  a half that isn't ready, refused manifests and missing capabilities, including those nested in `parity.canvas`. A
-  canvas layer's render that throws is caught by its own error boundary and counted as `layer:<id>`; the followings,
-  previews and holds a window module opens are recorded with its id (PAR-1257). `parity.sync` records how a project
-  opened through it, changes refused or left waiting, who writes files, its minute's traffic and detaching (`sync.*`)
-  once the tab offers it, and `parity.agents` its minute's activity and steps dropped (`agents.*`).
+  `extension` (its id), `extension_half` (`window`) and `tab`, and its issue is titled from the extension's name. Every
+  error from the editor window carries `extensions.json` while a window module runs: each extension's halves, states,
+  capabilities, layers, open previews and holds, recent failures and the room's state, with no names or document bytes
+  (PAR-1283). Both halves' lifecycle is recorded as `extension.*` events: activating, failing to, stopping, crashing,
+  failed calls into a window module, one stopped in a tab, calls to a half that isn't ready from either half, refused
+  manifests and missing capabilities, including those nested in `parity.canvas`. A window module's time on the main
+  thread is `extension.slow` and, once a minute, `extension.mainThread` (PAR-1283). A canvas layer's render that throws
+  is caught by its own error boundary and counted as `layer:<id>`; the followings, previews and holds a window module
+  opens are recorded with its id (PAR-1257). `parity.sync` records how a project opened through it, changes refused or
+  left waiting, who writes files, its minute's traffic and detaching (`sync.*`) once the tab offers it, and
+  `parity.agents` its minute's activity and steps dropped (`agents.*`).
 - **Almost nothing is sampled.** No process sets `tracesSampleRate` or a sampler, so the SDKs make no spans of their
-  own, and every span Parity makes is sent. No registered event uses `defineEvent`'s `sample` option. Two events thin
+  own, and every span Parity makes is sent. No registered event uses `defineEvent`'s `sample` option. Three events thin
   themselves: `dragPreview.settled` records one in ten previews of others' drags that end by their write, and every
-  other ending, and `extension.halfUnavailable` is sent for the first call in a minute and then one in ten.
+  other ending, `extension.halfUnavailable` is sent for the first call in a minute and then one in ten, and
+  `extension.slow` at most once per extension a minute.
 
 ### Report a problem
 
@@ -183,11 +188,7 @@ are the gaps left. Each comes from the code or from Sentry, with the Linear issu
 
 ### Signals that never arrive
 
-| Gap                                                                                                            | Evidence                                                          | Issue    |
-| -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | -------- |
-| Errors from the editor window don't attach `extensions.json`, and issues aren't titled by the extension's name | Only the tags are set (`renderer/window-modules.ts`)              | PAR-1233 |
-| A window module's time on the main thread isn't measured: no `extension.slow` or `extension.mainThread`        | Not in `extension-events.ts`                                      | PAR-1233 |
-| A Node half's call to its window module that isn't ready rejects without `extension.halfUnavailable`           | The host process records no events (`extension-host/src/host.ts`) | PAR-1233 |
+None known.
 
 ### Privacy risks
 

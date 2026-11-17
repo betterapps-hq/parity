@@ -340,6 +340,8 @@ export interface HostServiceMethods {
   "extensions.call": { params: { extension: string; method: string; args: JsonValue[] } & Called; result: Returned }
   /** Calls a function of what its window module returned as `node`, in the project's tab. */
   "window.call": { params: { method: string; args: JsonValue[] } & Called; result: Returned }
+  /** A call to its window module was refused at once, as the module wasn't ready: for `extension.halfUnavailable`. */
+  "window.unavailable": { params: { method: string; state: Exclude<HalfState, "ready"> }; result: undefined }
 }
 
 const text = z.string().max(20_000)
@@ -878,7 +880,8 @@ export const hostChecks: Checks<HostServiceMethods> = {
   "extensions.call": checkOf(
     z.strictObject({ extension: name, method: name, args: z.array(jsonValue).max(100), call })
   ),
-  "window.call": checkOf(z.strictObject({ method: name, args: z.array(jsonValue).max(100), call }))
+  "window.call": checkOf(z.strictObject({ method: name, args: z.array(jsonValue).max(100), call })),
+  "window.unavailable": checkOf(z.strictObject({ method: name, state: z.enum(["starting", "restarting", "stopped"]) }))
 }
 
 /** Reads what an extension's code gave back, which could be anything its process posted. */

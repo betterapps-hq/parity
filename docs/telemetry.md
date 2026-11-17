@@ -232,13 +232,28 @@ extension's window module from the editor window, and every Node half from the s
   `extension`: `follow.ended` for its followings, `dragPreview.settled` for its previews and `hold.released` for its
   holds. `colors.generated` doesn't name it, since colors are the window's.
 - **`extension.halfUnavailable`** is a call to the other half while it's starting, restarting or stopped, which rejects
-  at once. The window sends the first for an extension in a minute, then one in ten.
+  at once. The window records a window module's calls, and the service a Node half's, which its host tells it about
+  (PAR-1283). Each sends the first for an extension in a minute, then one in ten.
+- **`extension.slow`** is a call into a window module over 16 ms, or a long animation frame whose scripts ran mostly in
+  its chunk, at most one per extension a minute. **`extension.mainThread`** sums up each minute a module is active in a
+  visible tab: its calls, their total and 95th percentile, its long frames, its slow moments sent or not, and its
+  layers. It counts its layers' renders only where React's Profiler reports them, in development (PAR-1283). The build
+  names each window module's chunk `<package folder>-window-<hash>.js`, so a frame's scripts name the extension. In
+  development, a module that takes over a second of a minute says "Multiplayer is slowing the editor", with Turn off,
+  which stops it in the window's tabs until they reopen.
 - **`extension.manifestRefused`** is a built-in manifest that breaks one of internal extensions' rules, as it's read,
   and **`extension.capabilityMissing`** a window module reading something its capabilities don't name, once per
   extension, API and session.
 
-An error from a window module goes to Sentry tagged `extension`, `extension_half` (`window`) and `tab`, and its stack
-shows in the extension's log tab, marked `[window]`.
+An error from a window module goes to Sentry tagged `extension`, `extension_half` (`window`) and `tab`, its issue titled
+from the extension's name (`Multiplayer: TypeError: …`), and its stack shows in the extension's log tab, marked
+`[window]`. Every error from the editor window carries `extensions.json` beside `frames.json` while a window module is
+running or stopped in a tab (PAR-1283). For each such extension in each tab, it lists its id, version and display name,
+its halves' states, its capabilities, its layers, how many previews and holds it has open, its last five failures, and,
+for the extension that brings the room, the room's state, its random lineage, whether this copy writes files, whether
+changes are pending, the version's size and the peers it last reported. It never holds a document's bytes, names, labels
+or what anyone typed. `extensionsSnapshot` in `@parity-app/extension-host/window-snapshot` builds it, for
+`parity extensions` too.
 
 ## Turning it off
 
@@ -554,8 +569,10 @@ Some failures are recorded for you, so code doesn't record them again:
 | `extension.capabilityMissing`      | warn  | all  | renderer                                | A window module calls an API its manifest's capabilities don't name. Once per extension, API and session.                                                                  |
 | `extension.crashed`                | warn  | all  | service                                 | A Node half's process ends by itself.                                                                                                                                      |
 | `extension.deactivated`            | info  | all  | renderer, service                       | A half stops.                                                                                                                                                              |
-| `extension.halfUnavailable`        | warn  | all  | renderer                                | A call to the other half rejects with `HalfUnavailableError`. After the first for an extension in a minute, one in ten.                                                    |
+| `extension.halfUnavailable`        | warn  | all  | renderer, service                       | A call to the other half rejects with `HalfUnavailableError`. After the first for an extension in a minute, one in ten.                                                    |
+| `extension.mainThread`             | info  | all  | renderer                                | Once a minute while a window module is active in a visible tab.                                                                                                            |
 | `extension.manifestRefused`        | error | all  | service                                 | A built-in extension's manifest breaks a rule when it's read.                                                                                                              |
+| `extension.slow`                   | warn  | all  | renderer                                | A long frame is mostly a window module's chunk, or one call into it takes over 16 ms. At most one per extension a minute; the rest are counted in `extension.mainThread`.  |
 | `extension.stoppedInTab`           | error | all  | renderer                                | A window module reaches five failures and is stopped in a tab.                                                                                                             |
 | `follow.ended`                     | info  | all  | renderer                                | Following a view on the canvas ends.                                                                                                                                       |
 | `frame.failed`                     | warn  | all  | main                                    | A frame or preview drawn offscreen fails, or is still drawing 30 seconds after its turn came.                                                                              |
@@ -1113,6 +1130,19 @@ Some failures are recorded for you, so code doesn't record them again:
 | `method`    | `string`                                  | The method it called                 |
 | `state`     | `"starting" \| "restarting" \| "stopped"` | Where the other half was             |
 
+### `extension.mainThread`
+
+| Attribute       | Type                | Meaning                                                                                              |
+| --------------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
+| `extension`     | `string`            | The extension's id, its package name                                                                 |
+| `callbacks`     | `integer`           | How many calls core made into its window module this minute                                          |
+| `callbackMs`    | `number`            | How long those calls took in all, in milliseconds                                                    |
+| `callbackP95Ms` | `number`            | The 95th percentile of those calls, in milliseconds                                                  |
+| `longFrames`    | `integer`           | Long animation frames put down to it this minute                                                     |
+| `slow`          | `integer`           | Slow calls and frames this minute, `extension.slow` sent or not                                      |
+| `layers`        | `integer`           | How many layers it draws                                                                             |
+| `layerRenders`  | `integer`, optional | How many times its layers rendered, where React's Profiler reports renders: not in production builds |
+
 ### `extension.manifestRefused`
 
 | Attribute   | Type                                                                                                                                                    | Meaning                                                               |
@@ -1120,6 +1150,16 @@ Some failures are recorded for you, so code doesn't record them again:
 | `extension` | `string`                                                                                                                                                | The extension's id, its package name                                  |
 | `rule`      | `"internalOutsideBuiltIns" \| "internalOnly" \| "capabilityWithoutContribution" \| "windowEventWithoutWindow" \| "noCode" \| "secondSync" \| "invalid"` | The rule it breaks; `invalid` for any other problem with its manifest |
 | `message`   | `string`                                                                                                                                                | What's wrong, by its JSON pointer                                     |
+
+### `extension.slow`
+
+| Attribute    | Type                    | Meaning                                                                                              |
+| ------------ | ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| `extension`  | `string`                | The extension's id, its package name                                                                 |
+| `kind`       | `"frame" \| "callback"` | A long animation frame whose scripts were mostly its window module's, or one call into it over 16 ms |
+| `api`        | `string`, optional      | For a call: what core called, as `presence.onPointer`                                                |
+| `durationMs` | `number`                | How long it took, in milliseconds                                                                    |
+| `blockingMs` | `number`                | How long it kept input waiting, past 50 ms, in milliseconds                                          |
 
 ### `extension.stoppedInTab`
 

@@ -706,7 +706,12 @@ async function activate(
 
   // An internal extension with a window module gets it as `parity.window` (extensions-in-the-window.md).
   const given: Parity | InternalParity =
-    params.window === undefined ? parity : { ...parity, window: windowLink(windowSide, send) }
+    params.window === undefined
+      ? parity
+      : {
+          ...parity,
+          window: windowLink(windowSide, send, (method, state) => quietly("window.unavailable", { method, state }))
+        }
 
   const api = apiOf(await exports.activate(given))
 
@@ -791,16 +796,18 @@ async function callStyles(
 
 /**
  * The Node half's link to its window module: calls go to the project's tab through the service, and reject at once
- * while the module isn't ready, rather than waiting.
+ * while the module isn't ready, rather than waiting, telling the service so it records `extension.halfUnavailable`.
  */
 function windowLink(
   windowSide: WindowSide,
-  send: (method: "window.call", params: HostServiceMethods["window.call"]["params"]) => Promise<Returned>
+  send: (method: "window.call", params: HostServiceMethods["window.call"]["params"]) => Promise<Returned>,
+  refused: (method: string, state: Exclude<HalfState, "ready">) => void
 ): WindowLink {
   const call = async (method: string, args: JsonValue[]) => {
     const { state } = windowSide
 
     if (state !== "ready") {
+      refused(method, state)
       throw new HalfUnavailableError(state, "window")
     }
 
