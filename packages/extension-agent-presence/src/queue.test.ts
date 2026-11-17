@@ -1,7 +1,8 @@
 import { type AgentStep, holdLimitMs, type Point } from "@parity-app/extension/internal"
 import { describe, expect, it } from "vite-plus/test"
-import { fastestPace, paceFor } from "./motion.ts"
-import { AgentQueue, agentKey, movedBoard } from "./queue.ts"
+import { behindLimitMs, fastestPace, paceFor, travelMs } from "./motion.ts"
+import { AgentQueue, agentKey, movedBoard, type QueuedStep } from "./queue.ts"
+import { scanCoveredShare, scanMs } from "./scanner.ts"
 
 const board = (key: string) => ({ owner: "design", type: "design", key })
 
@@ -24,6 +25,40 @@ function queued() {
   )
 
   return { queue, told, clock }
+}
+
+/** The longest a pointer takes over a visit at its own pace: the farthest travel, then the scan until it covers. */
+const longestVisitMs = travelMs({ x: 0, y: 0 }, { x: 100_000, y: 0 }) + scanMs * scanCoveredShare
+
+/**
+ * Plays steps told at the times given as `AgentPresence` would, each visit taking its longest, and returns when the
+ * last one has played, on the queue's clock.
+ */
+function play(told: { at: number; step: AgentStep }[]): number {
+  const { queue, clock } = queued()
+  queue.watch()
+  const waiting = [...told]
+  let now = 0
+
+  for (;;) {
+    while (waiting.length > 0 && waiting[0]!.at <= now) {
+      const { at, step } = waiting.shift()!
+      clock.now = at
+      queue.push([step])
+    }
+
+    clock.now = now
+    const step: QueuedStep | undefined = queue.take("claude")
+
+    if (step) {
+      const visited = step.kind !== "start" && step.kind !== "end"
+      now += visited ? longestVisitMs * queue.pace("claude", step) : 60
+    } else if (waiting.length > 0) {
+      now = waiting[0]!.at
+    } else {
+      return now
+    }
+  }
 }
 
 const read: AgentStep = { kind: "read", agentId: "claude", ref: board("card") }
@@ -100,6 +135,62 @@ describe("the agent queue", () => {
     expect(queue.waiting("claude")).toBe(17)
     expect(queue.take("claude")?.kind).toBe("start")
     expect(told).toEqual(["hold card 0,0", "update card 40,40", "release card"])
+  })
+
+  it("plays a 1.8 s call that reads 60 layers within 11 s of its start", () => {
+    // The call's start, a read every 30 ms, and its end: a call that touches many targets.
+    const start: AgentStep = { kind: "start", agentId: "claude" }
+    const end: AgentStep = { kind: "end", agentId: "claude" }
+
+    const call = [
+      { at: 0, step: start },
+      ...Array.from({ length: 60 }, (_, index) => ({ at: index * 30, step: read })),
+      { at: 1800, step: end }
+    ]
+
+    // 11 s is the call's 1.8 s, a pointer at most 6 s behind it, and its last visits hurried: about 1.5 s each.
+    expect(play(call)).toBeLessThanOrEqual(11_000)
+  })
+
+  it("skips the visits that waited too long for the latest, letting a skipped board land where it was put", () => {
+    const { queue, told, clock } = queued()
+    queue.watch()
+
+    queue.push([{ kind: "start", agentId: "claude" }, move, read, read])
+    clock.now = behindLimitMs + 1
+    queue.push([
+      { ...read, label: "latest" },
+      { kind: "end", agentId: "claude" }
+    ])
+
+    expect(queue.take("claude")?.kind).toBe("start")
+    expect(queue.take("claude")?.label).toBe("latest")
+    expect(queue.take("claude")?.kind).toBe("end")
+    expect(told).toEqual(["hold card 0,0", "update card 40,40", "release card"])
+  })
+
+  it("lets skipped moves of one board go in the order they were told, leaving it where the last one put it", () => {
+    const { queue, told, clock } = queued()
+    queue.watch()
+    const moved = (from: number, to: number): AgentStep => ({ ...move, from: { x: from, y: 0 }, to: { x: to, y: 0 } })
+
+    queue.push([moved(0, 100), moved(100, 200)])
+    clock.now = behindLimitMs + 1
+    queue.push([moved(200, 300)])
+    queue.take("claude")
+
+    expect(told.filter((line) => line.startsWith("update"))).toEqual(["update card 100,0", "update card 200,0"])
+  })
+
+  it("keeps the latest visit however long it waited, played faster for it", () => {
+    const { queue, clock } = queued()
+
+    queue.push([read])
+    clock.now = behindLimitMs + 1
+    const step = queue.take("claude")!
+
+    expect(step.kind).toBe("read")
+    expect(queue.pace("claude", step)).toBe(fastestPace)
   })
 
   it("drags a moved board while it's held, playing as fast as it goes until the pointer has it", () => {

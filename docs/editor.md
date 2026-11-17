@@ -6591,7 +6591,7 @@ Tests:
   sentence; initials by face size; ids telling namesakes apart; the line under a name; a palette's gradient; the stack's
   order, with whoever you follow first and an agent whose runner isn't here; how many faces show.
 
-### Agents at work on the canvas (PAR-1269, PAR-1273, PAR-1274)
+### Agents at work on the canvas (PAR-1269, PAR-1273, PAR-1274, PAR-1287)
 
 Each agent working in a project has a pointer in its own colors that goes to what the agent reads or changes, at a pace
 a person can follow. It's Parity's first internal extension, `@parity-app/extension-agent-presence`, with only a window
@@ -6608,8 +6608,11 @@ through `parity.agents`. The extension does the rest.
   while a board waits the pointer plays as fast as it goes, and skips the oldest of the steps ahead that wouldn't leave
   it time to drag the board. A drag ends before the hold does. If the hold has all but run out when the move's turn
   comes, the board lands where the agent put it and the pointer looks at it there instead.
-- **Keeping up.** Steps queue per agent. When several are waiting the pointer speeds up, to about a third of the time at
-  most, and a long call keeps its first step and the latest 16.
+- **Keeping up.** Steps queue per agent, and the pointer stays close to what its agent is doing. When several are
+  waiting it speeds up, to about a third of the time at most, and a long call keeps its first step and the latest 16. It
+  also speeds up once a step has waited 3 seconds for its turn. Steps that waited longer than 6 seconds are skipped,
+  except the latest, and a skipped move lands where the agent put it. A short call never plays for long after it ends:
+  one that reads 60 layers in 1.8 seconds plays within 11.
 - **A measurement** labels its target with its laid-out size while the pointer looks at it.
 - **Other copies' agents** play the same way: steps passed in with a `from` are queued under `${from}:${agentId}`, the
   key their color is claimed under, so with multiplayer on everyone in a room sees every agent.
@@ -6632,12 +6635,14 @@ development room's steps told apart) and `windowAgentsPort` in `renderer/window-
 
 Tests:
 
-- `packages/extension-agent-presence/src/queue.test.ts` (11): each agent's steps in order with a pointer until it
+- `packages/extension-agent-presence/src/queue.test.ts` (15): each agent's steps in order with a pointer until it
   retires; another copy's agents kept apart under their key; a moved board held while it's played and let go where it
   landed; moves left alone while nothing plays the queue; a long call trimmed, letting go of the boards it skips; a held
   board dragged, at the fastest pace until the pointer has it and while it drags it; the visits ahead of a held move
   skipped when they'd leave no time to drag it; a board let go where it was put once its hold has all but run out; every
-  hold let go as it stops; listeners told as agents come and go; the board a move drags.
+  hold let go as it stops; listeners told as agents come and go; the board a move drags; a 1.8 s call of 60 reads played
+  within 11 s; the visits that waited over 6 s skipped for the latest, a skipped board landing where it was put, several
+  skipped moves of one board let go in order; the latest visit kept however long it waited, at the fastest pace.
 - `packages/extension-agent-presence/src/targets.test.ts` (8): a page box on the screen; a layer in its state and mode's
   frame with its radius and size; falling back to the frame, then the board; a move by its board; an asleep frame; out
   of view, missing or naming no design skipped; a layer's design found when its key has a slash; staying put when the
@@ -6646,8 +6651,8 @@ Tests:
   one layer over the selection, playing this copy's and other copies' agents alike; a board held as its step is told,
   and let go with the layer gone as it stops. Deactivating a window module as its setting goes off is
   `packages/extension-host/src/window-modules.test.ts`'s.
-- `packages/extension-agent-presence/src/motion.test.ts`: easing, travel time, pace, arcs, curves, breathing and
-  glances.
+- `packages/extension-agent-presence/src/motion.test.ts`: easing, travel time, pace for a backlog and for how far behind
+  the pointer is, arcs, curves, breathing and glances.
 - `packages/extension-host/src/window-seams.test.ts`, "parity.agents": the development room's steps told with their
   `from`.
 

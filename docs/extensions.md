@@ -467,6 +467,9 @@ on canvas** is on (Settings → Extensions → Agent presence, an app setting th
 
 - **What it listens to.** `parity.agents.onActivity`, this copy's steps and other copies' alike. Each is queued per
   agent, keyed by its id, or `${from}:${agentId}` for another copy's.
+- **Pacing.** A pointer plays faster as steps pile up and as a step waits for its turn, from 3 s, reaching its fastest
+  at `behindLimitMs` (6 s, in `motion.ts`). A step that waited longer is skipped, except the latest, so the pointer
+  never trails its agent by much more than that.
 - **What it draws.** One `overSelection` page layer, `agentPresence.agents`, with `@parity-app/presence-ui`'s
   `AgentPointer` and `AgentBadge`. It reads the camera and boxes through the layer, and claims each agent's color from
   `parity.colors.agents` while its pointer is drawn. In a live room the Multiplayer extension assigns those colors as
@@ -635,10 +638,10 @@ names, and sets Shadcn up through shadcn-sync (PAR-1226, PAR-1227).
   since the frame before, resting while nothing runs or the tab is hidden, and a throwing frame given to its own
   handler.
 - [extension-agent-presence](../packages/extension-agent-presence/src) (PAR-1269), without Electron: `queue.test.ts`
-  (steps queued per agent, other copies' kept apart, moved boards held and let go, trimming a long call),
-  `targets.test.ts` (where a step's target is on the screen, and what it falls back to), `window.test.ts` (the module's
-  one layer, playing other copies' steps alike, holding a board as its step is told and letting go as it stops) and
-  `motion.test.ts`.
+  (steps queued per agent, other copies' kept apart, moved boards held and let go, trimming a long call, a short call
+  played within a bound, late steps skipped), `targets.test.ts` (where a step's target is on the screen, and what it
+  falls back to), `window.test.ts` (the module's one layer, playing other copies' steps alike, holding a board as its
+  step is told and letting go as it stops) and `motion.test.ts`.
 
 Gaps: the forked process in `utility/extension-host.ts` and the window's toasts, tab and dialogs have no tests of their
 own, nor has `renderer/window-modules.ts` or `renderer/window-canvas.tsx`, which no built-in extension uses yet; the

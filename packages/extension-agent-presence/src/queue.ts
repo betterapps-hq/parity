@@ -1,5 +1,5 @@
 import { type AgentStep, type Held, holdLimitMs, type Point } from "@parity-app/extension/internal"
-import { fastestPace, paceFor } from "./motion.ts"
+import { behindLimitMs, fastestPace, paceBehind, paceFor } from "./motion.ts"
 
 /** A step as the queue keeps it: with the copy it came from, when another copy's agent took it. */
 export interface QueuedStep extends AgentStep {
@@ -31,12 +31,19 @@ interface Hold {
  *
  * An agent is known by its key: its id for this copy's agents, `${copy}:${agentId}` for another copy's, the same key
  * its color is claimed under. Steps from another copy play exactly as this copy's do.
+ *
+ * A pointer never falls far behind its agent: it plays faster the longer a step waited for its turn, and skips the
+ * steps that waited longer than `behindLimitMs`, all but the latest, so a short call never plays for long after it.
  */
 export class AgentQueue {
   /** The hold on each move's board, from when it's queued until its pointer has dragged the board there. */
   private readonly held = new WeakMap<QueuedStep, Hold>()
   /** Moves whose hold ran out before their pointer got to them: their boards landed, so nothing is dragged. */
   private readonly landed = new WeakSet<QueuedStep>()
+  /** When each step was told. */
+  private readonly told = new WeakMap<QueuedStep, number>()
+  /** How long each step had waited when its turn came. */
+  private readonly waited = new WeakMap<QueuedStep, number>()
   private readonly queues = new Map<string, QueuedStep[]>()
   private readonly listeners = new Set<() => void>()
   /** Agents with a pointer, in the order they arrived. */
@@ -105,6 +112,7 @@ export class AgentQueue {
         this.held.set(queued, { held: this.hold(design, queued.from), until: this.now() + holdLimitMs })
       }
 
+      this.told.set(queued, this.now())
       queue.push(queued)
       this.queues.set(agent, queue)
 
@@ -142,14 +150,19 @@ export class AgentQueue {
   }
 
   /**
-   * How fast an agent's pointer plays `playing`, the step it took, as a share of its own pace: faster as steps pile up,
-   * and as fast as it goes while a moved board waits for it, the one it's dragging included.
+   * How fast an agent's pointer plays `playing`, the step it took, as a share of its own pace: faster as steps pile up
+   * or the longer it waited for its turn, and as fast as it goes while a moved board waits for it, the one it's
+   * dragging included.
    */
   pace(agent: string, playing?: QueuedStep): number {
     const queue = this.queues.get(agent) ?? []
     const held = (step: QueuedStep) => this.held.has(step)
 
-    return (playing && held(playing)) || queue.some(held) ? fastestPace : paceFor(queue.length)
+    if ((playing && held(playing)) || queue.some(held)) {
+      return fastestPace
+    }
+
+    return Math.min(paceFor(queue.length), paceBehind(playing ? (this.waited.get(playing) ?? 0) : 0))
   }
 
   /** The agents with a pointer: from their first step until they retire. */
@@ -173,14 +186,16 @@ export class AgentQueue {
   }
 
   /**
-   * The agent's next step. Core lets go of a hold after `holdLimitMs`, so a moved board is held only while its pointer
-   * can still drag it: visits ahead of the move that wouldn't leave time to are skipped, and a move whose hold has all
-   * but run out lands where the agent put it, with its pointer visiting it there.
+   * The agent's next step. Visits that waited longer than `behindLimitMs` are skipped while a later one waits, and a
+   * move skipped lands where the agent put it. Core lets go of a hold after `holdLimitMs`, so a moved board is held
+   * only while its pointer can still drag it: visits ahead of the move that wouldn't leave time to are skipped, and a
+   * move whose hold has all but run out lands where the agent put it, with its pointer visiting it there.
    */
   take(agent: string): QueuedStep | undefined {
     const queue = this.queues.get(agent)
 
     if (queue) {
+      this.catchUp(queue)
       this.makeTime(queue)
     }
 
@@ -191,6 +206,7 @@ export class AgentQueue {
     }
 
     this.version += 1
+    this.waited.set(step, this.now() - (this.told.get(step) ?? this.now()))
 
     if (this.heldFor(step) < grabMs + shortestDragMs && step.to) {
       this.letGo(step, step.to)
@@ -213,6 +229,28 @@ export class AgentQueue {
     this.queues.clear()
     this.present = []
     this.changed()
+  }
+
+  /**
+   * Skips the visits that have waited longer than `behindLimitMs`, all but the latest. Skipped moves are let go in the
+   * order they were told, so a board several of them moved is left where the last one put it.
+   */
+  private catchUp(queue: QueuedStep[]) {
+    const late = (step: QueuedStep) => visited(step) && this.now() - (this.told.get(step) ?? this.now()) > behindLimitMs
+    const latest = queue.findLastIndex(visited)
+    const skipped = queue.filter((step, index) => index < latest && late(step))
+
+    if (skipped.length === 0) {
+      return
+    }
+
+    queue.splice(0, queue.length, ...queue.filter((step) => !skipped.includes(step)))
+
+    for (const step of skipped) {
+      if (step.kind === "move" && step.to) {
+        this.letGo(step, step.to)
+      }
+    }
   }
 
   /** Skips the oldest visits ahead of the first held move, until its pointer can reach it at the fastest pace. */
