@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Debug internal extensions without Sentry: PARITY_EXTENSIONS_DEBUG traces calls into window modules, and their log tab marks each line's half",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

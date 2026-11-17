@@ -71,6 +71,7 @@ window as arguments, so its tests run without Electron:
 
 Each host's log shows in a tab of the bottom panel, beside Console: what its code prints, its uncaught errors with their
 stacks, and its starts, crashes and restarts. The tab shows once the extension logs something or runs into trouble.
+"Debugging extensions" below says what else it shows for internal extensions.
 
 ## The `parity` object
 
@@ -343,8 +344,8 @@ multiplayer is to become one.
   the agent's.
 - **`WindowParity`** ([`@parity-app/extension/internal`](../packages/extension/src/internal.ts)) gives the extension,
   the project, its `tab`, `subscriptions`, `commands` (its own, which run in the tab, and Parity's), `selection`,
-  `navigate`, `settings`, `log`, which writes to the extension's log tab marked `[window]`, `telemetry`, which records
-  an event Parity's telemetry defines (checked against its schema; one it doesn't define is dropped with a warning),
+  `navigate`, `settings`, `log`, which writes to the extension's log tab marked Window, `telemetry`, which records an
+  event Parity's telemetry defines (checked against its schema; one it doesn't define is dropped with a warning),
   `host`, its own Node half, and `extensions.get(id)`, another window module in the tab that its `extensionDependencies`
   names, as it comes and goes. Every module also gets `colors`; the rest is checked against `capabilities` as it's read
   (below). Reading one that isn't declared throws `CapabilityMissingError`, naming the capability, and records
@@ -417,6 +418,26 @@ editor's selection and navigation, and its link to the Node halves as arguments,
 camera and colors are [`window-canvas.ts`](../packages/extension-host/src/window-canvas.ts), over the tab's core
 services, which [`renderer/window-canvas.tsx`](../apps/desktop/src/renderer/window-canvas.tsx) gives it, with the hosts
 that draw the layers.
+
+## Debugging extensions
+
+What an extension is doing can be seen without Sentry, by the person and by an agent (PAR-1284):
+
+- **Its log tab.** An internal extension's window module writes to the same tab as its Node half. Each line from one
+  with both halves is marked Node or Window, and a window module's line keeps the tab it came from. A failure core
+  caught from a window module, which `extension.callFailed` counts, shows as an error with its stack, as
+  `selection.onChange failed: …`; so does a module that couldn't load or activate.
+- **`PARITY_EXTENSIONS_DEBUG`.** Start Parity with it set to trace calls between core and window modules. `1` traces
+  every extension; otherwise it names extensions by prefix or id, separated by commas, as `multiplayer`. Each call core
+  makes into a module, and each the module makes back, becomes a Debug line in its log tab with how long it took:
+  `in selection.onChange 0.4 ms`, `out host.join 12 ms`, with `, failed` when it threw. `in` covers `activateWindow`,
+  `deactivateWindow`, listeners, its commands and calls from its Node half (`node.<method>`); `out` covers calls to its
+  Node half (`host.<method>`), `selection.set` and `highlight`, `navigate`, `settings.update` and `commands.execute`.
+  It's off unless set, and meant for development.
+
+[`debug.ts`](../packages/extension-host/src/debug.ts) reads the variable and writes the lines, and
+[`window-modules.ts`](../packages/extension-host/src/window-modules.ts) times the calls. Main passes the variable to the
+editor window's preload, as it does `PARITY_PROJECT`.
 
 ## Agent presence
 
@@ -557,7 +578,10 @@ names, and sets Shadcn up through shadcn-sync (PAR-1226, PAR-1227).
   from the service, sampled, each half calling the other, a command the window module registered run by its module, the
   service and an agent, the agent's call carried through to the Node half and back from it through the window module,
   two agents' overlapping calls each kept apart, a command run from inside an agent's window command without waiting
-  behind it, and three crashes deactivating the window module.
+  behind it, three crashes deactivating the window module, and the Node half's log lines marked as its own. With
+  `PARITY_EXTENSIONS_DEBUG` (PAR-1284): nothing traced for an extension it doesn't name, each call in and out logged
+  with its time and a failure marked, and the calls to the editor and settings.
+  [debug.test.ts](../packages/extension-host/src/debug.test.ts): the variable's values, and a traced line.
 - [window-canvas.test.ts](../packages/extension-host/src/window-canvas.test.ts) (PAR-1257): a second test-only internal
   extension ([fixtures/window-surface-test.ts](../packages/extension-host/src/fixtures/window-surface-test.ts)), with
   only a window module, drawing a page layer and an edge layer and taking them away as it stops, a layer's id unique in

@@ -630,6 +630,11 @@ export interface CanvasHost {
    */
   signInRequired?: boolean
   /**
+   * `PARITY_EXTENSIONS_DEBUG` as main started with it: `1` traces every call between core and window modules into
+   * their extensions' logs, or it names extensions by id or prefix (docs/extensions.md, "Debugging extensions").
+   */
+  extensionsDebug?: string
+  /**
    * Asks the project service, and never fails: a failure is an answer, with its details. The page asks through
    * `request` in `renderer/service.ts`, which throws it as a `CodedError` again. `trace` is the action or gesture it's
    * asked in, as `sentry-trace` and `baggage` (PAR-629).

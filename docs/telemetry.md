@@ -246,14 +246,14 @@ extension's window module from the editor window, and every Node half from the s
   extension, API and session.
 
 An error from a window module goes to Sentry tagged `extension`, `extension_half` (`window`) and `tab`, its issue titled
-from the extension's name (`Multiplayer: TypeError: …`), and its stack shows in the extension's log tab, marked
-`[window]`. Every error from the editor window carries `extensions.json` beside `frames.json` while a window module is
-running or stopped in a tab (PAR-1283). For each such extension in each tab, it lists its id, version and display name,
-its halves' states, its capabilities, its layers, how many previews and holds it has open, its last five failures, and,
-for the extension that brings the room, the room's state, its random lineage, whether this copy writes files, whether
-changes are pending, the version's size and the peers it last reported. It never holds a document's bytes, names, labels
-or what anyone typed. `extensionsSnapshot` in `@parity-app/extension-host/window-snapshot` builds it, for
-`parity extensions` too.
+from the extension's name (`Multiplayer: TypeError: …`), and its stack shows in the extension's log tab, marked Window.
+Every error from the editor window carries `extensions.json` beside `frames.json` while a window module is running or
+stopped in a tab (PAR-1283). For each such extension in each tab, it lists its id, version and display name, its halves'
+states, its capabilities, its layers, how many previews and holds it has open, its last five failures, and, for the
+extension that brings the room, the room's state, its random lineage, whether this copy writes files, whether changes
+are pending, the version's size and the peers it last reported. It never holds a document's bytes, names, labels or what
+anyone typed. `extensionsSnapshot` in `@parity-app/extension-host/window-snapshot` builds it, for `parity extensions`
+too.
 
 ## Turning it off
 

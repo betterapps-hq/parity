@@ -202,6 +202,9 @@ const host: CanvasHost = {
     .slice(1)
     .join("="),
   signInRequired: process.argv.includes("--parity-sign-in-required"),
+  extensionsDebug: process.argv
+    .find((argument) => argument.startsWith("--parity-extensions-debug="))
+    ?.slice("--parity-extensions-debug=".length),
   ask: (method, params, trace) =>
     service.request(method, params, trace).then(
       (result) => ({ result }),
