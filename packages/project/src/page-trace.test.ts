@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { type PageTraceInput, pageTraceFiles, routeChain } from "./page-trace.ts"
+import { appEntries, type PageTraceInput, pageTraceFiles, routeChain } from "./page-trace.ts"
 
 const routes = [
   { id: "__root__", file: "src/routes/__root.tsx" },
@@ -109,5 +109,17 @@ describe("pageTraceFiles", () => {
 
   it("takes the whole project for a page that redirected, or drew its not-found or error page", () => {
     expect(pageTraceFiles({ ...project, loaded: [], landed: false })).toEqual(project.files)
+  })
+})
+
+describe("appEntries", () => {
+  const files = ["index.html", "src/boot.tsx", "src/main.tsx", "src/index.tsx", "src/routes/index.tsx"]
+
+  it("takes the module scripts the root's index.html names", () => {
+    expect(appEntries(files, '<script type="module" src="/src/boot.tsx"></script>')).toEqual(["src/boot.tsx"])
+  })
+
+  it("takes the files named as entries are where no page names one", () => {
+    expect(appEntries(files, undefined)).toEqual(["src/main.tsx", "src/index.tsx"])
   })
 })

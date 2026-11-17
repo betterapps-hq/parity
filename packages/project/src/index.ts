@@ -93,7 +93,14 @@ export { insideProject } from "./inside-project.ts"
 
 export { contentReader, traceDigest } from "./frame-trace.ts"
 
-export { folderRouteFiles, type PageTraceInput, pageTraceFiles, routeChain, type TracedRoute } from "./page-trace.ts"
+export {
+  appEntries,
+  folderRouteFiles,
+  type PageTraceInput,
+  pageTraceFiles,
+  routeChain,
+  type TracedRoute
+} from "./page-trace.ts"
 
 export {
   type DocumentEntry,

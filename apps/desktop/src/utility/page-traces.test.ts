@@ -112,6 +112,14 @@ describe("page traces (PAR-1200)", () => {
     expect(Object.keys(traced!.files)).toContain("components/chrome.tsx")
   })
 
+  it("lists what mounts the app and what it imports outside the routes, as a theme's provider", async () => {
+    await write("src/main.tsx", 'import { theme } from "./theme"\nimport { Route } from "./routes/__root"\n')
+    await write("src/theme.ts", "export const theme = {}\n")
+    const files = Object.keys((await pageTraces(projects([])).trace(job))!.files)
+    expect(files).toEqual(expect.arrayContaining(["src/main.tsx", "src/theme.ts"]))
+    expect(files).not.toContain("src/other.ts")
+  })
+
   it("stops holding when a file it would now list is added, as a public asset the page draws by URL", async () => {
     const traced = (await pageTraces(projects([])).trace(job))!
     await write("public/logo.svg", "<svg />")

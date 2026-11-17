@@ -2,6 +2,7 @@ import { stat } from "node:fs/promises"
 import { join } from "node:path"
 import type { FrameTrace } from "@parity-app/change-detection"
 import {
+  appEntries,
   type CodeSnapshot,
   contentReader,
   folderRouteFiles,
@@ -77,8 +78,15 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
     const wrapping =
       project.folderRoutes && chain.length > 0 ? folderRouteFiles(chain[0]!, [...snapshot.files.keys()]) : []
 
-    const [scanned, styles, loaded] = await Promise.all([
+    // What mounts the app wraps every page, and only what it imports outside the routes: another route's files are its.
+    const routeFiles = new Set(project.routes.map((route) => route.file))
+    const html = (await read(join(root, "index.html"))).text
+    const entries = appEntries([...snapshot.files.keys()], html)
+    const outsideRoutes = (path: string) => (routeFiles.has(path) ? Promise.resolve([]) : scan(path))
+
+    const [scanned, mounting, styles, loaded] = await Promise.all([
       moduleClosure([...chain, ...wrapping], scan),
+      moduleClosure(entries, outsideRoutes),
       moduleClosure(project.stylesheets, scan),
       chain.length > 0 ? projects.loadedFiles(job.projectId, chain) : Promise.resolve(undefined)
     ])
@@ -89,7 +97,7 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
       routes: project.routes,
       folderRoutes: project.folderRoutes,
       loaded,
-      scanned,
+      scanned: [...scanned, ...mounting.filter((path) => !routeFiles.has(path))],
       styles,
       shared: sharedPreviewFiles(snapshot),
       files: [...snapshot.files.keys()]

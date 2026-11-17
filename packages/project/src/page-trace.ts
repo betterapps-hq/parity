@@ -111,6 +111,26 @@ export function folderRouteFiles(route: string, files: readonly string[]): strin
   )
 }
 
+/** The names an app's entry goes by where no page names it: `main`, `index`, `client` or `entry-client`, in `src/`. */
+const entryName = /^(?:src\/)?(?:main|index|client|entry[.-]client)\.m?[jt]sx?$/
+
+/**
+ * The files that mount an app, which wrap every page in what they render around the router, such as a theme's provider:
+ * the module scripts the root's `index.html` names, and a file named as entries are where it names none. No route's
+ * imports reach them, and a builder's `loadedFiles` follows a route's imports, so a page's trace adds them itself.
+ */
+export function appEntries(files: readonly string[], html: string | undefined): string[] {
+  const known = new Set(files)
+
+  const named = [...(html ?? "").matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"'?#]+)/gi)].flatMap(([, src]) => {
+    const path = src!.replace(/^\.?\//, "")
+
+    return known.has(path) ? [path] : []
+  })
+
+  return named.length > 0 ? named : files.filter((path) => entryName.test(path))
+}
+
 function folderOf(path: string): string {
   const slash = path.lastIndexOf("/")
 
