@@ -2,7 +2,7 @@ import { CapabilityMissingError, defineWindowModule, type FollowEnd } from "@par
 import { readExtension } from "@parity-app/extension/manifest"
 import { describe, expect, it } from "vite-plus/test"
 import { surfaceTestId, surfaceTestModule, surfaceTestPackage } from "./fixtures/window-surface-test.ts"
-import { driven, settle, tab } from "./fixtures/window-tab.ts"
+import { driven, settle, surfaceExtension, tab } from "./fixtures/window-tab.ts"
 import { targetOf } from "./window-canvas.ts"
 
 describe("the surface test extension", () => {
@@ -257,7 +257,7 @@ describe("parity.colors", () => {
     const { parity, people, runtime, stop } = await tab()
     const old = parity().colors
     await stop()
-    runtime.update([extension()])
+    runtime.update([surfaceExtension()])
     await settle()
     parity().colors.claim("peer-3")
     old.claim("peer-3")
