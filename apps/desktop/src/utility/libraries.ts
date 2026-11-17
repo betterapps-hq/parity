@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises"
-import { join } from "node:path"
+import { join, relative } from "node:path"
 import type { LibraryRemovalPlan, LibrarySetupPlan } from "@parity-app/extension"
 import { endedByItself, type Lifecycle } from "@parity-app/processes"
 import {
@@ -11,6 +11,7 @@ import {
   type LibraryPreview,
   libraryPreview,
   removeCommand,
+  stylesheetsFrom,
   withoutStylesImport,
   withPackageChanges,
   withStylesImport
@@ -254,7 +255,10 @@ export async function removeLibrary(
   return runPackageManager(project, named, async () => edit)
 }
 
-/** Writes what taking a library out changes in package.json's scripts and the stylesheet, as one change. */
+/**
+ * Writes what taking a library out changes in package.json's scripts and the stylesheets, as one change: its import is
+ * taken from the app's stylesheet or whichever stylesheet it imports holds it, as a theme file.
+ */
 async function applyRemoval(
   project: OpenProject,
   name: string,
@@ -275,11 +279,13 @@ async function applyRemoval(
   const stylesheet = project.info.styles?.stylesheet ?? project.stylesheets[0]
 
   if (plan.styles && stylesheet) {
-    const source = await readFile(join(root, stylesheet), "utf8")
-    const content = withoutStylesImport(source, plan.styles)
+    for (const { path, source } of await stylesheetsFrom(join(root, stylesheet))) {
+      const content = withoutStylesImport(source, plan.styles)
+      const within = relative(root, path).replaceAll("\\", "/")
 
-    if (content !== undefined) {
-      files.push({ kind: "replace", path: stylesheet, expected: source, content })
+      if (content !== undefined && !within.startsWith("../")) {
+        files.push({ kind: "replace", path: within, expected: source, content })
+      }
     }
   }
 

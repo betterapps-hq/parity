@@ -6740,8 +6740,9 @@ Its header links to its website, docs, Storybook and source. A library with an i
 as Fluent icons beside Fluent UI, added in the same install. A library that asks for settings, as Shadcn does, takes
 them in a second step with Next, and its look follows the theme chosen; an installed one shows Change, then Apply once a
 setting differs. **Remove** on an installed library asks first, naming the package it uninstalls, then changes
-package.json's scripts and the stylesheet as one change and uninstalls with the project's package manager. The layout
-follows the dialog's width: the list narrows to logos, the settings stack, and token tiles keep even columns.
+package.json's scripts and the stylesheet that imports it, the app's or one it imports, as one change, and uninstalls
+with the project's package manager. The layout follows the dialog's width: the list narrows to logos, the settings
+stack, and token tiles keep even columns.
 
 What the registry's files don't say lives beside them in `packages/registry/libraries/catalog.json`: the order offered,
 each library's pages, logo (Simple Icons', and Fluent's mark from Microsoft's own), which of its tokens play which part
@@ -6757,11 +6758,12 @@ and `removeLibrary` in `chrome/AssetsPanel.tsx`; `catalogFor`, `previewFor` and 
 Tests: `packages/project/src/library-preview.test.ts` (a file's tokens with their kinds and themes, families,
 breakpoints, every look token the catalog names, nothing without a file); `registryCatalog` in
 `packages/registry/src/index.test.ts` (offered libraries and their icon sets have files; a library without a look is
-refused); `withoutStylesImport` in `packages/project/src/edits.test.ts`; `removeCommand` in `detect.test.ts`; script
-removal in `setup-plan.test.ts`. Storybook, `chrome/AddLibraryDialog/AddLibraryDialog.stories.tsx`: Shadcn, Mantine,
-MantineDark, ChakraUi, ChakraUiSpacing, FluentUi, MaterialUi, ShadcnSettings, ShadcnAdded and RemovingALibrary; and
-`chrome/ComponentsPanel.stories.tsx`: AddingALibrary, CatalogLoading, InstallingALibrary, ChangingShadcn,
-AddingShadcnInstalling and RemovingALibrary. Gaps: removing hasn't been run against a real project's install.
+refused); `withoutStylesImport` in `packages/project/src/edits.test.ts`, `stylesheetsFrom` in `styles.test.ts`;
+`removeCommand` in `detect.test.ts`; script removal in `setup-plan.test.ts`. Storybook,
+`chrome/AddLibraryDialog/AddLibraryDialog.stories.tsx`: Shadcn, Mantine, MantineDark, ChakraUi, ChakraUiSpacing,
+FluentUi, MaterialUi, ShadcnSettings, ShadcnAdded and RemovingALibrary; and `chrome/ComponentsPanel.stories.tsx`:
+AddingALibrary, CatalogLoading, InstallingALibrary, ChangingShadcn, AddingShadcnInstalling and RemovingALibrary. Gaps:
+removing hasn't been run against a real project's install.
 
 ### shadcn found by its extension, and added from the catalog (PAR-1226, PAR-1227)
 

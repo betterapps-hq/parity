@@ -149,7 +149,7 @@ export {
 
 export { importFromPnp, type PnpProject, pnpNodeOptions, pnpProject } from "./pnp.ts"
 
-export { readStylesheet } from "./styles.ts"
+export { readStylesheet, stylesheetsFrom } from "./styles.ts"
 
 export { type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "@parity-app/code"
 
