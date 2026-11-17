@@ -141,6 +141,13 @@ export function useLiveBoard(board: LiveBoard): LiveBoardState {
     return () => pool.remove(known.id)
   }, [pool, board.id])
 
+  // A live board whose mode or window changes has its live page follow, as its copy does.
+  const drawn = JSON.stringify([board.mode, board.viewport])
+
+  useEffect(() => {
+    pool.redraw(latest.current.id)
+  }, [pool, drawn])
+
   const live = useStore(liveStates).get(board.project)
   const ready = useStore(readyBoards).get(board.project) === board.id
 
@@ -262,11 +269,25 @@ export class Pool {
     this.interacting = interacting
 
     if (!interacting) {
+      // A board on its way to going live stops there: it's closed once it's ready, rather than engaged under another tool.
+      this.going = undefined
       this.disengage()
       this.unwarm()
     }
 
     this.plan()
+  }
+
+  /** A board's mode or window changed: when it holds the live frame, the page takes the new mode, sized to its window. */
+  redraw(id: string): void {
+    const board = this.boards.get(id)?.()
+
+    if (!board || this.live?.board !== id) {
+      return
+    }
+
+    this.size(this.live.frame, board.viewport)
+    this.sendMode(this.live.frame, board)
   }
 
   /** The view stopped moving: spares park in it again, and wait on the routes in it. */
@@ -363,8 +384,8 @@ export class Pool {
       )
       await withDeadline(frame.channel.request("role.set", { role: "live" }), pageDeadlines["role.set"])
 
-      // Another board was pressed, or the board went, while this one was on its way.
-      if (this.going !== id || !this.boards.has(id)) {
+      // Another board was pressed, the board went, or Interact was put down, while this one was on its way.
+      if (this.going !== id || !this.boards.has(id) || !this.interacting) {
         this.close(frame)
 
         return
@@ -665,6 +686,25 @@ export class Pool {
     const ports = new MessageChannel()
     frame.channel.connect(domPort(ports.port1))
     frame.iframe.contentWindow?.postMessage({ parity: "port", frame: frame.id }, frame.origin, [ports.port2])
+
+    // A live page that loaded again starts from its frame's name, which says spare and the mode it opened in: it's told
+    // again that it's live, and in its board's mode.
+    const board = this.live?.frame === frame ? this.boards.get(this.live.board)?.() : undefined
+
+    if (board) {
+      void withDeadline(frame.channel.request("role.set", { role: "live" }), pageDeadlines["role.set"]).catch(
+        () => undefined
+      )
+      this.sendMode(frame, board)
+    }
+  }
+
+  /** Sets a frame's mode to its board's, giving up past `mode.set`'s deadline, as a stuck page answers nothing. */
+  private sendMode(frame: Frame, board: LiveBoard): void {
+    void withDeadline(
+      frame.channel.request("mode.set", { mode: board.mode, viewport: board.viewport }),
+      pageDeadlines["mode.set"]
+    ).catch(() => undefined)
   }
 
   private frameById(id: string): Frame | undefined {
