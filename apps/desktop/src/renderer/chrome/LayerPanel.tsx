@@ -17,7 +17,17 @@ import {
   type StateSpec,
   type VideoNode
 } from "@parity-app/core"
-import { type InspectorSection, panelParts, selectionCapabilities, type StyleSection } from "@parity-app/editor"
+import {
+  explicitTracks,
+  type GridLayout,
+  type InspectorSection,
+  measuredGrid,
+  panelParts,
+  selectionCapabilities,
+  selfAlign,
+  type StyleSection,
+  trackSizes
+} from "@parity-app/editor"
 import { describeElement, type ElementFacts, panelData } from "@parity-app/layer-types"
 import { updateView } from "@parity-app/multiplayer"
 import { Diamond, Eye, EyeOff, Group, RotateCcw, Sparkles } from "lucide-react"
@@ -762,6 +772,107 @@ export function nodeTypeStyle(
     host && area ? nodeInFrames(area, design, nodeId, host).find((item) => item.picked)?.element : undefined
 
   return element ? getComputedStyle(element) : undefined
+}
+
+/**
+ * The grid a node is a child of, as the canvas lays it out in the frame it was picked in: its tracks, and where each
+ * of its children is drawn, auto-placed ones included, for Grid placement's map. Undefined when it isn't drawn in a
+ * grid. `nameOf` names a child by its layer's id.
+ */
+export function nodeGrid(
+  editor: Editor | undefined,
+  design: string,
+  nodeId: string,
+  picked: { mode?: string; state?: string },
+  nameOf: (id: string) => string | undefined
+): GridLayout | undefined {
+  const area = editor?.getContainer().closest(".canvas-area")
+  const host = area ? selectionFrame(area, design, picked) : undefined
+
+  const element =
+    host && area ? nodeInFrames(area, design, nodeId, host).find((item) => item.picked)?.element : undefined
+
+  const parent = element?.parentElement
+
+  if (!host || !element || !parent) {
+    return undefined
+  }
+
+  const grid = getComputedStyle(parent)
+
+  if (!grid.display.endsWith("grid")) {
+    return undefined
+  }
+
+  // Screen pixels per the frame's own, as `placeNode` measures; boxes count from the grid's content edge.
+  const { scale } = frameGeometry(host)
+  const outer = parent.getBoundingClientRect()
+  const left = outer.left / scale + parseFloat(grid.borderLeftWidth) + parseFloat(grid.paddingLeft)
+  const top = outer.top / scale + parseFloat(grid.borderTopWidth) + parseFloat(grid.paddingTop)
+
+  const children = [...parent.children].flatMap((child, index) => {
+    const style = getComputedStyle(child)
+
+    // An absolutely placed child, or one not drawn, takes no cells.
+    if (!(child instanceof HTMLElement) || style.display === "none" || style.position === "absolute") {
+      return []
+    }
+
+    const id = child === element ? nodeId : (child.dataset.canvasNode ?? `child-${index}`)
+    const box = child.getBoundingClientRect()
+
+    // Its margin box, which is what its cells hold; the margins are in the frame's own pixels.
+    const margin = {
+      left: parseFloat(style.marginLeft) || 0,
+      right: parseFloat(style.marginRight) || 0,
+      top: parseFloat(style.marginTop) || 0,
+      bottom: parseFloat(style.marginBottom) || 0
+    }
+
+    return [
+      {
+        id,
+        name: nameOf(id) ?? child.localName,
+        auto: style.gridColumnStart === "auto" && style.gridRowStart === "auto",
+        lines: {
+          column: { start: style.gridColumnStart, end: style.gridColumnEnd },
+          row: { start: style.gridRowStart, end: style.gridRowEnd }
+        },
+        align: { x: selfAlign(style.justifySelf), y: selfAlign(style.alignSelf) },
+        box: {
+          left: box.left / scale - left - margin.left,
+          top: box.top / scale - top - margin.top,
+          width: box.width / scale + margin.left + margin.right,
+          height: box.height / scale + margin.top + margin.bottom
+        }
+      }
+    ]
+  })
+
+  return measuredGrid({
+    columns: trackSizes(grid.gridTemplateColumns),
+    rows: trackSizes(grid.gridTemplateRows),
+    gap: { column: parseFloat(grid.columnGap) || 0, row: parseFloat(grid.rowGap) || 0 },
+    // The template as the style gives it, before the grid adds tracks, which negative lines count back from.
+    explicit: {
+      columns: explicitTracks(String(parent.computedStyleMap().get("grid-template-columns") ?? "")),
+      rows: explicitTracks(String(parent.computedStyleMap().get("grid-template-rows") ?? ""))
+    },
+    distribution: {
+      // Its content box, in its own pixels: inside its padding, as `clientWidth` is unscaled and inside its border.
+      x: {
+        content: grid.justifyContent,
+        size: parent.clientWidth - parseFloat(grid.paddingLeft) - parseFloat(grid.paddingRight)
+      },
+      y: {
+        content: grid.alignContent,
+        size: parent.clientHeight - parseFloat(grid.paddingTop) - parseFloat(grid.paddingBottom)
+      }
+    },
+    children,
+    self: nodeId,
+    items: { x: selfAlign(grid.justifyItems), y: selfAlign(grid.alignItems) }
+  })
 }
 
 /** A picture's or a video's layer, which the section edits the same way. */

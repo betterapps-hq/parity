@@ -69,8 +69,8 @@ function nested(between: StyleSection[], text: boolean, layout = false): StyleSe
     "placement",
     "layerOrder",
     "transform",
-    "size",
-    ...between,
+    // A grid child's size is in Grid placement.
+    ...(between.length > 0 ? between : ["size" as const]),
     "spacing",
     ...(layout ? ["layout" as const] : []),
     ...(text ? ["text" as const] : []),
@@ -143,7 +143,7 @@ describe("the sections and controls each kind of layer gets", () => {
 
   it.each([
     ["flex", [], sorted(["sizeFill", "alignSelf", "margin"])],
-    ["grid", ["gridPlacement"], sorted(["sizeFill", "span", "margin"])]
+    ["grid", ["gridPlacement"], sorted(["sizeFill", "margin"])]
   ] as const)("give a layout in a %s parent its layout and text inside", (parent, placement, controls) => {
     expect(partsOf(screen(), [`${parent}-layout`])).toEqual({
       sections: nested([...placement], true, true),
@@ -153,7 +153,7 @@ describe("the sections and controls each kind of layer gets", () => {
 
   it.each([
     ["flex", [], ["alignSelf"]],
-    ["grid", ["gridPlacement"], ["span"]]
+    ["grid", ["gridPlacement"], []]
   ] as const)("give text in a %s parent its tag, max lines and resizing", (parent, placement, controls) => {
     expect(partsOf(screen(), [`${parent}-text`])).toEqual({
       sections: nested([...placement], true),
@@ -163,9 +163,9 @@ describe("the sections and controls each kind of layer gets", () => {
 
   it.each([
     ["an image", "flex", "image", [], ["alignSelf"]],
-    ["an image", "grid", "image", ["gridPlacement"], ["span"]],
+    ["an image", "grid", "image", ["gridPlacement"], []],
     ["a video", "flex", "video", [], ["alignSelf"]],
-    ["a video", "grid", "video", ["gridPlacement"], ["span"]]
+    ["a video", "grid", "video", ["gridPlacement"], []]
   ] as const)("give %s in a %s parent no text section", (_, parent, kind, placement, controls) => {
     expect(partsOf(screen(), [`${parent}-${kind}`])).toEqual({
       sections: nested([...placement], false),
@@ -175,9 +175,9 @@ describe("the sections and controls each kind of layer gets", () => {
 
   it.each([
     ["a code component that takes className", "flex", "button", [], ["alignSelf"]],
-    ["a code component that takes className", "grid", "button", ["gridPlacement"], ["span"]],
+    ["a code component that takes className", "grid", "button", ["gridPlacement"], []],
     ["an instance", "flex", "card", [], ["alignSelf"]],
-    ["an instance", "grid", "card", ["gridPlacement"], ["span"]]
+    ["an instance", "grid", "card", ["gridPlacement"], []]
   ] as const)("give %s in a %s parent text inside but no layout", (_, parent, kind, placement, controls) => {
     expect(partsOf(screen(), [`${parent}-${kind}`])).toEqual({
       sections: nested([...placement], true),

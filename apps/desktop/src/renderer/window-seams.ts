@@ -122,20 +122,39 @@ function followPointer(session: ProjectSession, listener: (pointer: Pointer) => 
 
     const container = current.getContainer()
     let at = { x: 0, y: 0 }
+    let over = false
 
+    // Followed on the window and placed by the canvas's bounds: a drag holds the cursor with an element over the whole
+    // window (`holdCursor` in canvas/gesture.ts), which the canvas itself wouldn't hear moves through.
     const move = (event: PointerEvent) => {
-      at = current.screenToPage({ x: event.clientX, y: event.clientY })
-      listener({ at, over: true })
+      const bounds = container.getBoundingClientRect()
+
+      const inside =
+        event.clientX >= bounds.left &&
+        event.clientX < bounds.right &&
+        event.clientY >= bounds.top &&
+        event.clientY < bounds.bottom
+
+      if (inside) {
+        over = true
+        at = current.screenToPage({ x: event.clientX, y: event.clientY })
+        listener({ at, over })
+      } else if (over) {
+        away()
+      }
     }
 
-    const away = () => listener({ at, over: false })
+    const away = () => {
+      over = false
+      listener({ at, over })
+    }
 
-    container.addEventListener("pointermove", move)
-    container.addEventListener("pointerleave", away)
+    window.addEventListener("pointermove", move)
+    document.documentElement.addEventListener("pointerleave", away)
 
     stopEditor = () => {
-      container.removeEventListener("pointermove", move)
-      container.removeEventListener("pointerleave", away)
+      window.removeEventListener("pointermove", move)
+      document.documentElement.removeEventListener("pointerleave", away)
     }
   }
 

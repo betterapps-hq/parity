@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { openProject, ProjectStage } from "../../stories/fixtures.tsx"
-import { LensesPrototype } from "./workspace.tsx"
+import { LensesPrototype } from "./prototype.tsx"
 
 /**
  * One project per window, with its lenses down the window's left edge, as VS Code lists its views, and each lens open

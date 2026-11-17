@@ -30,6 +30,23 @@ export {
   viewOf
 } from "./canvas-camera.ts"
 
+export {
+  type Area,
+  type Distribution,
+  explicitTracks,
+  type GridChild,
+  type GridLayout,
+  type GridLines,
+  mapLine,
+  type Lines,
+  type MeasuredChild,
+  measuredGrid,
+  type SelfAlign as GridSelfAlign,
+  selfAlign,
+  storedLine,
+  trackSizes
+} from "./grid-layout.ts"
+
 export { createMeasure, type MeasuredFrame, type MeasurePort, pickFrame, sameBox } from "./canvas-measure.ts"
 
 export type {
