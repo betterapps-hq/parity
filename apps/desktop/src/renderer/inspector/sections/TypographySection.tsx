@@ -12,7 +12,6 @@ import {
   leadingOf,
   type PresetStyle,
   presetStyle,
-  tokenShown,
   trackingOf,
   typeShown,
   weightOf
@@ -41,7 +40,12 @@ export function TypographySection({ editor, edit, can }: SectionProps) {
   const leadings = useTokens("leading").tokens
   const trackings = useTokens("tracking").tokens
   const presets = useTokens("typeStyle").tokens
-  const fontPx = sizes.find((token) => token.name === tokenShown(style.fontSize)?.token)?.px ?? 16
+  // Line height and letter spacing in pixels are worked out against the text size, a token's or one written out.
+  const ownSize = typeShown(style).size
+
+  const fontPx =
+    (ownSize && "px" in ownSize ? ownSize.px : sizes.find((token) => token.name === ownSize?.token)?.px) ?? 16
+
   const preset = presets.find((each) => each.name === style.typePreset?.token)
   const fromPreset = preset && presetStyle(preset.values)
 
@@ -86,6 +90,12 @@ export function TypographySection({ editor, edit, can }: SectionProps) {
     letterSpacing: ["letterSpacing", "Change letter spacing"]
   }
 
+  // The preset picked again with nothing shown to take back: the selection's overrides may differ from layer to layer.
+  const reapplied = (next: PresetLayer) =>
+    Boolean(next.italic) === italic &&
+    typeFields.every(({ field }) => sameValue(next.own[field], layer.own[field])) &&
+    coveredBy(next.preset).every((field) => next.own[field] === undefined)
+
   const onChange = (next: PresetLayer) => {
     const values = stored(next)
     const changed = typeFields.flatMap(({ field }) => (sameValue(next.own[field], layer.own[field]) ? [] : [field]))
@@ -109,9 +119,14 @@ export function TypographySection({ editor, edit, can }: SectionProps) {
 
       const label = next.preset ? "Apply preset" : "Remove preset"
       edit("preset", { typePreset: next.preset && { token: next.preset.name }, ...swapped }, label)
-    } else if (next.preset && changed.length > 1) {
-      // Picking the preset applied again takes back every override, as one change.
-      edit("preset", { typePreset: { token: next.preset.name }, ...changes }, "Apply preset")
+    } else if (next.preset && (changed.length > 1 || reapplied(next))) {
+      // Picking the preset applied again takes back every override, as one change. Overrides that differ across the
+      // selection don't show, so it writes every row the preset sets, putting the preset's back on each layer.
+      const covered = Object.fromEntries(
+        coveredBy(next.preset).map((field) => [presetKeys[field], values[presetKeys[field]]])
+      )
+
+      edit("preset", { typePreset: { token: next.preset.name }, ...changes, ...covered }, "Apply preset")
     } else {
       for (const field of changed) {
         const [row, label] = rowLabels[field]
