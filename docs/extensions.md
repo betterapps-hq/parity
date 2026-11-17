@@ -441,7 +441,8 @@ out, as Portless does.
   undoing the one after it. With its Node half in the real host code over in-memory ports: the Node half started only
   with its window module, the Node half told the window module's state while it activates, each half calling the other,
   a command the window module registered run by its module, the service and an agent, the agent's call carried through
-  to the Node half, and three crashes deactivating the window module.
+  to the Node half and back from it through the window module, two agents' overlapping calls each kept apart, and three
+  crashes deactivating the window module.
 
 Gaps: the forked process in `utility/extension-host.ts` and the window's toasts, tab and dialogs have no tests of their
 own, nor has `renderer/window-modules.ts`, which no built-in extension uses yet. They were tried in the running app on
