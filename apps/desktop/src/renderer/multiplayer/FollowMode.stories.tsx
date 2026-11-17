@@ -8,7 +8,7 @@ import { DashboardDesign } from "../stories/DashboardDesign.tsx"
 import { Themes } from "../stories/Themes.tsx"
 import { useClock } from "../stories/useClock.ts"
 import { useResolvedTheme } from "../theme.ts"
-import { members, presences } from "./story-kit.tsx"
+import { members, presences, TopRight } from "./story-kit.tsx"
 import { useFollow } from "./useFollow.ts"
 
 /**
@@ -37,14 +37,14 @@ function FollowedCanvas({ pointer = { x: 236, y: 150 } }: { pointer?: { x: numbe
         <DashboardDesign />
       </CanvasBoard>
       <RemotePointer member={members.mia} at={pointer} />
-      <div className="absolute top-3 right-3 @max-[700px]:top-15">
+      <TopRight>
         <FaceStack here={[jonas, mia, priya]} following={members.mia} you={members.you} />
-      </div>
+      </TopRight>
     </>
   )
 }
 
-/** Following Mia: the frame in Mia's color, the banner, and Mia's face first in the stack, ringed. */
+/** Following Mia: the frame in Mia's color, the banner, and Mia's face just after yours, ringed. */
 export const Following: Story = {
   render: () => (
     <Themes width={760} height={340}>

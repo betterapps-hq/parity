@@ -3270,7 +3270,8 @@ What the floating controls on the canvas hold, and how a review tool takes over 
   covered: with the hidden side out of the flow, the bar measured 324px around the tools.
 - **Zoom floats at the top right:** Zoom out, the level, Zoom in and Zoom to fit, each with its keys in its tooltip. The
   level is a button that goes to 100%, named "Zoom to 100%, now 64%". Each acts on the project's canvas. Undo and Redo
-  left the canvas for the Edit menu and their keys.
+  left the canvas for the Edit menu and their keys. An extension's `topRight` layer, such as the live room's avatar
+  stack, sits just left of Zoom on its row (PAR-1293).
 
 Code: the review rules are `packages/editor/src/review.ts` (`startReview`, `pickReview`, `stopReview`, `reviewToolFor`
 and `isReviewTool`). In the app, `renderer/selection.ts` keeps each project's review (`startReviewing`, `stopReviewing`,
@@ -6445,9 +6446,11 @@ the signed-in person's first name.
   (PAR-1199), and settles on its write.
 - **Coming back.** A copy whose connection to the relay comes back drops everyone who left meanwhile as if it had heard
   them leave: their pointer, a drag they were showing, following them, and their color (PAR-1282).
-- **Who's here.** The avatar stack sits at the canvas's top right. A face opens the person's card, with **Follow** and
-  **Go to**. Following keeps the camera on what they see, with a frame and banner, until Esc, a pan or zoom, Stop, or
-  they leave; a note then says why it ended.
+- **Who's here.** The avatar stack sits on the zoom controls' row, just left of them and as tall, with everyone in one
+  overlapping stack, your own face first (PAR-1293). On a canvas narrower than 676px it moves below zoom. Following's
+  banner, and the others at the top centre, sit under that row on a canvas narrower than 1040px, to keep clear of it. A
+  face opens the person's card, with **Follow** and **Go to**. Following keeps the camera on what they see, with a frame
+  and banner, until Esc, a pan or zoom, Stop, or they leave; a note then says why it ended.
 - **Agents.** This copy's agents' steps go to the room, and steps from the room go to `parity.agents.receive`, so agent
   presence, where it's on, draws every copy's agents. The host numbers agents' colors as it does people's, by copy and
   agent, so an agent is the same color in every copy (PAR-1277). Each copy assigns the numbers under the keys agent
@@ -6568,10 +6571,10 @@ them from the package.
 - **Selections.** An outline in each person's color, several people on one layer a ring each with their name tags in a
   row, and a marquee in the color of whoever drags it. Layers rows show who else has a layer selected, and say so to a
   screen reader.
-- **The avatar stack** on the canvas's top-right: faces in the order people joined, each agent after whoever runs it,
-  whoever you follow first and anyone away last; past the most it shows, a count that opens everyone. A face opens its
-  card, with Follow and Go to; your own opens yours, with Present to everyone and whether others' pointers show. Each
-  action is a callback for the extension to answer.
+- **The avatar stack** beside the canvas's zoom: one stack, your own face first, then faces in the order people joined,
+  each agent after whoever runs it, whoever you follow next and anyone away last; past the most it shows, a count that
+  opens everyone. A face opens its card, with Follow and Go to; your own opens yours, with Present to everyone and
+  whether others' pointers show. Each action is a callback for the extension to answer.
 - **Following.** The canvas framed in the leader's color and a banner with Stop, which names Esc. When following ends
   the banner says why: "Stopped following Mia", or "Mia left, so following stopped". Presenting, an invitation to follow
   and a dropped connection share the banner.

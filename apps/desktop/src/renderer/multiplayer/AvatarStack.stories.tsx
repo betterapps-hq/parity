@@ -8,15 +8,15 @@ import { CanvasPane } from "../stories/CanvasPane.tsx"
 import { DashboardDesign } from "../stories/DashboardDesign.tsx"
 import { Themes } from "../stories/Themes.tsx"
 import { useResolvedTheme } from "../theme.ts"
-import { members, presences } from "./story-kit.tsx"
+import { members, presences, TopRight } from "./story-kit.tsx"
 
 /**
- * Who's here, on a bar of its own at the canvas's top-right, built as the toolbar and zoom are. Faces are round for
- * everyone: a person's picture or initials on their soft gradient, an agent's sparkle on its vivid one. They overlap,
- * and spread apart under the pointer so each is easy to hit; a face rises as you point at it and says who it is.
- * Whoever you follow comes first, ringed in their color; each person's agents come just after them; anyone away is
- * faded and last. Past four, a count opens everyone, people and agents apart. Your own face ends the bar, past an
- * etched line, and opens your card, where you can present.
+ * Who's here, on a bar of its own just left of the canvas's zoom, at its height, built as the toolbar and zoom are
+ * (PAR-1293). Everyone is in one stack, your own face first. Faces are round for everyone: a person's picture or
+ * initials on their soft gradient, an agent's sparkle on its vivid one. They overlap, and spread apart under the
+ * pointer so each is easy to hit; a face rises as you point at it and says who it is. Whoever you follow comes next,
+ * ringed in their color; each person's agents come just after them; anyone away is faded and last. Past four others, a
+ * count opens everyone, people and agents apart. Your face opens your card, where you can present.
  */
 const meta = {
   title: "Parity/Multiplayer/Avatar stack",
@@ -31,7 +31,7 @@ type Story = StoryObj<typeof meta>
 const { mia, jonas, priya, claude, codex, sam, lena, theo } = presences
 const { you } = members
 
-/** A labelled stack, pinned to the right as it is on the canvas. */
+/** A labelled stack, pinned to the right. */
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex min-h-16 items-center justify-between gap-4 border-b border-border/60 px-4 py-3 last:border-0">
@@ -49,19 +49,19 @@ export const States: Story = {
     <Themes width={520} height={420}>
       {() => (
         <div className="flex flex-col py-1">
-          <Row label="Two people, a picture and initials">
+          <Row label="You, then two people: a picture and initials">
             <FaceStack here={[mia, jonas]} you={you} />
           </Row>
           <Row label="Agents beside whoever runs them">
             <FaceStack here={[mia, jonas, claude, codex]} you={you} />
           </Row>
-          <Row label="Eight: three faces, then the rest">
+          <Row label="Eight others: three faces, then the rest">
             <FaceStack here={[mia, jonas, priya, claude, codex, sam, theo, lena]} you={you} />
           </Row>
           <Row label="Priya away, faded and last">
             <FaceStack here={[away, mia, jonas]} you={you} />
           </Row>
-          <Row label="Following Jonas, ringed and first">
+          <Row label="Following Jonas, ringed and just after you">
             <FaceStack here={[mia, jonas, priya]} following={members.jonas} you={you} />
           </Row>
           <Row label="Just you">
@@ -73,18 +73,53 @@ export const States: Story = {
   )
 }
 
-/** The bar where it lives, on the canvas's top-right, over the boards. */
-export const OnTheCanvas: Story = {
+/** Two of you on a canvas wide enough for the row: one stack, beside zoom, at its height. */
+export const TwoOnTheCanvas: Story = {
   render: () => (
-    <Themes width={560} height={340}>
+    <Themes width={760} height={340}>
       {() => (
         <>
           <CanvasBoard name="Dashboard" x={40} y={48}>
             <DashboardDesign />
           </CanvasBoard>
-          <div className="absolute top-3 right-3">
+          <TopRight>
+            <FaceStack here={[mia]} you={you} />
+          </TopRight>
+        </>
+      )}
+    </Themes>
+  ),
+  play: async ({ canvasElement }) => {
+    for (const list of within(canvasElement).getAllByRole("list", { name: "People here" })) {
+      const faces = within(list).getAllByRole("button")
+      await expect(faces).toHaveLength(2)
+      await expect(faces[0]).toHaveAccessibleName("You")
+      await expect(faces[1]).toHaveAccessibleName(/^Mia Rossi/)
+
+      // The pane's zoom bar: the one holding its level button.
+      const pane = list.closest("section") ?? canvasElement
+      const level = within(pane).getByRole("button", { name: /^Zoom to 100%/ })
+      const stack = list.parentElement?.getBoundingClientRect()
+      const zoom = level.parentElement?.getBoundingClientRect()
+      await expect(stack?.top).toBe(zoom?.top)
+      await expect(stack?.height).toBe(zoom?.height)
+      await expect((stack?.right ?? Infinity) < (zoom?.left ?? -Infinity)).toBe(true)
+    }
+  }
+}
+
+/** Six others on the canvas: you, three of them, then a count of the rest, beside zoom. */
+export const OnTheCanvas: Story = {
+  render: () => (
+    <Themes width={760} height={340}>
+      {() => (
+        <>
+          <CanvasBoard name="Dashboard" x={40} y={48}>
+            <DashboardDesign />
+          </CanvasBoard>
+          <TopRight>
             <FaceStack here={[mia, jonas, { ...priya, away: "3 min" }, claude, codex, sam]} you={you} />
-          </div>
+          </TopRight>
         </>
       )}
     </Themes>
@@ -101,9 +136,9 @@ function Pointed({ here }: { here: Presence[] }) {
         <CanvasBoard name="Dashboard" x={40} y={48}>
           <DashboardDesign />
         </CanvasBoard>
-        <div className="absolute top-3 right-3">
+        <TopRight>
           <FaceStack here={here} you={you} />
-        </div>
+        </TopRight>
       </CanvasPane>
     </div>
   )

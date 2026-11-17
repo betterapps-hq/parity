@@ -355,10 +355,11 @@ multiplayer is to become one.
 - **`parity.canvas`** (`canvas`) draws React in **layers** over the tab's canvas: `underDesigns`, in tldraw's background
   behind every board; `overDesigns`, over the boards and under the selection's outlines and handles; `overSelection`,
   over those and under the toolbar; and `edge`, in a corner of the screen or along the bottom, clear of the zoom
-  controls and the toolbar, or over the whole canvas (`fill`), as a frame around it is. Page layers are placed in page
-  coordinates and move with the camera without drawing again. Each layer is drawn in the tab's own React tree, so the
-  kit, the theme and portals reach it, with an error boundary of its own that counts a render that throws as
-  `layer:<id>` in `extension.callFailed`. It pauses while its tab is hidden (React's `Activity`), and a layer with
+  controls and the toolbar, or over the whole canvas (`fill`), as a frame around it is. A `topRight` edge layer sits on
+  the zoom controls' row, just left of them, and moves below them on a canvas narrower than 676px. Page layers are
+  placed in page coordinates and move with the camera without drawing again. Each layer is drawn in the tab's own React
+  tree, so the kit, the theme and portals reach it, with an error boundary of its own that counts a render that throws
+  as `layer:<id>` in `extension.callFailed`. It pauses while its tab is hidden (React's `Activity`), and a layer with
   `hideWhileEditing` hides while text is edited on the canvas. Layers take the pointer only where an element asks with
   `data-canvas-interactive`. A layer's id is unique in its tab. `box`, `onBoxChange` and `hit` say where designs and
   their layers are, by `NodeRef`; a layer's box asked with `caret` also says where a caret before that character of its

@@ -4,7 +4,7 @@ import { scrolls } from "../stories/canvas-kit.tsx"
 import { CanvasBoard } from "../stories/CanvasBoard.tsx"
 import { DashboardDesign } from "../stories/DashboardDesign.tsx"
 import { Themes } from "../stories/Themes.tsx"
-import { members, presences } from "./story-kit.tsx"
+import { members, presences, TopRight } from "./story-kit.tsx"
 
 /**
  * When the connection to the room drops, on the canvas's banner. Work carries on: changes are kept on this computer and
@@ -34,9 +34,9 @@ export const Offline: Story = {
             <DashboardDesign />
           </CanvasBoard>
           <ConnectionNote state="offline" />
-          <div className="absolute top-3 right-3 @max-[700px]:top-15">
+          <TopRight>
             <FaceStack here={[mia, jonas, claude]} you={members.you} stale />
-          </div>
+          </TopRight>
         </>
       )}
     </Themes>
@@ -53,9 +53,9 @@ export const Reconnecting: Story = {
             <DashboardDesign />
           </CanvasBoard>
           <ConnectionNote state="reconnecting" catchingUp={[members.mia, members.claude]} changes={4} />
-          <div className="absolute top-3 right-3 @max-[700px]:top-15">
+          <TopRight>
             <FaceStack here={[mia, jonas, claude]} you={members.you} stale />
-          </div>
+          </TopRight>
         </>
       )}
     </Themes>

@@ -1,5 +1,5 @@
 import { Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from "@buildkitgg/shadcn"
-import { BarDivider, floatingBar } from "./bar.tsx"
+import { floatingBar } from "./bar.tsx"
 import { EveryoneCount } from "./EveryoneCount.tsx"
 import { faceButton } from "./face-button.ts"
 import { Face } from "./Face.tsx"
@@ -17,7 +17,7 @@ const overlap =
 interface FaceStackProps {
   /** Everyone else here, in the order they joined. */
   here: Presence[]
-  /** You, at the end, past a line. */
+  /** You, first in the stack. */
   you?: Member
   following?: Member
   max?: number
@@ -38,9 +38,9 @@ interface FaceStackProps {
 }
 
 /**
- * Who's here, on a bar of its own at the canvas's top-right, built as the toolbar and zoom are: up to `max` faces, then
- * a count of the rest that opens everyone, and, past an etched line, your own face. The faces overlap and spread apart
- * under the pointer; each shows who it is on hover and opens their card on click. Your face opens your own card.
+ * Who's here, on a bar of its own beside the canvas's zoom, built as the toolbar and zoom are: one stack of your own face,
+ * then up to `max` others, then a count of the rest that opens everyone. The faces overlap and spread apart under the
+ * pointer; each shows who it is on hover and opens their card on click. Your face opens your own card.
  */
 export function FaceStack({
   here,
@@ -62,12 +62,24 @@ export function FaceStack({
 
   return (
     <div className={`${floatingBar} flex w-max items-center [--face-cutout:var(--floating-bar)]`}>
-      {everyone.length > 0 && (
+      {(you || everyone.length > 0) && (
         <ul aria-label="People here" className="group/stack flex items-center px-1.5">
+          {you && (
+            <li className={`flex h-7 items-center ${following && shown[0]?.member === following ? "mr-1.5" : ""}`}>
+              <YourFace
+                you={you}
+                others={here.length}
+                size={size}
+                onPresent={onPresent}
+                showPointers={showPointers}
+                onShowPointersChange={onShowPointersChange}
+              />
+            </li>
+          )}
           {shown.map((presence, index) => (
             <li
               key={keyOf(presence.member)}
-              className={`flex h-8 items-center ${index > 0 ? overlap : ""} ${presence.member === following ? "mr-1.5" : ""}`}
+              className={`flex h-7 items-center ${you || index > 0 ? overlap : ""} ${presence.member === following ? "mr-1.5" : ""}`}
             >
               <StackFace
                 presence={presence}
@@ -81,42 +93,52 @@ export function FaceStack({
             </li>
           ))}
           {more > 0 && (
-            <li className={`flex h-8 items-center ${overlap}`}>
+            <li className={`flex h-7 items-center ${overlap}`}>
               <EveryoneCount everyone={everyone} more={more} size={size} following={following} onFollow={onFollow} />
             </li>
           )}
         </ul>
       )}
-      {you && (
-        <>
-          {everyone.length > 0 && <BarDivider />}
-          <Popover>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <PopoverTrigger
-                    render={
-                      <button type="button" aria-label="You" className={`${faceButton} mx-1.5`}>
-                        <Face member={you} size={size} />
-                      </button>
-                    }
-                  />
-                }
-              />
-              <TooltipContent side="bottom">You</TooltipContent>
-            </Tooltip>
-            <PopoverContent align="end" sideOffset={10} className="w-72 gap-0 overflow-hidden p-0">
-              <YouCard
-                you={you}
-                others={here.length}
-                onPresent={onPresent}
-                showPointers={showPointers}
-                onShowPointersChange={onShowPointersChange}
-              />
-            </PopoverContent>
-          </Popover>
-        </>
-      )}
     </div>
+  )
+}
+
+interface YourFaceProps {
+  you: Member
+  others: number
+  size: number
+  onPresent?: () => void
+  showPointers?: boolean
+  onShowPointersChange?: (show: boolean) => void
+}
+
+/** Your own face, first in the stack: hover for "You", click for your card. */
+function YourFace({ you, others, size, onPresent, showPointers, onShowPointersChange }: YourFaceProps) {
+  return (
+    <Popover>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              render={
+                <button type="button" aria-label="You" className={faceButton}>
+                  <Face member={you} size={size} />
+                </button>
+              }
+            />
+          }
+        />
+        <TooltipContent side="bottom">You</TooltipContent>
+      </Tooltip>
+      <PopoverContent align="end" sideOffset={10} className="w-72 gap-0 overflow-hidden p-0">
+        <YouCard
+          you={you}
+          others={others}
+          onPresent={onPresent}
+          showPointers={showPointers}
+          onShowPointersChange={onShowPointersChange}
+        />
+      </PopoverContent>
+    </Popover>
   )
 }
