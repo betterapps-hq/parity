@@ -138,15 +138,26 @@ export const breakpointTokens: LengthToken[] = [
   lengthToken("breakpoint", "breakpoint-2xl", 1536)
 ]
 
-/** A project's duration tokens; a project without them leaves every whole millisecond unmarked. */
+/**
+ * A project's duration tokens; a project without them leaves every whole millisecond unmarked. Its theme's default, as
+ * Tailwind's theme defines it, is what an unset duration is.
+ */
 export const durationTokens: DurationToken[] = [
+  durationToken("default-transition-duration", 150),
   durationToken("duration-fast", 150),
   durationToken("duration-normal", 250),
   durationToken("duration-slow", 400)
 ]
 
-/** The project's easing tokens. */
+/**
+ * The project's easing tokens, and its theme's curves for CSS's keywords and its default, as Tailwind's theme defines
+ * them.
+ */
 export const easingTokens: EasingToken[] = [
+  easingToken("ease-in", [0.4, 0, 1, 1]),
+  easingToken("ease-out", [0, 0, 0.2, 1]),
+  easingToken("ease-in-out", [0.4, 0, 0.2, 1]),
+  easingToken("default-transition-timing-function", [0.4, 0, 0.2, 1]),
   easingToken("ease-snappy", [0.2, 0.8, 0.2, 1]),
   easingToken("ease-gentle", [0.33, 0, 0.15, 1])
 ]

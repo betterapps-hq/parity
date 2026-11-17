@@ -45,7 +45,7 @@ function timeOf(time: StoredTime): Time {
   return Number.isInteger(time.step) ? { step: time.step } : { value: `${time.step}ms` }
 }
 
-/** What changes, as the Transition list holds it: one of Tailwind's sets by name, or a property of its own. */
+/** What changes, as the Transition list holds it: one of the sets by name, or a property of its own. */
 const setName = z.string()
 const propertyName = z.object({ property: z.string() })
 

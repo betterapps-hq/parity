@@ -11,8 +11,8 @@ import { mixedWrites, type Writes } from "./writes.ts"
 
 /**
  * Easing and spring (PAR-652), as a transition's Easing takes it: a small curve and its name at rest. It's typed as a
- * preset's name (Ease out), a token's (snappy), `cubic-bezier(…)` or `steps(…)`; Up and Down go through Tailwind's
- * easings, then the project's. The curve opens its editor, a tab for each way to set it, each starting with the same
+ * preset's name (Ease out), a token's (snappy), `cubic-bezier(…)` or `steps(…)`; Up and Down go through CSS's
+ * keywords, then the project's easings. The curve opens its editor, a tab for each way to set it, each starting with the same
  * graph: Curve, with the curve's two handles (dragged, or moved with the arrow keys), the presets and the project's
  * tokens; Steps; and Spring, set by time and bounce or by stiffness, damping and mass, as Framer's springs are. A spring writes `linear()` over its settle time, which is the transition's
  * duration, so its class runs long and it offers Create token first, in its token list and in the note under it.
@@ -67,10 +67,10 @@ function EasingStory({ start, open = false, mixed = false }: { start?: Easing; o
   )
 }
 
-/** Unset: Tailwind's default curve, faint, named Default, and nothing written. */
+/** Unset: the project's default curve, faint, named Default, and nothing written. */
 export const Unset: Story = { render: () => <EasingStory /> }
 
-/** Ease out, one of Tailwind's: `ease-out`. */
+/** Ease out, one of CSS's keywords, drawn as the project's theme defines it: `ease-out`. */
 export const Preset: Story = { render: () => <EasingStory start={{ keyword: "ease-out" }} /> }
 
 /** Preset, with what the control stores and writes as CSS beside it, updated as it's used. */
