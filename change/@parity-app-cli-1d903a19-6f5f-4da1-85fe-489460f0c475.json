@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Add @parity-app/frames, the package that will hold route boards' snapshots, sanitizers, frozen copies and tier planning",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

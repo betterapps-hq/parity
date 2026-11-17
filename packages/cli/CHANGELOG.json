@@ -2,6 +2,49 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 06:39:04 GMT",
+      "version": "0.78.0",
+      "tag": "@parity-app/cli_v0.78.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "44aa5ffefd6e25ee1ee055e8e6e708e6b67b2446",
+            "comment": "Add @parity-app/frames, the package that will hold route boards' snapshots, sanitizers, frozen copies and tier planning"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a0f1d46fa8d1ce5b4cfa496e1800733fda8555bb",
+            "comment": "Move core's remaining Tailwind assumptions behind the styles provider: library stylesheets, their import's place, the frames' rules layer, the spacing steps, which components set their own size, and the Next builders' plugin root (PAR-1130)"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "4d409fe62cd67f770249579a15230842b0ee9d59",
+            "comment": "Route pages run the page runtime: they change mode without loading again, measure their height in the mode's window and report where they land, with page modules from TanStack Router and React"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "caa298047cf5ef0ed13d6b3386bd64b9c4662c85",
+            "comment": "Grid placement is in the Design panel: a grid child's cells on a map of its grid, its lines and spans, and Align and Justify self"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "1ad109cf6c4ec8e4fa9dd301ff8067bee678a603",
+            "comment": "Internal extensions' window modules hear this person's pointer, gestures and view, and agents' steps, with the sync seam built for opening a project through a room"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 05:42:13 GMT",
       "version": "0.77.0",
       "tag": "@parity-app/cli_v0.77.0",
