@@ -419,10 +419,9 @@ own, every frame, for as long as they showed. Now one scheduler for each canvas 
   (`overlayMarks`), so the second half is tested from plain data.
 
 Code: `apps/desktop/src/renderer/canvas/overlay-scheduler.ts` (`scheduleOverlay`, `MeasuredOverlay`), used by
-`canvas/CanvasOverlay.tsx`, `canvas/TextEditor.tsx`, `canvas/TabOrderOverlay.tsx`,
-`explorations/code-panel/InspectOverlay.tsx` and `agent/AgentPresence.tsx`'s `MeasureLabel`. `readScene` is in
-`canvas/CanvasOverlay.tsx`, and `overlayMarks` and `redlines` in `canvas/overlay-marks.ts`. When to measure is still
-`packages/editor/src/overlay-measuring.ts`.
+`canvas/CanvasOverlay.tsx`, `canvas/TextEditor.tsx`, `canvas/TabOrderOverlay.tsx` and
+`explorations/code-panel/InspectOverlay.tsx`. `readScene` is in `canvas/CanvasOverlay.tsx`, and `overlayMarks` and
+`redlines` in `canvas/overlay-marks.ts`. When to measure is still `packages/editor/src/overlay-measuring.ts`.
 
 Tests:
 
@@ -2202,8 +2201,9 @@ uses previews yet, and extensions can't reach either until the canvas surface is
 Code: `canvas/drag-preview.ts` (`preview`), `canvas/preview-life.ts` (settling, the 2 s wait and telemetry),
 `canvas/board-holds.ts` (`boardHolds`, `holds`), `canvas/placed-boards.ts` (`placedBoards`, which `CanvasEditor` draws
 from and skips writing), `canvas/carried.ts` (`carriedSet`, `carriedPictureSet`), `canvas/style-layers.ts` and
-`previewFrameRules` in `frame.ts` (a style preview's values and rules by key). Agent presence holds boards through
-`holds` (`agent/presence.ts`). `CarriedPicture` draws every drag's picture, with the dragger's outline and name.
+`previewFrameRules` in `frame.ts` (a style preview's values and rules by key). The agent presence extension holds boards
+through `parity.canvas.hold`, over `holds`. `CarriedPicture` draws every drag's picture, with the dragger's outline and
+name.
 
 Tests: `canvas/board-holds.test.ts`: a hold drawn along a drag and let go, a second hold keeping the board where it's
 drawn, the 10 s limit, grabbing, disposing and sessions kept apart, and placed boards' newest placement winning.
@@ -2215,9 +2215,9 @@ else's write to it, going back after 2 s without one, and two people's previews 
 
 Gaps: previews aren't wired to the live room's remote drags yet; the multiplayer extension does that (PAR-1233, phase
 5). A preview of layers measures frames and takes their picture, so it isn't unit tested or tried in the running app
-yet; the story draws its look with the same carried pictures. Agent presence holds a board when a move is queued rather
-than just before its write, so a long queue can outlast the 10 s limit and the board lands before the cursor drags it;
-phase 4 moves agent presence onto activity delivered just before each write.
+yet; the story draws its look with the same carried pictures. Agent presence holds a board as its step is told, just
+before its write, but plays its queue afterwards, so a long queue can still outlast the 10 s limit and the board lands
+before the pointer drags it.
 
 ### Where a dragged layer lands (CAN-47)
 
@@ -6383,8 +6383,8 @@ PARITY_ROOM=1 PARITY_UI_PORT=5311 PARITY_DEBUG_PORT=9334 pnpm dev
 - **Cursors.** Each person's cursor is a tldraw presence record, drawn as an agent's is, with the pointer and badge, in
   a palette of the agents', named with the signed-in person's first name (`PARITY_ROOM_NAME` overrides it). It glides
   between the positions sent.
-- **Agents.** What an agent does in one copy is passed on as it is to the others' agent presence, so each copy plays its
-  cursor the same way.
+- **Agents.** What an agent does in one copy is passed on as it is to the others, whose `parity.agents` tells it with
+  `from: "room"`, so the agent presence extension in each copy plays its pointer the same way.
 - **In order, coalesced.** One batch is on its way at a time; what comes meanwhile goes in the next, with only the
   latest of each cursor.
 
@@ -6392,8 +6392,8 @@ Without `PARITY_ROOM`, or in a packaged app, nothing changes: the window opens p
 
 Code: `apps/desktop/scripts/dev-room.ts` (the relay), `apps/desktop/src/renderer/live-room.ts`, `openDocSession` in
 `renderer/project-doc.ts` (the room's provider, and the saver writing files only while hosting), `setWritesFiles` and
-`written` in `packages/multiplayer`'s saver, `canvas/RoomCursor.tsx`, `onPush` in `agent/presence.ts`, and `openLoro`'s
-`snapshot`, `subscribeLocalUpdates` and tokens map in `packages/multiplayer-loro`.
+`written` in `packages/multiplayer`'s saver, `canvas/RoomCursor.tsx`, `onPush` and `onPassedOn` in `agent/presence.ts`,
+and `openLoro`'s `snapshot`, `subscribeLocalUpdates` and tokens map in `packages/multiplayer-loro`.
 
 Tests:
 
@@ -6480,7 +6480,7 @@ them from the package.
   and a dropped connection share the banner.
 
 Code: `packages/presence-ui/src/`, with the glide in `glide.ts` and names, order and counts in `member.ts`. Agent
-presence (`renderer/agent/AgentPresence.tsx`), the live room's cursors (`canvas/RoomCursor.tsx`), remote typing
+presence (`packages/extension-agent-presence`), the live room's cursors (`canvas/RoomCursor.tsx`), remote typing
 (`canvas/RoomTyping.tsx`) and carried pictures (`canvas/CarriedPicture.tsx`) draw with it already. `useFollow`, which
 drives the Follow mode stories, stays with them; core's following is the camera's (PAR-1236).
 
@@ -6492,6 +6492,64 @@ Tests:
 - `packages/presence-ui/src/member.test.ts` (11): first names and agents' whole names; whose an agent is; names in a
   sentence; initials by face size; ids telling namesakes apart; the line under a name; a palette's gradient; the stack's
   order, with whoever you follow first and an agent whose runner isn't here; how many faces show.
+
+### Agents at work on the canvas (PAR-1269)
+
+Each agent working in a project has a pointer in its own colors that goes to what the agent reads or changes, at a pace
+a person can follow. It's Parity's first internal extension, `@parity-app/extension-agent-presence`, with only a window
+module (docs/proposals/extensions-in-the-window.md, "Agent presence"). Core keeps the agent API and reports each step
+through `parity.agents`. The extension does the rest.
+
+- **A pointer per agent.** It appears beside the first thing an agent looks at, travels there on a curve that lands with
+  a small overshoot, and scans the target with a glow in the agent's colors. While the agent works it glances around the
+  target. Between calls it stays near what it last looked at, breathing slowly, and after 20 seconds idle it fades and
+  gives its color back. Its badge has the icon for the step and the call's label, and a strip in the bottom left names
+  the agent and says what its call is doing, or that it's done.
+- **Moved boards.** When an agent moves a board, the board is held where it was as the step is told, before the write
+  lands, and the pointer grabs it and drags it to where the agent put it.
+- **Keeping up.** Steps queue per agent. When several are waiting the pointer speeds up, to about a third of the time at
+  most, and a long call keeps its first step and the latest 16.
+- **A measurement** labels its target with its laid-out size while the pointer looks at it.
+- **Other copies' agents** play the same way: steps passed in with a `from` are queued under `${from}:${agentId}`, the
+  key their color is claimed under, so with multiplayer on everyone in a room sees every agent.
+- **Turned off,** agents work as before and nothing draws them. Nothing else on the canvas changes.
+- **With reduced motion** the pointer jumps instead of travelling and doesn't breathe, and scans don't sweep.
+
+It draws in one `overSelection` page layer. Inside it, a pane covers what's in view at the screen's scale, moved with
+the camera in the same frame as the page, so pointers, badges and scans stay the same size at any zoom. It finds where
+to look with `canvas.box`: a layer in the frame of the step's state and mode, else the design's frame, else its board,
+and the board itself for a move. A design key can hold a slash, so a layer's design is the longest key before a slash
+that has a board. An asleep frame still gives a place to point at. It holds boards with `canvas.hold` and claims colors
+with `useColor` from agents' palettes.
+
+Code: `packages/extension-agent-presence/src/`: `window.tsx` (the module), `queue.ts` (the queue, holds and keys),
+`AgentPresence.tsx` (the choreography), `targets.ts` (where to look), `motion.ts` (curves, pace and glances) and
+`scanner.ts` (the scan's WebGL glow). Core's side is `renderer/agent/presence.ts` (the agent API's activity, with the
+development room's steps told apart) and `windowAgentsPort` in `renderer/window-seams.ts`.
+
+Tests:
+
+- `packages/extension-agent-presence/src/queue.test.ts` (8): each agent's steps in order with a pointer until it
+  retires; another copy's agents kept apart under their key; a moved board held while it's played and let go where it
+  landed; moves left alone while nothing plays the queue; a long call trimmed, letting go of the boards it skips; every
+  hold let go as it stops; listeners told as agents come and go; the board a move drags.
+- `packages/extension-agent-presence/src/targets.test.ts` (8): a page box on the screen; a layer in its state and mode's
+  frame with its radius and size; falling back to the frame, then the board; a move by its board; an asleep frame; out
+  of view, missing or naming no design skipped; a layer's design found when its key has a slash; staying put when the
+  target goes.
+- `packages/extension-agent-presence/src/window.test.ts` (2): one layer over the selection, playing this copy's and
+  other copies' agents alike; a board held as its step is told, and let go with the layer gone as it stops.
+- `packages/extension-agent-presence/src/motion.test.ts`: easing, travel time, pace, arcs, curves, breathing and
+  glances.
+- `packages/extension-host/src/window-seams.test.ts`, "parity.agents": the development room's steps told with their
+  `from`.
+
+The stories under `Parity/Multiplayer/Agents/Behavior` play the extension's own queue and choreography over mock boards,
+through a stand-in layer (`renderer/agent/story-layer.ts`), and `Parity/Multiplayer/Agents/On the canvas` runs the real
+extension in the app's window.
+
+Gaps: a board is held when its step is told and let go after 10 s whatever happens, so in a long queue the board can
+land before its pointer gets to it. The choreography's timing isn't unit tested; the stories are its check.
 
 ## Tokens
 
@@ -10610,7 +10668,7 @@ precedence, names preserved verbatim and neutral fallbacks.
 
 Implementation: `packages/cli/src/caller.ts` selects declared names and bounds session ids; `client.ts` attaches the
 name/id to RPC, and `mcp.ts` supplies the initialize handshake name. `apps/desktop/src/utility/agent.ts` forwards that
-identity to presence events, displayed by `renderer/agent/AgentPresence.tsx` with `AgentPointer` and `AgentBadge` from
+identity to presence events, displayed by the agent presence extension with `AgentPointer` and `AgentBadge` from
 `@parity-app/presence-ui`.
 
 Coverage gaps: the unit tests exercise name selection and distinct bounded ids, not a full MCP-to-canvas session.

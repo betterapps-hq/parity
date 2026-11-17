@@ -104,7 +104,7 @@ function start(session: ProjectSession, tab: string, extensions: TabExtensions, 
     // Each module is a chunk of its own, listed from the built-in list (shared/built-in-extensions.ts).
     load: async (id) => {
       const { windowModules: list } = await import("./window-module-list.ts")
-      const load = list[id]
+      const load = list.get(id)
 
       if (!load) {
         throw new Error(`${id} has no window module in this build`)
