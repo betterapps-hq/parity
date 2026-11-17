@@ -91,6 +91,27 @@ describe("page traces (PAR-1200)", () => {
     expect(await traces.holds(job, traced)).toBe(false)
   })
 
+  it("scans what a route's folder files import where routes are named by folder, as a Next template's", async () => {
+    await write("app/blog/page.tsx", "export default function Page() {}\n")
+    await write("app/blog/template.tsx", 'import { Chrome } from "../../components/chrome"\nexport default Chrome\n')
+    await write("components/chrome.tsx", "export function Chrome() {}\n")
+    const code = codeSnapshot(root, "3:guest")
+
+    const next: PageTraceProjects = {
+      pageProject: () => ({
+        root,
+        routes: [{ id: "/blog", file: "app/blog/page.tsx" }],
+        folderRoutes: true,
+        stylesheets: [],
+        code
+      }),
+      loadedFiles: () => Promise.resolve(undefined)
+    }
+
+    const traced = await pageTraces(next).trace({ ...job, route: "/blog", path: "/blog" })
+    expect(Object.keys(traced!.files)).toContain("components/chrome.tsx")
+  })
+
   it("stops holding when a file it would now list is added, as a public asset the page draws by URL", async () => {
     const traced = (await pageTraces(projects([])).trace(job))!
     await write("public/logo.svg", "<svg />")

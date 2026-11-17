@@ -2,9 +2,9 @@ import { stat } from "node:fs/promises"
 import { join } from "node:path"
 import type { FrameTrace } from "@parity-app/change-detection"
 import {
-  ancestorFiles,
   type CodeSnapshot,
   contentReader,
+  folderRouteFiles,
   importedFiles,
   moduleClosure,
   pageTraceFiles,
@@ -72,9 +72,10 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
 
     const chain = routeChain(job.route, project.routes)
 
-    // A router naming routes by folder wraps them in the files above them, as Next's templates, which no import reaches.
+    // A router naming routes by folder draws them from files in their folders and above, as Next's templates, which no
+    // import reaches, so what those import is scanned too.
     const wrapping =
-      project.folderRoutes && chain.length > 0 ? ancestorFiles(chain[0]!, [...snapshot.files.keys()]) : []
+      project.folderRoutes && chain.length > 0 ? folderRouteFiles(chain[0]!, [...snapshot.files.keys()]) : []
 
     const [scanned, styles, loaded] = await Promise.all([
       moduleClosure([...chain, ...wrapping], scan),

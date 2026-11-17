@@ -62,7 +62,7 @@ export function routeChain(route: string, routes: readonly TracedRoute[]): strin
  *   its parents' files, and Parity's scan of their imports, which reaches the modules a loader or server function reads
  *   that the page never loads.
  * - Where the router names routes by folder (Next.js, which has no `loadedFiles`): every file under the route's folder,
- *   its parents' files (the layouts), the files directly in each folder above it (`ancestorFiles`), and the scan.
+ *   its parents' files (the layouts), what wraps it from the folders above (`folderRouteFiles`), and the scan.
  * - Otherwise, for a route that isn't known, or for a page that didn't land on its own route: the whole project.
  *
  * Each with the stylesheets, the files every page depends on, and the files in the root's `public` folder, which pages
@@ -83,27 +83,32 @@ export function pageTraceFiles(input: PageTraceInput): string[] {
     return sorted([...common, ...input.loaded])
   }
 
-  const folder = folderOf(chain[0]!)
-  const under = input.files.filter((path) => (folder === "" ? !path.startsWith("../") : path.startsWith(`${folder}/`)))
-
-  return sorted([...common, ...under, ...ancestorFiles(chain[0]!, input.files)])
+  return sorted([...common, ...folderRouteFiles(chain[0]!, input.files)])
 }
 
 /**
- * The files directly in each folder above a route's file, not in their subfolders: where a router that names routes by
- * folder keeps what wraps every route below, as Next's templates, loading, error and not-found files, which no import
- * reaches; and every file in those folders' parallel slots (`@team/`), which their layouts draw beside the route. The project's root is left out, as its files are config, and the route's own folder, which is the route's.
+ * The files a router that names routes by folder draws a route from beside its imports: every file under the route's
+ * folder, and the files directly in each folder above it, not in their subfolders, where it keeps what wraps every
+ * route below, as Next's templates, loading, error and not-found files, which no import reaches; and every file in
+ * those folders' parallel slots (`@team/`), which their layouts draw beside the route. The project's root folder's own
+ * files are left out, as they're config.
  */
-export function ancestorFiles(route: string, files: readonly string[]): string[] {
+export function folderRouteFiles(route: string, files: readonly string[]): string[] {
+  const own = folderOf(route)
   const folders = new Set<string>()
 
-  for (let folder = folderOf(folderOf(route)); folder !== ""; folder = folderOf(folder)) {
+  for (let folder = folderOf(own); folder !== ""; folder = folderOf(folder)) {
     folders.add(folder)
   }
 
   const slots = [...folders].map((folder) => `${folder}/@`)
 
-  return files.filter((path) => folders.has(folderOf(path)) || slots.some((slot) => path.startsWith(slot)))
+  return files.filter(
+    (path) =>
+      (own === "" ? !path.startsWith("../") : path.startsWith(`${own}/`)) ||
+      folders.has(folderOf(path)) ||
+      slots.some((slot) => path.startsWith(slot))
+  )
 }
 
 function folderOf(path: string): string {
