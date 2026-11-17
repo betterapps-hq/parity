@@ -1,4 +1,4 @@
-import { isEasingKeyword, radiusKeywords } from "@parity-app/core"
+import { radiusKeywords } from "@parity-app/core"
 import { formatNumber } from "@parity-app/style-schema"
 import { defaultValues, type PreviewKind, previewKind, type Token } from "@parity-app/tokens"
 import { px } from "../lengths.ts"
@@ -33,8 +33,9 @@ import { gradientTokenOf } from "./paint-values.ts"
  * (`StyleSections` gives them to `ProjectData`). Each keeps its real name, the one `NodeStyle` holds (`radius-lg`,
  * `text-xl`), and what it comes to, references and spacing steps filled in: a shadow's layers and a gradient's stops
  * are read from its value so its card draws it. A spacing step (`spacing-4`) isn't listed, since the fields hold a step
- * as its pixels, and neither are Tailwind's own easings and defaults (`ease-out`, `default-transition-duration`), which
- * are the fields' presets and what unset is. Sets the project has nothing for are empty. `length` measures a length and
+ * as its pixels. Motion tokens named as CSS's easing keywords (`ease-out`, as Tailwind's theme defines it) and the
+ * theme's defaults (`default-transition-duration`) are in the sets, for the fields' presets and unset to draw with, but
+ * the fields don't list them (`listedMotion`). Sets the project has nothing for are empty. `length` measures a length and
  * `toPlain` reads a color, the browser's unless a test gives its own.
  */
 export function projectTokenSets(
@@ -95,25 +96,18 @@ export function projectTokenSets(
     return paint ? [paint] : []
   })
 
-  // Tailwind's own easings are its presets, and its defaults are what an unset time or easing is.
-  const motion = where((each) => !each.token.name.startsWith("default-") && !isEasingKeyword(each.token.name))
+  const duration: DurationToken[] = where((each) => each.kind === "duration").flatMap((each) => {
+    const split = splitUnit(lookup(each.token.name)?.trim() ?? "")
+    const ms = split && (split.unit === "s" ? split.number * 1000 : split.number)
 
-  const duration: DurationToken[] = motion
-    .filter((each) => each.kind === "duration")
-    .flatMap((each) => {
-      const split = splitUnit(lookup(each.token.name)?.trim() ?? "")
-      const ms = split && (split.unit === "s" ? split.number * 1000 : split.number)
+    return ms !== undefined && Number.isFinite(ms) ? [durationToken(each.token.name, ms)] : []
+  })
 
-      return ms !== undefined && Number.isFinite(ms) ? [durationToken(each.token.name, ms)] : []
-    })
+  const easing: EasingToken[] = where((each) => each.kind === "easing").map((each) => {
+    const plot = easingValuePlot(lookup(each.token.name)?.trim() ?? "")
 
-  const easing: EasingToken[] = motion
-    .filter((each) => each.kind === "easing")
-    .map((each) => {
-      const plot = easingValuePlot(lookup(each.token.name)?.trim() ?? "")
-
-      return easingToken(each.token.name, plot?.kind === "bezier" ? plot.curve : undefined)
-    })
+    return easingToken(each.token.name, plot?.kind === "bezier" ? plot.curve : undefined)
+  })
 
   const font: FontToken[] = where((each) => each.token.category === "font").map((each) => ({
     name: each.token.name,

@@ -4,15 +4,20 @@ import { finiteNumber, stored } from "./stored.ts"
 import { off, stepForm, token, tokenForm, valueForm } from "./value.ts"
 
 /*
- * A layer's transitions, and what they come to in CSS: the properties each of Tailwind's sets changes, its easings'
- * curves, a spring solved into the `linear()` it's drawn with, and a layer's transitions as one `transition` value.
+ * A layer's transitions, and what they come to in CSS: the properties each of Tailwind's sets changes, CSS's easing
+ * keywords and their curves, a spring solved into the `linear()` it's drawn with, and a layer's transitions as one
+ * `transition` value. The curves a keyword draws in a project come from its tokens, as Tailwind's theme defines
+ * `--ease-in` and the like, so nothing here knows a styling framework's curves (PAR-1278).
  */
 
 /** Tailwind's transition sets, each a list of properties: `transition-colors` changes color, background and the rest. */
 export const transitionSets = ["all", "colors", "opacity", "transform", "shadow"] as const
 
-/** Tailwind's own easings, whose curves its theme defines as `--ease-in` and the like (`linear` is CSS's). */
-export const easingKeywords = ["linear", "ease-in", "ease-out", "ease-in-out"] as const
+/**
+ * CSS's easing keywords. A project's token of the same name draws one in its place, as Tailwind's theme defines
+ * `--ease-in` and the like, so a project's styling keeps its own curves.
+ */
+export const easingKeywords = ["linear", "ease", "ease-in", "ease-out", "ease-in-out"] as const
 
 /** A time: whole or part milliseconds (`{ step: 200 }` is `duration-200`), or a duration token. */
 const time = z.union([stepForm, tokenForm], "expected { step } in milliseconds or { token }")
@@ -28,8 +33,8 @@ const spring = z.union([
 export type Spring = z.infer<typeof spring>
 
 /**
- * An easing: one of Tailwind's (`{ keyword: "ease-out" }`), an easing token (`{ token: "ease-snappy" }`), a curve or
- * steps of its own (`{ value: "cubic-bezier(0.2, 0.8, 0.2, 1)" }`, `{ value: "steps(4)" }`), or a spring.
+ * An easing: a keyword (`{ keyword: "ease-out" }`), an easing token (`{ token: "ease-snappy" }`), a curve or steps of
+ * its own (`{ value: "cubic-bezier(0.2, 0.8, 0.2, 1)" }`, `{ value: "steps(4)" }`), or a spring.
  */
 const easing = z.union(
   [stored({ keyword: z.enum(easingKeywords) }), tokenForm, valueForm, stored({ spring })],
@@ -41,9 +46,9 @@ export type Easing = z.infer<typeof easing>
 export const transition = stored({
   /** One of Tailwind's sets (`colors`), or a CSS property of its own (`width`). */
   property: z.string().regex(/^-?-?[a-z][a-z0-9-]*$/i, "expected a transition set or a CSS property, such as width"),
-  /** Tailwind's 150ms when unset. A spring's settle time is its duration. */
+  /** The project's default when unset, else 150ms. A spring's settle time is its duration. */
   duration: time.optional(),
-  /** Tailwind's default curve when unset. */
+  /** The project's default curve when unset, else CSS's `ease`. */
   easing: easing.optional(),
   delay: time.optional(),
   off
@@ -93,31 +98,18 @@ export function transitionProperties(property: string): readonly string[] {
 /** A cubic Bézier's two handles, as `cubic-bezier(x1, y1, x2, y2)` takes them. */
 export type Bezier = [number, number, number, number]
 
-/**
- * Tailwind v4's easings as its theme defines them: the one table of their curves. Tailwind's differ from CSS's keywords
- * of the same names (its `ease-in` is `cubic-bezier(0.4, 0, 1, 1)`, CSS's 0.42), so a preview draws these numbers.
- */
+/** The curve each of CSS's easing keywords draws, as the CSS Easing Functions spec defines it. */
 export const easingBeziers: Record<EasingKeyword, Bezier> = {
   linear: [0, 0, 1, 1],
-  "ease-in": [0.4, 0, 1, 1],
-  "ease-out": [0, 0, 0.2, 1],
-  "ease-in-out": [0.4, 0, 0.2, 1]
+  ease: [0.25, 0.1, 0.25, 1],
+  "ease-in": [0.42, 0, 1, 1],
+  "ease-out": [0, 0, 0.58, 1],
+  "ease-in-out": [0.42, 0, 0.58, 1]
 }
 
 /** A curve as CSS writes it, each number to two decimals: `cubic-bezier(0.4, 0, 0.2, 1)`. */
 export const bezierCss = (curve: Bezier): string =>
   `cubic-bezier(${curve.map((number) => Math.round(number * 100) / 100).join(", ")})`
-
-/**
- * Tailwind v4's easing curves as CSS, which draw a keyword where the project doesn't define its variable. `linear` is
- * CSS's own.
- */
-export const easingCurves: Record<EasingKeyword, string> = {
-  linear: "linear",
-  "ease-in": bezierCss(easingBeziers["ease-in"]),
-  "ease-out": bezierCss(easingBeziers["ease-out"]),
-  "ease-in-out": bezierCss(easingBeziers["ease-in-out"])
-}
 
 /** What an easing draws: a curve, a staircase, or a spring's samples. */
 export type EasingPlot =
@@ -183,11 +175,17 @@ export function plotCss(plot: EasingPlot): string {
   return plot.jump === "end" ? `steps(${plot.count})` : `steps(${plot.count}, jump-start)`
 }
 
-/** Tailwind v4's `--default-transition-duration`, in milliseconds. */
+/**
+ * How long a transition with no duration of its own takes, in milliseconds, when the project's theme has no default
+ * (`--default-transition-duration`, as Tailwind's names it).
+ */
 export const defaultTransitionDuration = 150
 
-/** Tailwind v4's `--default-transition-timing-function`. */
-export const defaultTransitionEasing = "cubic-bezier(0.4, 0, 0.2, 1)"
+/**
+ * The easing a transition with no easing of its own takes when the project's theme has no default
+ * (`--default-transition-timing-function`): CSS's own.
+ */
+export const defaultTransitionEasing = "ease"
 
 /** Whether an easing is a curve or steps of its own, written as CSS, rather than a keyword or a token's name. */
 export const isEasingFunction = (easing: string) => /^(cubic-bezier|steps|linear)\(/i.test(easing.trim())
@@ -200,7 +198,10 @@ export function timeCss(time: Time): string {
 /** Whether an easing is a spring, rather than a keyword, a token or a curve of its own. */
 export const isSpring = (easing: Easing): easing is { spring: Spring } => "spring" in easing
 
-/** An easing as CSS: Tailwind's variable with its curve to fall back on, the token's, the curve, or a spring's. */
+/**
+ * An easing as CSS: a keyword as the project's token of its name, falling back to CSS's keyword, as Tailwind's theme
+ * defines `--ease-out`; a token's variable; the curve; or a spring's.
+ */
 export function easingCss(easing: Easing): string {
   if (isSpring(easing)) {
     return springLinear(easing.spring)
@@ -214,12 +215,12 @@ export function easingCss(easing: Easing): string {
     return easing.value
   }
 
-  return easing.keyword === "linear" ? "linear" : `var(--${easing.keyword}, ${easingCurves[easing.keyword]})`
+  return easing.keyword === "linear" ? "linear" : `var(--${easing.keyword}, ${easing.keyword})`
 }
 
 /**
  * A layer's transitions as one CSS `transition` value, leaving out hidden ones; undefined when none is on.
- * Unset times and easings are Tailwind's defaults, which a project can change, and a spring's settle time is how long
+ * Unset times and easings are the project's defaults, where its theme has them, and a spring's settle time is how long
  * its transition takes.
  */
 export function transitionCss(transitions: readonly Transition[] | undefined): string | undefined {

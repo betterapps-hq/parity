@@ -106,11 +106,19 @@ describe("the project's tokens as the Design tab's fields offer them", () => {
       set: "duration",
       offers: [
         ["duration-fast", "150ms"],
-        ["duration-slow", "400ms"]
+        ["duration-slow", "400ms"],
+        ["default-transition-duration", "150ms"]
       ],
-      why: "durations in milliseconds, not Tailwind's default"
+      why: "durations in milliseconds, the theme's default among them for an unset duration to read"
     },
-    { set: "easing", offers: [["ease-snappy", "0.2, 0.8, 0.2, 1"]], why: "easings, not Tailwind's own" },
+    {
+      set: "easing",
+      offers: [
+        ["ease-snappy", "0.2, 0.8, 0.2, 1"],
+        ["ease-out", "0, 0, 0.2, 1"]
+      ],
+      why: "easings, a keyword's among them for its preset to draw"
+    },
     { set: "borderWidth", offers: [], why: "nothing for a kind the project can't have yet" },
     { set: "opacity", offers: [], why: "nothing for a kind the project can't have yet" },
     { set: "cursor", offers: [], why: "nothing for a kind the project can't have yet" }

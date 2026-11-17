@@ -7,9 +7,12 @@
 import { springLinear, springSamples, springSettle } from "@parity-app/core"
 import {
   type Bezier,
+  defaultTransitionDuration,
   easingBeziers,
+  type EasingKeyword,
   type EasingPlot,
   formatNumber,
+  isEasingKeyword,
   isReadFailure,
   plotCss,
   readEasingFunction
@@ -96,30 +99,51 @@ export function timeMs(time: Time | undefined, tokens: readonly DurationToken[])
   return round(split.number * (timeUnits[split.unit || "ms"] ?? 1))
 }
 
-/** Tailwind v4's `--default-transition-duration`, which a transition with no duration of its own takes. */
-export const defaultDuration = 150
+/** The project's theme default a transition with no duration of its own takes, else 150ms. */
+export function defaultDuration(durations: readonly DurationToken[]): number {
+  return durations.find((token) => token.name === "default-transition-duration")?.ms ?? defaultTransitionDuration
+}
 
 /** A spring: by the time it takes and how much it bounces, or by its physics, as Framer's are set. */
 export type Spring = { duration: number; bounce: number } | { stiffness: number; damping: number; mass: number }
 
 /**
- * An easing: Tailwind's own (`ease-out`, `ease-linear`), a project token (`ease-snappy`), a curve or steps of its own,
- * or a spring.
+ * An easing: one of CSS's keywords (`ease-out`), a project token (`ease-snappy`), a curve or steps of its own, or a
+ * spring.
  */
 export type Easing = { keyword: EasingKeyword } | { token: string } | { value: string } | { spring: Spring }
 
-export type EasingKeyword = "linear" | "ease-in" | "ease-out" | "ease-in-out"
+export type { EasingKeyword }
 
-/** Tailwind v4's easings as the panel offers them, by name, each drawn from the package's one table of curves. */
-export const easingPresets: { keyword: EasingKeyword; label: string; curve: Bezier }[] = [
-  { keyword: "linear", label: "Linear", curve: easingBeziers.linear },
-  { keyword: "ease-in", label: "Ease in", curve: easingBeziers["ease-in"] },
-  { keyword: "ease-out", label: "Ease out", curve: easingBeziers["ease-out"] },
-  { keyword: "ease-in-out", label: "Ease in out", curve: easingBeziers["ease-in-out"] }
+/** CSS's easing keywords as the panel offers them, by name. What each draws is the project's (`presetCurve`). */
+export const easingPresets: { keyword: EasingKeyword; label: string }[] = [
+  { keyword: "linear", label: "Linear" },
+  { keyword: "ease", label: "Ease" },
+  { keyword: "ease-in", label: "Ease in" },
+  { keyword: "ease-out", label: "Ease out" },
+  { keyword: "ease-in-out", label: "Ease in out" }
 ]
 
-/** Tailwind v4's `--default-transition-timing-function`, which a transition with no easing of its own takes. */
-export const defaultCurve: Bezier = [0.4, 0, 0.2, 1]
+/**
+ * What a keyword draws in the project: its token of the same name, as Tailwind's theme defines `--ease-out`, or else
+ * CSS's own curve.
+ */
+export function presetCurve(keyword: EasingKeyword, tokens: readonly EasingToken[]): Bezier {
+  return tokens.find((token) => token.name === keyword)?.curve ?? easingBeziers[keyword]
+}
+
+/** The project's theme default a transition with no easing of its own takes, else CSS's `ease`. */
+export function defaultCurve(tokens: readonly EasingToken[]): Bezier {
+  return tokens.find((token) => token.name === "default-transition-timing-function")?.curve ?? easingBeziers.ease
+}
+
+/**
+ * The project's motion tokens a field lists: not those named as CSS's easing keywords, which draw the presets, nor its
+ * theme's defaults, which are what unset is.
+ */
+export function listedMotion<Token extends { name: string }>(tokens: readonly Token[]): Token[] {
+  return tokens.filter(({ name }) => !isEasingKeyword(name) && !name.startsWith("default-transition-"))
+}
 
 /** `cubic-bezier(…)` or `steps(…)` as what it draws, or nothing when it's neither. */
 export function easingValuePlot(text: string): EasingPlot | undefined {
@@ -128,18 +152,14 @@ export function easingValuePlot(text: string): EasingPlot | undefined {
   return isReadFailure(plot) ? undefined : plot
 }
 
-/** A preset's curve, from the one table. */
-const presetCurve = (keyword: EasingKeyword): Bezier =>
-  easingPresets.find((preset) => preset.keyword === keyword)!.curve
-
-/** What an easing draws, its token's among the project's `tokens`; Tailwind's default curve for unset. */
+/** What an easing draws, its token's among the project's `tokens`; the project's default curve for unset. */
 export function easingPlot(easing: Easing | undefined, tokens: readonly EasingToken[]): EasingPlot {
   if (easing === undefined) {
-    return { kind: "bezier", curve: defaultCurve }
+    return { kind: "bezier", curve: defaultCurve(tokens) }
   }
 
   if ("keyword" in easing) {
-    return { kind: "bezier", curve: presetCurve(easing.keyword) }
+    return { kind: "bezier", curve: presetCurve(easing.keyword, tokens) }
   }
 
   if ("spring" in easing) {
@@ -153,15 +173,15 @@ export function easingPlot(easing: Easing | undefined, tokens: readonly EasingTo
       return { kind: "samples", values: springSamples(token.spring) }
     }
 
-    return { kind: "bezier", curve: token?.curve ?? defaultCurve }
+    return { kind: "bezier", curve: token?.curve ?? defaultCurve(tokens) }
   }
 
-  return easingValuePlot(easing.value) ?? { kind: "bezier", curve: defaultCurve }
+  return easingValuePlot(easing.value) ?? { kind: "bezier", curve: defaultCurve(tokens) }
 }
 
 /**
  * An easing as a preview's CSS draws it: the curve's own numbers, steps or a spring's `linear()`, rather than a
- * variable the page may not have, so Tailwind's presets and the project's tokens move as they're defined.
+ * variable the page may not have, so the presets and the project's tokens move as they're defined.
  */
 export function drawnEasing(easing: Easing | undefined, tokens: readonly EasingToken[]): string {
   return plotCss(easingPlot(easing, tokens))

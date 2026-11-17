@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "The inspector's easing presets and unset motion read the project's tokens instead of Tailwind's curves, and a new stroke takes the project's border color",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

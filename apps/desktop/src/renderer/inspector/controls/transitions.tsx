@@ -25,7 +25,7 @@ import type { TokenSets } from "./tokens.ts"
 /*
  * Motion's Transitions (PAR-652's Transition list): each entry is a list row, as every list's are: the handle, the
  * curve that opens the entry's details (what changes, Duration, Easing and Delay), what changes, its timing, the eye
- * and −. An unset duration or easing shows Tailwind's default faintly, and + adds Colors at those defaults. Entries
+ * and −. An unset duration or easing shows the project's default faintly, and + adds Colors at those defaults. Entries
  * with different timings can't be written as Tailwind's utilities, so a note under the list says so and offers Create
  * token.
  */
@@ -139,7 +139,7 @@ function EntryRow({
           label="Duration"
           which="duration"
           value={entry.duration}
-          defaultMs={defaultDuration}
+          defaultMs={defaultDuration(durations)}
           setBy={
             spring
               ? {
@@ -182,7 +182,7 @@ function EntryRow({
           plot={easingPlot(entry.easing, easings)}
           faint={entry.easing === undefined}
           playing={live}
-          duration={ms ?? defaultDuration}
+          duration={ms ?? defaultDuration(durations)}
         />
       )}
       details={{ content: details, className: "w-80 gap-1 p-3", focusesPopup: true }}
@@ -191,7 +191,7 @@ function EntryRow({
       {/* Inline text, so the commas sit after each part and the whole summary is cut at its end. */}
       <span className="min-w-0 truncate">
         <span className={entry.duration === undefined && !spring ? "text-muted-foreground" : ""}>
-          {ms ?? defaultDuration}ms
+          {ms ?? defaultDuration(durations)}ms
         </span>
         {", "}
         <span className={entry.easing === undefined ? "text-muted-foreground" : ""}>{easingName(entry.easing)}</span>
@@ -322,7 +322,11 @@ export function previewTransition(entries: readonly TransitionEntry[], sets: Tok
     .filter((entry) => !entry.off)
     .flatMap((entry) => {
       const spring = entry.easing !== undefined && "spring" in entry.easing ? entry.easing.spring : undefined
-      const ms = spring ? springSettle(spring) : (timeMs(entry.duration, sets.duration) ?? defaultDuration)
+
+      const ms = spring
+        ? springSettle(spring)
+        : (timeMs(entry.duration, sets.duration) ?? defaultDuration(sets.duration))
+
       const easing = drawnEasing(entry.easing, sets.easing)
 
       return transitionProperties(entry.property)

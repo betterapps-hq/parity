@@ -50,10 +50,13 @@ export function timeWrites(which: "duration" | "delay", time: Time | undefined):
   return { stored: time, css: [`${property}: ${time.value}`] }
 }
 
-/** An easing as CSS writes it: Tailwind's variable for its own, the token's, the curve, or a spring's `linear()`. */
+/**
+ * An easing as CSS writes it: a keyword as the project's token of its name, else CSS's keyword; the token's; the
+ * curve; or a spring's `linear()`.
+ */
 export function easingCss(easing: Easing): string {
   if ("keyword" in easing) {
-    return easing.keyword === "linear" ? "linear" : `var(--${easing.keyword})`
+    return easing.keyword === "linear" ? "linear" : `var(--${easing.keyword}, ${easing.keyword})`
   }
 
   if ("token" in easing) {
@@ -67,9 +70,9 @@ export function easingCss(easing: Easing): string {
   return easing.value
 }
 
-/** The class an easing writes: `ease-out`, `ease-linear`, `ease-snappy`, or `ease-[…]`. */
+/** The class an easing writes: `ease-out`, `ease-linear`, `ease-snappy`, or `ease-[…]`, as CSS's `ease` is. */
 export function easingClass(easing: Easing): string {
-  if ("keyword" in easing) {
+  if ("keyword" in easing && easing.keyword !== "ease") {
     return `ease-${easing.keyword.replace(/^ease-/, "")}`
   }
 
@@ -177,8 +180,8 @@ export function transitionsWrites(
       transitionProperties(entry.property).map((property) =>
         [
           property,
-          `${timeMs(entry.duration, durations) ?? defaultDuration}ms`,
-          entry.easing ? easingCss(entry.easing) : "var(--default-transition-timing-function)",
+          `${timeMs(entry.duration, durations) ?? defaultDuration(durations)}ms`,
+          entry.easing ? easingCss(entry.easing) : "var(--default-transition-timing-function, ease)",
           entry.delay ? `${timeMs(entry.delay, durations)}ms` : ""
         ]
           .filter(Boolean)

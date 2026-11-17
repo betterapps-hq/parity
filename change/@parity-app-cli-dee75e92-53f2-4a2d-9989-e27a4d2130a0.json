@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Easing keywords are CSS's own, drawn as the project's token of the same name, and unset motion falls back to CSS's ease and 150ms, so core keeps no Tailwind curves",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
