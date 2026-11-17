@@ -491,12 +491,14 @@ function LayerList({ part }: { part: LayerPart }) {
     const all: Row[] = []
     const list: Line[] = []
 
-    // The app's API routes come under its pages, before the screens designed for it (PAR-1174), nested by their URLs
-    // (PAR-1185). They draw nothing, so each is a line of its own rather than a design's row. A search finds them by
-    // path, in the folders they're in.
+    // The app's API routes come under its pages, in Pages' Layers (PAR-1174), nested by their URLs (PAR-1185). They draw
+    // nothing, so each is a line of its own rather than a design's row. A search finds them by path, in the folders
+    // they're in.
+    const apiListed = part === "pages" ? apiRoutes : []
+
     const apiFound = search
-      ? apiRoutes.filter((route) => route.path.toLowerCase().includes(search.toLowerCase()))
-      : apiRoutes
+      ? apiListed.filter((route) => route.path.toLowerCase().includes(search.toLowerCase()))
+      : apiListed
 
     const apiLines: Line[] =
       apiFound.length === 0
@@ -508,10 +510,6 @@ function LayerList({ part }: { part: LayerPart }) {
           ]
 
     for (const group of groups) {
-      if (group.id === "screens") {
-        list.push(...apiLines)
-      }
-
       const rowsOf = (designs: readonly ContainerEntry[]) =>
         search
           ? searchRows(designs, search, label, library, boardOpensTo)
@@ -553,12 +551,14 @@ function LayerList({ part }: { part: LayerPart }) {
       all.push(...found)
     }
 
+    list.push(...apiLines)
+
     if (search && all.length === 0 && apiFound.length === 0) {
       list.push({ type: "none", key: "none" })
     }
 
     return { rows: all, lines: list }
-  }, [groups, apiRoutes, expanded, search, entries, library, session.info.libraries, session.info.id])
+  }, [groups, apiRoutes, expanded, search, entries, library, session.info.libraries, session.info.id, part])
 
   const lineIndex = useMemo(() => new Map(lines.map((line, index) => [line.key, index])), [lines])
 

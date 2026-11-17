@@ -1585,8 +1585,8 @@ A route that answers requests on the server and draws nothing is an API route: t
 leaving it out. TanStack Start's server routes, React Router's resource routes, and Next.js's route handlers and
 `pages/api` files are API routes. One with pages inside it is their layout or group, as before.
 
-- **Layers** lists them in their own section, API routes, under the app's pages and before its screens. A click selects
-  one, and the Design tab shows its path and file (`ApiRoutePanel`).
+- **Pages' Layers** lists them in their own section, API routes, under the app's pages; Screens' Layers doesn't. A click
+  selects one, and the Design tab shows its path and file (`ApiRoutePanel`).
 - **Nested by URL** (PAR-1185). Router extensions give an API route its layout or the root as its parent, so API routes
   have no tree among themselves. `routeOutline` in `@parity-app/core` nests routes by their `segments` alone, so they
   nest the same way for TanStack Router, React Router and Next.js. A route whose URL starts another's holds it and
