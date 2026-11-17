@@ -1,0 +1,80 @@
+import type { DesignNode } from "@parity-app/core"
+import type { StyleSection } from "@parity-app/editor"
+import type { ComponentType } from "react"
+import { LayerContent, LayerExport, LayerHeader, LayerMedia, LayerStyles } from "./LayerPanel.tsx"
+import { RoutePanel } from "./RoutePanel.tsx"
+
+/**
+ * Each layer kind's own Design panel (PAR-1056, docs/proposals/layer-panels.md). Every one is its header, what the layer
+ * shows when it has content, its style sections in the kind's order, and Export, so a kind is only its order and its
+ * content. The capability table still leaves out what a layer can't take, as a design's root's Position.
+ */
+function kindPanel(name: string, order: readonly StyleSection[], Content?: ComponentType) {
+  function KindPanel() {
+    return (
+      <>
+        <LayerHeader />
+        {Content && <Content />}
+        <LayerStyles order={order} />
+        <LayerExport />
+      </>
+    )
+  }
+
+  KindPanel.displayName = name
+
+  return KindPanel
+}
+
+/** Where a layer sits and how it's moved there, together in Position. */
+const position: readonly StyleSection[] = ["placement", "layerOrder", "transform"]
+
+/** How a layer is drawn after its fill and stroke, folded until each is set. */
+const drawn: readonly StyleSection[] = ["effects", "motion", "rawCss"]
+
+/**
+ * A layout (PAR-1057): how it lays out its children first, then its own size and the box around it, where it sits, and
+ * how it's drawn. Typography, for the text inside it, folds until it's set. A frame's root starts with the frame's size.
+ */
+export const LayoutPanel = kindPanel("LayoutPanel", [
+  "frameSize",
+  "layout",
+  "size",
+  "spacing",
+  ...position,
+  "fill",
+  "stroke",
+  "appearance",
+  "text",
+  ...drawn
+])
+
+/**
+ * A text layer (PAR-1058): the text it shows, its type and color, then how it sizes and where it sits, and how it's
+ * drawn. Fill is its background, and folds until one is set.
+ */
+export const TextPanel = kindPanel(
+  "TextPanel",
+  ["text", "size", "spacing", ...position, "appearance", "fill", "stroke", ...drawn],
+  LayerContent
+)
+
+/**
+ * An image or a video (PAR-1059, PAR-1060): its file first, then its size, where it sits, its corners and opacity, and
+ * its border. It has no Fill: the picture fills it.
+ */
+const mediaSections: readonly StyleSection[] = ["size", "spacing", ...position, "appearance", "stroke", ...drawn]
+
+/** An image (PAR-1059). */
+export const ImagePanel = kindPanel("ImagePanel", mediaSections, LayerMedia)
+
+/**
+ * The kinds of layer with a Design panel of their own, which `LayerPanel` draws; the others are drawn from
+ * `panelParts`. Read when a panel draws, so the panels above are built by then.
+ */
+export const kindPanels: Partial<Record<DesignNode["type"], ComponentType>> = {
+  image: ImagePanel,
+  layout: LayoutPanel,
+  route: RoutePanel,
+  text: TextPanel
+}

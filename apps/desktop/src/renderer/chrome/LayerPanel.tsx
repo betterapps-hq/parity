@@ -51,27 +51,25 @@ import { Hint } from "./Hint.tsx"
 import { type LayerChange, updateAndRecord } from "./inspector-events.ts"
 import { SlotPanel } from "./instance-slots.tsx"
 import { keymap, shortcutOf } from "./keymap.ts"
+import { kindPanels } from "./KindPanels.tsx"
 import { type HeaderAction, layerActions, layerComponent, type LayerKind, layerKind } from "./layer-kind.ts"
-import { LayoutPanel } from "./LayoutPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { PhotoCredit } from "./PhotoCredit.tsx"
 import { readFromCode, writesProps } from "./read-from-code.ts"
 import { revealSelection } from "./reveal.ts"
-import { RoutePanel } from "./RoutePanel.tsx"
 import { useSelectedLayer } from "./selected-layer.ts"
 import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { MakeSlot } from "./slot-props.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
 import { TextWithProp } from "./text-prop.tsx"
-import { TextPanel } from "./TextPanel.tsx"
 
 /**
  * A selected layer's properties. Edits apply to the state being shown: in the base state they change the design; in
  * any other state they're saved as that state's changes, marked, and each can be reset. A variant shown on a
- * component's board takes edits the same way. Inside an instance, edits change only that copy. A layout and a text
- * layer each have a panel of their own (`LayoutPanel`, `TextPanel`, PAR-1056). For the other kinds, which sections show,
+ * component's board takes edits the same way. Inside an instance, edits change only that copy. Layouts, text layers and
+ * images each have a panel of their own (`KindPanels.tsx`, PAR-1056). For the other kinds, which sections show,
  * in what order, is `panelParts` in `@parity-app/editor`, from what the layer can do (PAR-1032); each takes the selected
  * layer itself (`useSelectedLayer`), so a story draws one alone (PAR-1031).
  */
@@ -168,13 +166,6 @@ function ElementPanel({ element, text }: { element: ElementFacts; text: boolean 
       <LayerStyles order={order} />
     </>
   )
-}
-
-/** The kinds of layer with a Design panel of their own (PAR-1056); the others are drawn from `panelParts`. */
-const kindPanels: Partial<Record<DesignNode["type"], ComponentType>> = {
-  layout: LayoutPanel,
-  route: RoutePanel,
-  text: TextPanel
 }
 
 /** What draws each of a layer's sections; a design's own, as States and Modes, aren't a layer's. */
@@ -441,7 +432,7 @@ export function LayerContent() {
 }
 
 /** An image's or a video's Content, for one of the design's own: inside an instance, its file belongs to the component. */
-function LayerMedia() {
+export function LayerMedia() {
   const layer = useSelectedLayer()
 
   if (!layer || layer.inner || (layer.node.type !== "image" && layer.node.type !== "video")) {

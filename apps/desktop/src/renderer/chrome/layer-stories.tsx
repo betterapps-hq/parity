@@ -1,15 +1,16 @@
-import { insertNode, setSlot } from "@parity-app/core"
+import { type ImageNode, insertNode, setSlot, type VideoNode } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
 import { updateContainer } from "@parity-app/multiplayer"
 import type { Decorator } from "@storybook/react-vite"
 import type { ComponentType } from "react"
+import { expect, within } from "storybook/test"
 import { useProject } from "../canvas/context.ts"
 import { type ContainerEntry, useContainerEntry } from "../project-doc.ts"
 import { useSelection } from "../selection.ts"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { answerPreviews } from "../stories/previews.ts"
 import { DesignTabFields } from "./DesignPanel.tsx"
-import { inspecting, InspectorStage, SectionStage } from "./inspector-stories.tsx"
+import { inspecting, InspectorStage, SectionStage, slowly } from "./inspector-stories.tsx"
 import { Inspector } from "./Inspector.tsx"
 
 /*
@@ -104,3 +105,41 @@ export const filledInstance = (selected: "instance" | "slot" = "instance") =>
 
     return layersSelection(page, [selected === "slot" ? `${starter}/${node("Plan card", "Features")}` : starter])
   })
+
+/** Adds a picture or a clip to Pricing's hero and selects it. */
+export const media = (layer: Pick<ImageNode, "type" | "src"> | Pick<VideoNode, "type" | "src" | "controls">) =>
+  inspecting("design", () => {
+    const key = design("Pricing")
+    updateContainer(example().doc, key, `Add ${layer.type}`, (container) => ({
+      ...container,
+      root: insertNode(
+        container.root,
+        node("Pricing", "Hero"),
+        {
+          id: "hero-media",
+          name: "Team photo",
+          alt: "Four people around a laptop, planning a launch",
+          fit: "contain",
+          credit: { name: "Brooke Cagle", url: "https://unsplash.com/@brookecagle", source: "Unsplash" },
+          style: { width: { size: "fill" }, height: { step: 60 }, borderRadius: { token: "radius-xl" } },
+          ...layer
+        },
+        { index: 3 }
+      )
+    }))
+
+    return layersSelection(key, ["hero-media"])
+  })
+
+/** Finds a media layer's fields by their labels, as a screen reader names them. */
+export async function mediaFields(canvasElement: HTMLElement) {
+  const panel = within(canvasElement)
+  await expect(await panel.findByRole("textbox", { name: "File" }, slowly)).toBeVisible()
+  await expect(panel.getByRole("textbox", { name: "Alt text" })).toHaveValue(
+    "Four people around a laptop, planning a launch"
+  )
+  await expect(panel.getByRole("combobox", { name: "Fit" })).toHaveTextContent("Contain, shown whole")
+  await expect(panel.getByRole("button", { name: "Hide layer" })).toBeVisible()
+
+  return panel
+}

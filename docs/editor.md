@@ -4830,23 +4830,27 @@ Code: `useSelectedLayer` and `useLayer` in `apps/desktop/src/renderer/chrome/sel
 `AttributesSection` in `inspector/sections/PropsSection.tsx`; `DesignTabFields` in `chrome/DesignPanel.tsx`, which a
 story puts one section in; `renderSection` in `chrome/layer-stories.tsx`.
 
-### A layout's and a text layer's own panels (PAR-1057, PAR-1058)
+### Each layer kind's own panel (PAR-1057, PAR-1058, PAR-1059)
 
-A layout and a text layer each have a Design panel of their own, which puts the style sections in that kind's order
-([layer-panels.md](proposals/layer-panels.md)). A layout's opens with Layout, then Size with Spacing, Position, Fill,
-Stroke and Appearance, with Typography, Effects, Motion and CSS after them. A text layer's opens with Content and
-Typography, then Size, Position and Appearance, with Fill, its background, after them. The capability table still leaves
-out what the layer can't take: a design's root has no Position, and a frame's root starts with its size. On a layout, a
-component or an instance, Typography folds to its title and + until it sets something; + opens it.
+Layouts, text layers and images each have a Design panel of their own, which puts the style sections in that kind's
+order ([layer-panels.md](proposals/layer-panels.md)). A layout's opens with Layout, then Size with Spacing, Position,
+Fill, Stroke and Appearance, with Typography, Effects, Motion and CSS after them. A text layer's opens with Content and
+Typography, then Size, Position and Appearance, with Fill, its background, after them. An image's opens with Content,
+its file, alt text, fit and credit, then Size, Position, Appearance and Stroke; it has no Fill, since the picture fills
+it. The capability table still leaves out what the layer can't take: a design's root has no Position, and a frame's root
+starts with its size. On a layout, a component or an instance, Typography folds to its title and + until it sets
+something; + opens it.
 
-Code: `LayoutPanel` and `layoutSections` in `chrome/LayoutPanel.tsx`, `TextPanel` and `textSections` in
-`chrome/TextPanel.tsx`, which `LayerPanel` draws for those kinds; `StyleSections`' `order`; the fold in
-`inspector/sections/TypographySection.tsx`.
+Code: `kindPanel` in `chrome/KindPanels.tsx` builds each kind's panel from its order and its content (`LayoutPanel`,
+`TextPanel`, `ImagePanel`), and `LayerPanel`'s `kindPanels` draws them for those kinds; `StyleSections`' `order`; the
+fold in `inspector/sections/TypographySection.tsx`.
 
 Tests: `chrome/LayoutPanel.stories.tsx` (Layers › Layout): In A Layout, Layout first and Typography folded behind Add
 typography; Root, no Position. `chrome/TextPanel.stories.tsx` (Layers › Text): Headline, Typography before Size and no
-Layout. Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every kind's panel side by side, each column the app's
-`LayerPanel` with its own selection, to compare them while each kind's panel is built.
+Layout. `chrome/ImagePanel.stories.tsx` (Layers › Image): Team Photo, Content first, then Size, Position, Appearance and
+Stroke, with no Layout, Typography or Fill. Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every kind's panel
+side by side, each column the app's `LayerPanel` with its own selection, to compare them while each kind's panel is
+built.
 
 Tests:
 

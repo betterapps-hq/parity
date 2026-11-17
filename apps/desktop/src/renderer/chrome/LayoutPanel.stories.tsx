@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, within } from "storybook/test"
 import { slowly } from "./inspector-stories.tsx"
+import { LayoutPanel } from "./KindPanels.tsx"
 import { pick, renderSection, sectionStage } from "./layer-stories.tsx"
-import { LayoutPanel } from "./LayoutPanel.tsx"
 
 /**
  * A layout's Design panel (PAR-1057): Layout first, then its size and the box around it, where it sits and how it's
