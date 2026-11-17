@@ -9,9 +9,11 @@
     ".": "./src/index.ts",
     "./settings": "./src/settings.ts",
     "./window": "./src/window-modules.ts",
+    "./main-thread": "./src/main-thread.ts",
     "./window-agents": "./src/window-agents.ts",
     "./window-canvas": "./src/window-canvas.ts",
     "./window-presence": "./src/window-presence.ts",
+    "./window-snapshot": "./src/window-snapshot.ts",
     "./window-sync": "./src/window-sync.ts"
   },
   "dependencies": {

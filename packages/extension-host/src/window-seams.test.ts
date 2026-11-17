@@ -426,6 +426,28 @@ describe("parity.sync", () => {
     expect(named("sync.caughtUp")).toMatchObject([{ role: "asked", trigger: "pending" }])
   })
 
+  it("describes the room for extensions.json, for the extension that brings it only", async () => {
+    const { seam, sync, runtime } = await room(() => Promise.resolve({ from: "files" }))
+    const { doc, bytes } = document()
+
+    expect(seam.describe?.(surfaceTestId)).toEqual({
+      room: { state: "waiting", lineage: "", writesFiles: true, pending: false }
+    })
+
+    await seam.open()
+    seam.attach(doc, "lineage-1")
+    await sync().receive(framed("lineage-1", bytes("later:b")))
+
+    expect(runtime.facts().extensions[0]?.room).toEqual({
+      state: "attached",
+      lineage: "lineage-1",
+      writesFiles: true,
+      pending: true,
+      versionBytes: 1
+    })
+    expect(seam.describe?.("@parity-app/extension-other")).toEqual({})
+  })
+
   it("starts and stops writing files as the room says, recording each", async () => {
     const { seam, sync, writes, named } = await room(() => Promise.resolve({ from: "files" }))
     seam.attach(document().doc, "lineage-1")

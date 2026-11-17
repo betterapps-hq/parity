@@ -31,7 +31,14 @@ import {
 } from "./fixtures/window-test.ts"
 import { serveExtensionHost } from "./host.ts"
 import { type ExtensionHosts, type ExtensionStatus, extensionHosts, type OpenedProject } from "./hosts.ts"
-import { type WindowExtension, type WindowModules, windowExtensions, windowModules } from "./window-modules.ts"
+import {
+  type WindowExtension,
+  type WindowModules,
+  type WindowModulesOptions,
+  windowExtensions,
+  windowModules
+} from "./window-modules.ts"
+import { extensionsSnapshot } from "./window-snapshot.ts"
 
 /** Carries an agent's call through the Node half's code in these tests. */
 const calls = new AsyncLocalStorage<number | undefined>()
@@ -73,7 +80,11 @@ function extension(change: Partial<WindowExtension> = {}): WindowExtension {
 }
 
 /** A tab's window modules with stand-ins for the editor and the Node halves, recording what happens. */
-function tab(modules: Record<string, WindowModule> = {}, failureLimit?: number) {
+function tab(
+  modules: Record<string, WindowModule> = {},
+  failureLimit?: number,
+  more: Partial<WindowModulesOptions> = {}
+) {
   const events: { name: ExtensionEventName; attributes: Record<string, JsonValue | undefined> }[] = []
   const halves: string[] = []
   const logs: string[] = []
@@ -142,7 +153,8 @@ function tab(modules: Record<string, WindowModule> = {}, failureLimit?: number) 
     report: (_error, given) => void tags.push(given),
     stopped: (stoppedExtension) => void stopped.push(stoppedExtension.displayName),
     surfaces: { canvas: { capability: "canvas", make: () => ({ layer: () => undefined }) } },
-    failureLimit: failureLimit ?? 5
+    failureLimit: failureLimit ?? 5,
+    ...more
   })
 
   const named = (name: ExtensionEventName) => events.flatMap((event) => (event.name === name ? [event.attributes] : []))
@@ -313,6 +325,129 @@ describe("window modules in a project tab", () => {
     await settle()
 
     expect(Object.values(runtime.states())).toEqual(["inactive"])
+  })
+
+  it("keeps what each extension does in the tab, with its latest failures, for extensions.json", async () => {
+    let time = 1000
+
+    const { runtime } = tab({}, 10, {
+      now: () => time,
+      surfaces: {
+        canvas: {
+          capability: "canvas",
+          make: () => ({}),
+          describe: () => ({ layers: ["wtest.dots"], previews: 1, holds: 0 })
+        },
+        sync: {
+          make: () => ({}),
+          describe: () => ({ room: { state: "attached", lineage: "l-1", writesFiles: false, pending: true } })
+        }
+      }
+    })
+
+    // Before its window module starts, it isn't in the snapshot.
+    runtime.update([extension({ settings: { "wtest.on": false }, host: "starting" })])
+    expect(extensionsSnapshot([runtime])).toEqual({ tabs: [] })
+
+    runtime.update([extension({ host: "starting" })])
+    await settle()
+
+    for (let failure = 1; failure <= 7; failure++) {
+      time += 1
+      await expect(runtime.run("wtest.fail")).rejects.toThrow("Failing on purpose")
+    }
+
+    const { tabs } = extensionsSnapshot([runtime])
+
+    expect(tabs).toEqual([
+      {
+        tab: "tab-1",
+        extensions: [
+          {
+            id: "@parity-app/extension-window-test",
+            version: "0.0.0",
+            displayName: "Window test",
+            halves: { window: "active", node: "starting" },
+            capabilities: [],
+            layers: ["wtest.dots"],
+            previews: 1,
+            holds: 0,
+            failures: [1003, 1004, 1005, 1006, 1007].map((at) => ({
+              api: "command:wtest.fail",
+              message: "Failing on purpose",
+              at
+            })),
+            room: { state: "attached", lineage: "l-1", writesFiles: false, pending: true }
+          }
+        ]
+      }
+    ])
+  })
+
+  it("adds the room's peers as its own events last said, and lists a module stopped in the tab as stopped", async () => {
+    const own: string[] = []
+
+    const { runtime, parities } = tab({}, 5, {
+      recordOwn: (_extension, event) => void own.push(event),
+      surfaces: {
+        sync: {
+          make: () => ({}),
+          describe: () => ({ room: { state: "attached", lineage: "l-1", writesFiles: true, pending: false } })
+        }
+      }
+    })
+
+    runtime.update([extension()])
+    await settle()
+    parities
+      .get("@parity-app/extension-window-test")
+      ?.telemetry.record("room.joined", { host: true, peers: 2, waitMs: 5 })
+
+    expect(own).toEqual(["room.joined"])
+    expect(runtime.facts().extensions[0]?.room).toMatchObject({ peers: 2 })
+
+    runtime.stop("@parity-app/extension-window-test")
+    await settle()
+
+    expect(runtime.states()).toEqual({ "@parity-app/extension-window-test": "inactive" })
+    expect(extensionsSnapshot([runtime]).tabs[0]?.extensions[0]?.halves.window).toBe("stopped")
+
+    // It stays off in the tab, as one stopped for its failures does.
+    runtime.update([extension()])
+    await settle()
+
+    expect(runtime.states()).toEqual({ "@parity-app/extension-window-test": "inactive" })
+  })
+
+  it("times each call into a module for the meter, its listeners' and commands' alike", async () => {
+    const timed: string[] = []
+    let clock = 0
+
+    const listening = defineWindowModule({
+      activateWindow(parity) {
+        parity.subscriptions.push(
+          parity.selection.onChange(() => {
+            clock += 20
+          })
+        )
+
+        return {}
+      }
+    })
+
+    const { runtime, select } = tab({ "@parity-app/extension-window-test": listening }, 5, {
+      clock: () => clock,
+      meter: { called: (id, api, ms) => void timed.push(`${id} ${api} ${ms}`) }
+    })
+
+    runtime.update([extension()])
+    await settle()
+    select()
+
+    expect(timed).toEqual([
+      "@parity-app/extension-window-test activateWindow 0",
+      "@parity-app/extension-window-test selection.onChange 20"
+    ])
   })
 
   it("rejects a call to a Node half that isn't ready with HalfUnavailableError, and calls one that is", async () => {
@@ -896,6 +1031,41 @@ describe("an internal extension's two halves (the window test extension, in the 
 
     await ready()
     await expect(parities.get(id)?.host.api<{ ping(): string }>().ping()).resolves.toBe("pong")
+  })
+
+  it("records a Node half's call refused while its window module isn't ready, from the Node half", async () => {
+    const refused: string[] = []
+
+    const early = defineExtension({
+      async activate(parity) {
+        if (!isInternal(parity)) {
+          throw new Error("No window module")
+        }
+
+        // Before its window module is ready, each call is refused at once.
+        for (let call = 0; call < 12; call++) {
+          await parity.window
+            .api<{ status(): string }>()
+            .status()
+            .catch((error: Error) => void refused.push(error instanceof HalfUnavailableError ? error.state : "other"))
+        }
+
+        return {}
+      }
+    })
+
+    const { events, ready } = setUp(early)
+
+    await ready()
+
+    expect(refused).toHaveLength(12)
+    // The first in a minute, then one in ten.
+    expect(
+      events.filter((event) => event.name === "extension.halfUnavailable").map((event) => event.attributes)
+    ).toEqual([
+      { extension: id, from: "node", method: "status", state: refused[0] },
+      { extension: id, from: "node", method: "status", state: refused[10] }
+    ])
   })
 
   it("lets each half call the other", async () => {

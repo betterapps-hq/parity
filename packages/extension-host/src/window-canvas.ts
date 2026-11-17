@@ -190,16 +190,27 @@ export function windowCanvas(port: WindowCanvasPort): Record<"canvas" | "camera"
   const layers = new Set<string>()
   /** Each extension's own, made once per run whichever surface it reads first. */
   const made = new WeakMap<SurfaceContext, Own>()
+  /** What each extension has open now, by its id, for `extensions.json`. */
+  const opened = new Map<string, Opened>()
 
   const own = (context: SurfaceContext) => {
     const found = made.get(context) ?? ownFor(port, context, layers)
     made.set(context, found)
+    opened.set(context.extension, found.opened)
 
     return found
   }
 
   return {
-    canvas: { capability: "canvas", make: (context) => own(context).canvas },
+    canvas: {
+      capability: "canvas",
+      make: (context) => own(context).canvas,
+      describe(extension) {
+        const found = opened.get(extension)
+
+        return found ? { layers: [...found.layers], previews: found.previews, holds: found.holds } : {}
+      }
+    },
     camera: { capability: "camera", make: (context) => own(context).camera },
     colors: { make: (context) => own(context).colors }
   }
@@ -209,12 +220,21 @@ interface Own {
   canvas: CanvasSurface
   camera: Camera
   colors: WindowColors
+  opened: Opened
+}
+
+/** What one extension's run has open on the canvas now: its layers by id, and how many previews and holds. */
+interface Opened {
+  layers: Set<string>
+  previews: number
+  holds: number
 }
 
 function ownFor(port: WindowCanvasPort, context: SurfaceContext, layers: Set<string>): Own {
   const { extension } = context
   /** What it has open: layers, listeners, followings, previews and holds, each closed when it stops in the tab. */
   const open = new Set<Disposable>()
+  const opened: Opened = { layers: new Set(), previews: 0, holds: 0 }
   let ended = false
 
   context.onEnd(() => {
@@ -349,6 +369,7 @@ function ownFor(port: WindowCanvasPort, context: SurfaceContext, layers: Set<str
       }
 
       layers.add(options.id)
+      opened.layers.add(options.id)
 
       const remove = port.addLayer({
         id: options.id,
@@ -361,6 +382,7 @@ function ownFor(port: WindowCanvasPort, context: SurfaceContext, layers: Set<str
 
       return keep(() => {
         layers.delete(options.id)
+        opened.layers.delete(options.id)
         remove()
       })
     },
@@ -375,11 +397,25 @@ function ownFor(port: WindowCanvasPort, context: SurfaceContext, layers: Set<str
     hit: (at) => port.canvas()?.measure.hit(at),
     pageToScreen: (at) => mounted("canvas.pageToScreen").measure.pageToScreen(at),
     screenToPage: (at) => mounted("canvas.screenToPage").measure.screenToPage(at),
-    preview: (items, options) => previewFor(port, context, colors, keep, items, options),
+    preview(items, options) {
+      opened.previews += 1
+
+      try {
+        return previewFor(port, context, colors, keep, items, options, () => (opened.previews -= 1))
+      } catch (error) {
+        opened.previews -= 1
+        throw error
+      }
+    },
     hold(design, at) {
       context.need("hold", "parity.canvas.hold")
       const held = port.hold(design, at, extension)
-      const kept = keep(() => held[Symbol.dispose]())
+      opened.holds += 1
+
+      const kept = keep(() => {
+        opened.holds -= 1
+        held[Symbol.dispose]()
+      })
 
       const handle: Held = {
         update: (next) => held.update(next),
@@ -394,7 +430,7 @@ function ownFor(port: WindowCanvasPort, context: SurfaceContext, layers: Set<str
     }
   }
 
-  return { canvas, camera, colors }
+  return { canvas, camera, colors, opened }
 }
 
 /** Who hears of each list's assignments. The window's lists are shared by its tabs, so this is too. */
@@ -485,7 +521,8 @@ function previewFor(
   colors: Colors,
   keep: (dispose: () => void) => Disposable,
   items: PreviewItem[],
-  options: PreviewOptions
+  options: PreviewOptions,
+  ended: () => void
 ): Preview {
   let color = options.color
   /** Shown, settling once `settleOnWrite` is called, then ended. */
@@ -556,6 +593,7 @@ function previewFor(
     phase = "ended"
     stopEnd.dispose()
     colors.release(color)
+    ended()
 
     for (const each of kept) {
       each.dispose()

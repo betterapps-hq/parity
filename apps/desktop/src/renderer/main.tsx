@@ -7,8 +7,9 @@ import { startKeybindings } from "./chrome/keybindings.ts"
 import { openReport } from "./chrome/ReportProblemDialog.tsx"
 import { receiveTelemetry } from "./chrome/telemetry-setting.ts"
 import { installClassMerger } from "./class-merger.ts"
+import { extensionTime } from "./extension-time.ts"
 import { setInterfaceTelemetry } from "./interface-events.ts"
-import { watchLongTasks } from "./long-tasks.ts"
+import { watchLongFrames, watchLongTasks } from "./long-tasks.ts"
 import { preloadOpenProject } from "./ProjectView.tsx"
 import { replaySampling } from "./replay.ts"
 import { setWindowTelemetry } from "./report-error.ts"
@@ -31,6 +32,9 @@ traceWith(telemetry)
 window.parityTelemetry?.traceFrom(currentTraceHeaders)
 
 watchLongTasks(telemetry)
+
+// Long frames are put down to the window module whose chunk ran most of them (PAR-1283).
+watchLongFrames((frame) => extensionTime.frame(frame))
 
 // Panels, dialogs, modes, settings and the start page record what's done with them (PAR-634).
 setInterfaceTelemetry(telemetry)

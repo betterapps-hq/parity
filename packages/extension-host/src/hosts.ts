@@ -27,7 +27,7 @@ import type { HalfState } from "@parity-app/extension/internal"
 import { type ExtensionPackage, fits } from "@parity-app/extension/manifest"
 import { type ChildExit, endedByItself, type Lifecycle } from "@parity-app/processes"
 import { readToolInput } from "./agents.ts"
-import type { RecordExtensionEvent } from "./events.ts"
+import { halfUnavailableSampler, type RecordExtensionEvent } from "./events.ts"
 import { editsRefusal, type ReadPlace, readablePath, writeRefusal } from "./permissions.ts"
 import {
   type ActivateParams,
@@ -513,6 +513,8 @@ export function extensionHosts<Project extends OpenedProject>(
   const agentOf = (call: number | undefined) => (call === undefined ? undefined : calls.get(call))
   const projects = new Map<string, OpenProject<Project>>()
   let appSettings: StoredSettings = {}
+  /** Whether a Node half's refused call to its window module is sent, sampled per extension. */
+  const unavailableSampled = halfUnavailableSampler(() => Date.now())
 
   /** An extension's settings, from the person's values and the project's. */
   const settingsOf = (open: OpenProject<Project>, extension: InstalledExtension<Project>) => {
@@ -963,6 +965,11 @@ export function extensionHosts<Project extends OpenedProject>(
               })
 
         return result === undefined ? {} : { result }
+      },
+      "window.unavailable"({ method, state }: HostServiceMethods["window.unavailable"]["params"]) {
+        if (unavailableSampled(id)) {
+          options.record?.("extension.halfUnavailable", { extension: id, from: "node", method, state })
+        }
       }
     }
   }

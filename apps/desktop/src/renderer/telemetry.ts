@@ -7,6 +7,7 @@ import { recordInvalidData } from "../shared/invalid-data.ts"
 import { readTelemetryRun } from "../shared/telemetry-run.ts"
 import { bitmapAttachment, framesAttachment, framesOnScreen, onFailedRender } from "./canvas/frames-on-screen.ts"
 import { consoleCallStack, loggedByProject } from "./console-breadcrumbs.ts"
+import { extensionsAttachment } from "./extension-errors.ts"
 
 /**
  * Scrubs keys, tokens and passwords from what this window sends before it leaves (PAR-621). The open projects' `.env`
@@ -40,6 +41,13 @@ export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}):
 
       if (frames.length > 0) {
         hint.attachments = [...(hint.attachments ?? []), framesAttachment(frames)]
+      }
+
+      // And what each tab's extensions were doing (PAR-1283).
+      const extensions = extensionsAttachment((value) => scrubber.value(value))
+
+      if (extensions) {
+        hint.attachments = [...(hint.attachments ?? []), extensions]
       }
 
       return scrubber.value({ ...event, tags: { ...event.tags, process: kind } })

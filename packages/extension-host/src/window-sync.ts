@@ -2,6 +2,7 @@ import type { Disposable } from "@parity-app/extension"
 import { LineageError, type OpenFrom, type Sync } from "@parity-app/extension/internal"
 import type { RecordSeamEvent, SeamAttributes } from "./events.ts"
 import type { SurfaceContext, WindowSurface } from "./window-modules.ts"
+import type { RoomFacts } from "./window-snapshot.ts"
 
 /*
  * `parity.sync` for one project tab (docs/proposals/extensions-in-the-window.md, "parity.sync"). The document stays in
@@ -301,6 +302,24 @@ export function windowSync(port: SyncPort): SyncSeam {
     capability: "sync",
     get handled() {
       return handler !== undefined
+    },
+    describe(extension) {
+      if (handler?.context.extension !== extension) {
+        return {}
+      }
+
+      const room: Omit<RoomFacts, "peers"> = {
+        state: state.kind,
+        lineage: state.kind === "attached" || state.kind === "detached" ? state.lineage : "",
+        writesFiles: port.writesFiles(),
+        pending: pending !== undefined
+      }
+
+      if (state.kind === "attached") {
+        room.versionBytes = state.document.version().byteLength
+      }
+
+      return { room }
     },
     make(context) {
       const sync: Sync = {

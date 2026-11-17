@@ -404,6 +404,12 @@ multiplayer is to become one.
   stays stopped until the project is opened again. A module that can't load or activate is left off the same way. A Node
   half that crashes three times in a row is left stopped, as any host is, and its window module is deactivated.
   [docs/telemetry.md](telemetry.md#extensions) lists the lifecycle events.
+- **Attribution.** Each call into a window module is timed, and long animation frames are put down to the module whose
+  chunk ran most of their scripts ([`main-thread.ts`](../packages/extension-host/src/main-thread.ts), PAR-1283). In
+  development, a module that takes over a second of the main thread in a minute says "Multiplayer is slowing the
+  editor", with Turn off, which stops it in the window's tabs until they're opened again. Every error from the editor
+  window carries `extensions.json`, which [`extensionsSnapshot`](../packages/extension-host/src/window-snapshot.ts)
+  builds from each tab's window modules.
 
 The runtime, [`window-modules.ts`](../packages/extension-host/src/window-modules.ts), takes the window's loader, the
 editor's selection and navigation, and its link to the Node halves as arguments, so its tests run without Electron;
@@ -538,17 +544,20 @@ names, and sets Shadcn up through shadcn-sync (PAR-1226, PAR-1227).
 - [window-modules.test.ts](../packages/extension-host/src/window-modules.test.ts): a test-only internal extension
   ([fixtures/window-test.ts](../packages/extension-host/src/fixtures/window-test.ts)) activating while its setting is on
   and stopping when it goes off, `onStartup` in every tab, five failures stopping it in a tab, failures from a replaced
-  run logged without stopping the next, a throwing listener counted, `HalfUnavailableError` while its Node half isn't
-  ready, its Node half's state heard while it activates, a module without a Node half, a Node half stopping for good,
-  calls from the Node half, a missing capability, a window module it builds on coming and going, and gone before its
-  slow teardown rather than after it's back, settings, a project setting's change kept under the prefix as the Node
-  half's are and refused when its schema doesn't allow it, the tab closing, failing to activate, a module turned off
-  while it activates torn down at once, and an activation that's been overtaken, finishing or throwing, without undoing
-  the one after it. With its Node half in the real host code over in-memory ports: the Node half started only with its
-  window module, the Node half told the window module's state while it activates, each half calling the other, a command
-  the window module registered run by its module, the service and an agent, the agent's call carried through to the Node
-  half and back from it through the window module, two agents' overlapping calls each kept apart, a command run from
-  inside an agent's window command without waiting behind it, and three crashes deactivating the window module.
+  run logged without stopping the next, a throwing listener counted, what each extension does in the tab and its last
+  five failures kept for `extensions.json`, the room's peers as it last said, a module stopped in the tab as asked, each
+  call into a module timed, `HalfUnavailableError` while its Node half isn't ready, its Node half's state heard while it
+  activates, a module without a Node half, a Node half stopping for good, calls from the Node half, a missing
+  capability, a window module it builds on coming and going, and gone before its slow teardown rather than after it's
+  back, settings, a project setting's change kept under the prefix as the Node half's are and refused when its schema
+  doesn't allow it, the tab closing, failing to activate, a module turned off while it activates torn down at once, and
+  an activation that's been overtaken, finishing or throwing, without undoing the one after it. With its Node half in
+  the real host code over in-memory ports: the Node half started only with its window module, the Node half told the
+  window module's state while it activates, a Node half's calls refused while its window module isn't ready recorded
+  from the service, sampled, each half calling the other, a command the window module registered run by its module, the
+  service and an agent, the agent's call carried through to the Node half and back from it through the window module,
+  two agents' overlapping calls each kept apart, a command run from inside an agent's window command without waiting
+  behind it, and three crashes deactivating the window module.
 - [window-canvas.test.ts](../packages/extension-host/src/window-canvas.test.ts) (PAR-1257): a second test-only internal
   extension ([fixtures/window-surface-test.ts](../packages/extension-host/src/fixtures/window-surface-test.ts)), with
   only a window module, drawing a page layer and an edge layer and taking them away as it stops, a layer's id unique in
@@ -559,8 +568,12 @@ names, and sets Shadcn up through shadcn-sync (PAR-1226, PAR-1227).
   `parity.canvas.camera`, missing `camera` and `hold` capabilities refused and recorded once while colors need none,
   claims counted and given back, assigned numbers telling the layers' color hooks, each list's palettes, a preview by
   `NodeRef` in a claimed color given back once it has settled, a preview still settling closed and its color given back
-  when it's disposed or the module stops, where layers would land mapped, previews left open disposed of, and holds let
-  go.
+  when it's disposed or the module stops, where layers would land mapped, previews left open disposed of, holds let go,
+  and each extension's layers, open previews and holds listed for `extensions.json`.
+- [main-thread.test.ts](../packages/extension-host/src/main-thread.test.ts) (PAR-1283): a call over 16 ms recorded as
+  slow at most once per extension a minute, a long frame put down to the module whose chunk ran most of its scripts,
+  built or served, each active module's minute recorded and the next started empty, the budget told once, and scripts'
+  owners by their files.
 - [window-seams.test.ts](../packages/extension-host/src/window-seams.test.ts) (PAR-1257), through the same test-only
   extension: the pointer at most once a frame with its leaving kept, gestures in order with committed changes told
   before a move's drop and end, viewing told only on a change, nothing listened to without a listener, a throwing
@@ -569,8 +582,8 @@ names, and sets Shadcn up through shadcn-sync (PAR-1226, PAR-1227).
   `parity.sync` opening from files or a snapshot, alone when nothing answers, calls made before the open applied in
   order once it does, changes framed with their lineage, other lineages refused, pending changes recorded, files written
   as the room says, the document kept open alone when the module stops, alone at once when it stops before the document
-  is attached, with a late opening refused, nothing detached as the project closes, a second `onOpen` refused, and the
-  minute's traffic.
+  is attached, with a late opening refused, nothing detached as the project closes, a second `onOpen` refused, the
+  minute's traffic, and the room described for `extensions.json` for the extension that brings it.
 - [presence-gestures.test.ts](../apps/desktop/src/renderer/canvas/presence-gestures.test.ts) (PAR-1280): a move's drop
   naming the frame the layers would land in, and told again when only that frame changes.
 - [frame-loop.test.ts](../packages/canvas-layer/src/frame-loop.test.ts): every `measure` before any `draw`, the time

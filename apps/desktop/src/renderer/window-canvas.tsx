@@ -15,6 +15,7 @@ import {
   Activity,
   Component,
   createContext,
+  Profiler,
   type ReactNode,
   useContext,
   useEffect,
@@ -28,6 +29,7 @@ import { ProjectContext } from "./canvas/context.ts"
 import { preview, type PreviewOptions } from "./canvas/drag-preview.ts"
 import { agentColors, personColors } from "./canvas/surface/colors.ts"
 import { surfaceOf } from "./canvas/surface/index.ts"
+import { extensionTime } from "./extension-time.ts"
 import { createStore, type Store, useStore } from "./store.ts"
 import type { TabSlot } from "./tab-slot.ts"
 import type { ProjectSession } from "./workspace.ts"
@@ -52,6 +54,9 @@ interface TabLayers {
   drawn: Store<readonly Drawn[]>
   /** The tab's frames, for `useFrame`, paused while it's hidden. */
   frames: FrameLoop
+  /** Whether the tab's canvas is shown, which its window modules' time on the main thread is recorded for. */
+  shown(): boolean
+  setShown(shown: boolean): void
   add(layer: LayerRequest): () => void
 }
 
@@ -70,10 +75,15 @@ function layersOf(session: Pick<ProjectSession, "id">): TabLayers {
 
   const drawn = createStore<readonly Drawn[]>(() => [])
   let next = 0
+  let shown = false
 
   const layers: TabLayers = {
     drawn,
     frames: createFrameLoop(),
+    shown: () => shown,
+    setShown(now) {
+      shown = now
+    },
     add(layer) {
       next += 1
       const added: Drawn = { ...layer, key: next }
@@ -86,6 +96,11 @@ function layersOf(session: Pick<ProjectSession, "id">): TabLayers {
   tabLayers.set(session.id, layers)
 
   return layers
+}
+
+/** Whether a project's tab shows its canvas now. */
+export function tabShown(project: string): boolean {
+  return tabLayers.get(project)?.shown() ?? false
 }
 
 /** The tab's canvas services, for its window modules' `parity.canvas`, `parity.camera` and `parity.colors`. */
@@ -181,7 +196,10 @@ function TabLayersOf({ session, order, shown }: { session: ProjectSession; order
   const all = useStore(layers.drawn)
   const editing = useSyncExternalStore(session.selection.subscribe, () => session.selection.getEditing() !== undefined)
 
-  useEffect(() => layers.frames.setVisible(shown), [layers, shown])
+  useEffect(() => {
+    layers.setShown(shown)
+    layers.frames.setVisible(shown)
+  }, [layers, shown])
 
   const drawn = all.filter((layer) => layer.options.order === order)
 
@@ -285,9 +303,12 @@ function Layer({ layer, frames }: { layer: Drawn; frames: FrameLoop }) {
   // SAFETY: what an extension draws is what React renders; `LayerChildren` types it without React.
   const children = layer.children as ReactNode
 
+  // Its renders count toward its extension's time on the main thread, where React's Profiler reports them.
   return (
     <LayerBoundary failed={layer.failed}>
-      <CanvasLayerContext value={context}>{children}</CanvasLayerContext>
+      <Profiler id={layer.id} onRender={() => extensionTime.rendered(layer.extension)}>
+        <CanvasLayerContext value={context}>{children}</CanvasLayerContext>
+      </Profiler>
     </LayerBoundary>
   )
 }
