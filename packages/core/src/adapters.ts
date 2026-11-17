@@ -1,4 +1,3 @@
-import type { StylePrinter } from "@parity-app/style-schema"
 import { z } from "zod"
 import type { ContainerSpec } from "./document.ts"
 import type { GuestComponentSource } from "./guest-changes.ts"
@@ -764,16 +763,6 @@ export interface DrawnNodes {
   parent(id: string): string | undefined
   /** The node an element in the frame belongs to: the innermost one that draws it or an element around it. */
   nodeOf(element: Element): string | undefined
-}
-
-/** A styling framework that writes a layer's declarations as classes, and compiles classes as the project's build does. */
-export interface ClassPrinter extends StylePrinter<string[]> {
-  /**
-   * The CSS these classes compile to in this project, as one stylesheet in the framework's own cascade layer and
-   * order, so a frame that gives its elements the classes draws them as the project's built CSS would (PAR-942). A
-   * class the framework doesn't know compiles to nothing.
-   */
-  css(classes: readonly string[]): string
 }
 
 /** A theme variable without its `--`, as the framework defines it. */

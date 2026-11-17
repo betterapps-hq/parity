@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Move the Tailwind extension's class writer out of core, so it uses only @parity-app/extension (PAR-1130)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

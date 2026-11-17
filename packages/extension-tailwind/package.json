@@ -11,11 +11,11 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@parity-app/core": "workspace:*",
     "@parity-app/extension": "workspace:*",
-    "@parity-app/project": "workspace:*",
-    "@parity-app/style-schema": "workspace:*",
-    "@parity-app/tokens": "workspace:*"
+    "@parity-app/extension-node": "workspace:*"
+  },
+  "devDependencies": {
+    "@parity-app/style-schema": "workspace:*"
   },
   "peerDependencies": {
     "tailwindcss": "^4.0.0"
