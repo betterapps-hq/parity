@@ -8,6 +8,7 @@
   "main": "src/extension.ts",
   "exports": {
     ".": "./src/extension.ts",
+    "./page": "./src/page.ts",
     "./package.json": "./package.json"
   },
   "dependencies": {
@@ -148,7 +149,11 @@
                 }
               }
             }
-          ]
+          ],
+          "page": {
+            "import": "./page",
+            "export": "tanstackRouterPage"
+          }
         }
       }
     }

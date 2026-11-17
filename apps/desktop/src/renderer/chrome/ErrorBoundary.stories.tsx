@@ -17,7 +17,6 @@ const parts = [
   "console",
   "status-bar",
   "title-bar",
-  "settings",
   "about",
   "project",
   "window"
@@ -35,7 +34,7 @@ interface Args {
 /** The real window with the example open and one part broken, as a bug would break it. */
 function Broken({ part }: Args) {
   useEffect(() => {
-    if (part === "settings" || part === "about") {
+    if (part === "about") {
       openDialog(part)
     }
 
@@ -115,8 +114,8 @@ export const StatusBar: Story = { args: { part: "status-bar" } }
 /** The title bar failed: it says so in a line, and the window can still be dragged by it. */
 export const TitleBar: Story = { args: { part: "title-bar" } }
 
-/** Settings failed: it says so in a dialog of its own, which can try again or close it. */
-export const Dialog: Story = { args: { part: "settings" } }
+/** About failed: it says so in a dialog of its own, which can try again or close it. */
+export const Dialog: Story = { args: { part: "about" } }
 
 /** Something none of the closer boundaries caught, around the whole project. */
 export const Project: Story = { args: { part: "project" } }
@@ -138,20 +137,20 @@ export const TryAgain: Story = {
 }
 
 /**
- * A test more than a picture: Settings fails, its corner button closes it, and opening Settings again draws it
- * afresh, so it ends on the real Settings dialog. Watch it run in the Interactions panel.
+ * A test more than a picture: About fails, its corner button closes it, and opening About again draws it afresh, so
+ * it ends on the real About dialog. Watch it run in the Interactions panel.
  */
 export const CloseAndReopenDialog: Story = {
-  args: { part: "settings" },
+  args: { part: "about" },
   play: async () => {
     const page = within(document.body)
     const dialog = await page.findByRole("alertdialog")
-    await expect(dialog).toHaveTextContent("Settings stopped working")
+    await expect(dialog).toHaveTextContent("About Parity stopped working")
     await userEvent.click(within(dialog).getByRole("button", { name: "Close" }))
     await expect(page.queryByRole("alertdialog")).toBeNull()
-    openDialog("settings")
+    openDialog("about")
     // It fades in, so it's visible a moment after it opens.
-    const description = await page.findByText("For every project, and remembered between runs.")
-    await waitFor(() => expect(description).toBeVisible())
+    const about = await page.findByRole("dialog", { name: "Parity" })
+    await waitFor(() => expect(about).toBeVisible())
   }
 }

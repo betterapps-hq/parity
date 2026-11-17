@@ -3,13 +3,13 @@ import { mkdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises
 import { createRequire } from "node:module"
 import { dirname, join } from "node:path"
 import type { BuilderSession, BuilderStartOptions, CodeChange } from "@parity-app/core"
-import { gatherChanges } from "@parity-app/project"
+import { gatherChanges, pageEntrySource } from "@parity-app/project"
 import { type AppFiles, appEntryPrefix, appPageFile, builtAppFiles, plainAppPage, servedAppPage } from "./app-pages.ts"
 import { componentModuleSource, guestFiles, guestModuleSource } from "./browser-modules.ts"
 import type { Bundler, BundlerCompilation, BundlerConfig, BundlerStats } from "./bundler.ts"
 import { writeElementSourcesLoader, writeGuestAddressLoader } from "./element-sources.ts"
 import { changedComponents, entryImports, filePath, loadedFiles, providedExports } from "./graph.ts"
-import { guestConfig } from "./guest-config.ts"
+import { guestConfig, type GuestConfigOptions } from "./guest-config.ts"
 import { componentPath, entryPath, guestEntrySource, isSourcePath, loadablePaths } from "./guest-entry.ts"
 import { freePort, portFree, serveGuest } from "./server.ts"
 
@@ -60,22 +60,34 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
 
   await writeEntry()
 
-  const compiler = bundler.compiler(
-    guestConfig(config, bundler, {
-      root,
-      entry,
-      styles: start.config.styles.map((path) => entryPath(root, path)),
-      packageStyles: start.config.packageStyles ?? [],
-      output,
-      publicPath: `${origin}/`,
-      key,
-      elementSources: loader.file,
-      renderer: { file: renderer, loader: addressLoader },
-      componentExtensions: [".tsx", ".jsx", ".ts", ".js"],
-      dedupe: dedupedPackages(root, start.renderer.runtimePackages),
-      standIns: start.renderer.developmentStandIns ?? {}
-    })
-  )
+  // What runs first in the app's own page, before its entries' modules (PAR-1260).
+  const pageModules = start.config.pageModules
+  const pageEntry = pageModules ? join(folder, "page-entry.js") : undefined
+
+  if (pageModules && pageEntry) {
+    await writeFile(pageEntry, pageEntrySource(pageModules), "utf8")
+  }
+
+  const options: GuestConfigOptions = {
+    root,
+    entry,
+    styles: start.config.styles.map((path) => entryPath(root, path)),
+    packageStyles: start.config.packageStyles ?? [],
+    output,
+    publicPath: `${origin}/`,
+    key,
+    elementSources: loader.file,
+    renderer: { file: renderer, loader: addressLoader },
+    componentExtensions: [".tsx", ".jsx", ".ts", ".js"],
+    dedupe: dedupedPackages(root, start.renderer.runtimePackages),
+    standIns: start.renderer.developmentStandIns ?? {}
+  }
+
+  if (pageEntry) {
+    options.pageEntry = pageEntry
+  }
+
+  const compiler = bundler.compiler(guestConfig(config, bundler, options))
 
   const build = buildState()
   const listeners = new Set<(change: CodeChange) => void>()

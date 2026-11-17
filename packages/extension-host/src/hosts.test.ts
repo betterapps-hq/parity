@@ -96,7 +96,10 @@ const router = readExtension({
     contributes: {
       nodeTypes: [{ id: "route", name: "Route" }],
       providers: {
-        router: { decorators: [{ wrap: { import: "@tanstack/react-router", component: "RouterContextProvider" } }] }
+        router: {
+          decorators: [{ wrap: { import: "@tanstack/react-router", component: "RouterContextProvider" } }],
+          page: { import: "./page", export: "tanstackRouterPage" }
+        }
       }
     }
   }
@@ -1329,6 +1332,24 @@ describe("providers (PAR-1095)", () => {
     ])
     expect(started).toEqual([])
     expect(hosts.decorators("elsewhere")).toEqual([])
+  })
+
+  it("gives the routers' page modules from their manifests, before their code runs (PAR-1260)", () => {
+    const { hosts, started } = setUp({
+      "@parity-app/extension-tanstack-router": { activate: () => undefined }
+    })
+
+    hosts.open(project)
+
+    expect(hosts.pageRouters("shop")).toEqual([
+      {
+        extension: "tanstack-router",
+        module: "@parity-app/extension-tanstack-router/page",
+        export: "tanstackRouterPage"
+      }
+    ])
+    expect(started).toEqual([])
+    expect(hosts.pageRouters("elsewhere")).toEqual([])
   })
 
   it("gives nothing when none of the project's extensions declares the provider", async () => {

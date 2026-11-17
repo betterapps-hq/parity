@@ -61,7 +61,9 @@ export {
   type ToolVersionsExtra,
   peerVersions,
   extensionRenderer,
-  detectPeers
+  detectPeers,
+  packageExport,
+  type PageModuleRef
 } from "./adapters.ts"
 
 export {
@@ -406,6 +408,8 @@ export {
   type ComponentSource,
   type DescribedTokens,
   type ExtensionDecorator,
+  type PageModuleFile,
+  type PageModules,
   iconSetPropsId,
   type PreviewComposer,
   type LibraryInfo,

@@ -2,12 +2,12 @@ import { randomUUID } from "node:crypto"
 import { mkdir, readdir, readFile, realpath, stat } from "node:fs/promises"
 import type { IncomingMessage } from "node:http"
 import { join, posix } from "node:path"
-import type { BuilderSession, BuilderStartOptions, CodeChange } from "@parity-app/core"
-import { guestModule, readTsconfig } from "@parity-app/project"
+import type { BuilderSession, BuilderStartOptions, CodeChange, PageModules } from "@parity-app/core"
+import { guestModule, pageEntrySource, readTsconfig } from "@parity-app/project"
 import type { NextBundler } from "./bundler.ts"
 import { elementSourcesRoute, taggedNextSource } from "./element-sources.ts"
 import { guestAppFiles, guestAppFolder, type GuestAppOptions, guestModuleFile, projectImport } from "./guest-app.ts"
-import { copyGuestRuntime } from "./guest-runtime.ts"
+import { copyGuestRuntime, copyParityModules } from "./guest-runtime.ts"
 import {
   guestStylesDigest,
   type ProjectModule,
@@ -71,6 +71,7 @@ export async function startNextGuest(options: BuilderStartOptions, loader: NextG
   const folder = join(root, guestAppFolder)
   await mkdir(folder, { recursive: true })
   const runtime = await copyGuestRuntime(await realpath(options.rendererGuestPath), folder, `${origin}/`)
+  const pageSource = await copyPageModules(options.config.pageModules, folder, `${origin}/`)
 
   // The project's own modules that only Next's server can build are imported from stand-ins that say so.
   const projectModules = Object.values(options.config.components).flatMap((source) =>
@@ -106,6 +107,10 @@ export async function startNextGuest(options: BuilderStartOptions, loader: NextG
     guestSource: source,
     styles: options.config.styles,
     packageStyles: options.config.packageStyles ?? []
+  }
+
+  if (pageSource !== undefined) {
+    app.pageSource = pageSource
   }
 
   if (found.config) {
@@ -308,4 +313,34 @@ function errorSummary(html: string): string {
     .replaceAll(/\s+/g, " ")
     .trim()
     .slice(0, 500)
+}
+
+/** The folder the page runtime and the page modules are copied to, from the guest app's folder. */
+const pageFolder = "page"
+
+/**
+ * The page runtime's entry for `instrumentation-client` (PAR-1260), with the runtime and the page modules copied into
+ * the guest app, since Next compiles nothing outside the project. None without page modules.
+ */
+async function copyPageModules(
+  modules: PageModules | undefined,
+  guestApp: string,
+  served: string
+): Promise<string | undefined> {
+  if (!modules) {
+    return undefined
+  }
+
+  const files = [modules.runtime, ...[...modules.routers, ...modules.hydration].map((module) => module.file)]
+
+  const copied = await copyParityModules(
+    await Promise.all(files.map((file) => realpath(file))),
+    guestApp,
+    served,
+    pageFolder
+  )
+
+  const at = new Map(files.map((file, index) => [file, `./${copied[index]}`]))
+
+  return pageEntrySource(modules, (file) => at.get(file) ?? file)
 }

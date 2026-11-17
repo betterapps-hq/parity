@@ -48,16 +48,58 @@ async function search(canvasElement: HTMLElement, text: string): Promise<void> {
   await enter(within(canvasElement).getByPlaceholderText("Search tokens"), text)
 }
 
+/** A token's row, found by the token's name, or nothing while it isn't drawn. */
+function findRow(canvasElement: HTMLElement, token: string): HTMLElement | null {
+  const canvas = within(canvasElement)
+
+  return canvas.queryByRole("button", { name: token }) ?? canvas.queryByText(token)?.closest("button") ?? null
+}
+
 /** A token's row, found by the token's name. */
 function rowOf(canvasElement: HTMLElement, token: string): HTMLElement {
-  const canvas = within(canvasElement)
-  const row = canvas.queryByRole("button", { name: token }) ?? canvas.getByText(token).closest("button")
+  const row = findRow(canvasElement, token)
 
   if (!row) {
     throw new Error(`No token named ${token} shows`)
   }
 
   return row
+}
+
+/**
+ * Scrolls the list down until `find` finds what it's after, then centers it, since the list draws only the rows in
+ * view. From the bottom it starts again at the top, in case it wasn't there yet.
+ */
+async function scrollUntil(canvasElement: HTMLElement, find: () => HTMLElement | null): Promise<HTMLElement> {
+  for (let step = 0; step < 200; step++) {
+    const found = find()
+
+    if (found) {
+      found.scrollIntoView({ block: "center" })
+
+      return found
+    }
+
+    const list = canvasElement.querySelector<HTMLElement>("[data-tokens-list]")
+
+    if (list) {
+      const before = list.scrollTop
+      list.scrollTop += 300
+
+      if (list.scrollTop === before) {
+        list.scrollTop = 0
+      }
+    }
+
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+  }
+
+  throw new Error("The Tokens panel never drew what the story looks for")
+}
+
+/** A token's row, scrolled to. */
+function scrollToRow(canvasElement: HTMLElement, token: string): Promise<HTMLElement> {
+  return scrollUntil(canvasElement, () => findRow(canvasElement, token))
 }
 
 /** The element with the keyboard, or none when it's on the page itself or isn't HTML. */
@@ -69,7 +111,7 @@ function focused(): HTMLElement | null {
 
 /** Opens a token's detail by resting the pointer on its row. */
 async function open(canvasElement: HTMLElement, token: string): Promise<HTMLElement> {
-  await userEvent.hover(rowOf(canvasElement, token))
+  await userEvent.hover(await scrollToRow(canvasElement, token))
 
   return within(document.body).findByRole("dialog", undefined, { timeout: 2000 })
 }
@@ -122,7 +164,7 @@ export const FoldedSections: Story = {
     await search(canvasElement, "secondary")
     await canvas.findByText("secondary")
     await search(canvasElement, "")
-    await userEvent.click(canvas.getByRole("button", { name: /^Palette/ }))
+    await userEvent.click(await scrollUntil(canvasElement, () => canvas.queryByRole("button", { name: /^Palette/ })))
   }
 }
 
@@ -147,8 +189,7 @@ export const Copying: Story = {
     const writes = spyOn(navigator.clipboard, "writeText").mockResolvedValue()
 
     try {
-      await canvas.findByText("primary")
-      const row = rowOf(canvasElement, "primary")
+      const row = await scrollToRow(canvasElement, "primary")
       await userEvent.click(row)
       await expect(writes).toHaveBeenLastCalledWith("primary")
       await within(row).findByText("Copied")
@@ -158,12 +199,15 @@ export const Copying: Story = {
       await expect(writes).toHaveBeenLastCalledWith("primary")
       await expect(dialog).toBeInTheDocument()
       await userEvent.keyboard("{Escape}")
-      rowOf(canvasElement, "secondary").focus()
+      const next = await scrollToRow(canvasElement, "secondary")
+      next.focus()
       await userEvent.keyboard("{Control>}c{/Control}")
       await expect(writes).toHaveBeenLastCalledWith("secondary")
       // The theme's tokens on their own put the palette at the top.
       await userEvent.click(canvas.getByRole("button", { name: /^Primitive/ }))
-      await userEvent.click(await canvas.findByRole("button", { name: "Copy color-blue-500" }))
+      await userEvent.click(
+        await scrollUntil(canvasElement, () => canvas.queryByRole("button", { name: "Copy color-blue-500" }))
+      )
       await expect(writes).toHaveBeenLastCalledWith("color-blue-500")
       await waitFor(() => expect(within(document.body).getAllByText("Copied").length).toBeGreaterThan(0))
     } finally {
@@ -184,7 +228,8 @@ export const Motion: Story = {
 export const ProjectTokens: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Semantic/ }))
+    // The filter, which is pressed or not, rather than the section of the same name.
+    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Semantic/, pressed: false }))
   }
 }
 
@@ -320,8 +365,7 @@ export const Detail: Story = {
 export const DetailFromTheKeyboard: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
-    await within(canvasElement).findByText("primary")
-    const row = rowOf(canvasElement, "primary")
+    const row = await scrollToRow(canvasElement, "primary")
     row.focus()
     await userEvent.keyboard("{ArrowRight}")
     const dialog = await within(document.body).findByRole("dialog")

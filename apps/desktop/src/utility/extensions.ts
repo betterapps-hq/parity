@@ -227,7 +227,8 @@ export function projectProviders(hosts: ExtensionHosts<ExtensionProject>): Proje
   return {
     call: (project, call, extension) => hosts.provide(told(project), call, extension),
     owner: (project, kind, extension) => hosts.provider(told(project), kind, extension),
-    decorators: (project) => hosts.decorators(told(project))
+    decorators: (project) => hosts.decorators(told(project)),
+    pageRouters: (project) => hosts.pageRouters(told(project))
   }
 }
 

@@ -1,6 +1,6 @@
 import { layersSelection, type Selection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { expect, userEvent, within } from "storybook/test"
+import { expect, userEvent, waitFor, within } from "storybook/test"
 import { clearNotifications, design, example, node, openProject } from "../stories/fixtures.tsx"
 import { AppMenu } from "./AppMenu.tsx"
 import { exampleOpen, Window } from "./chrome-fixtures.tsx"
@@ -73,7 +73,8 @@ export async function openMenu(name: MenuName): Promise<void> {
 /** Opens a submenu of the open menu, as a click on it does. */
 export async function openSubmenu(name: string): Promise<void> {
   await userEvent.click(body().getByRole("menuitem", { name }))
-  await expect((await body().findAllByRole("menu")).length).toBe(2)
+  // The menu it's in is found at once, so this waits for the second.
+  await waitFor(() => expect(body().getAllByRole("menu")).toHaveLength(2))
 }
 
 /** The open menu's items, by label: whether each is unavailable, and undefined for one it doesn't list. */

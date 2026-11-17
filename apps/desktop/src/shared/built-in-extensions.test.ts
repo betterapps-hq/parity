@@ -3,6 +3,7 @@ import {
   type BuiltInExtension,
   builtInExtensions,
   nodeHalfEntries,
+  pageEntries,
   readBuiltIns,
   windowModuleEntries,
   windowModulesSource
@@ -58,6 +59,14 @@ describe("the built-in list", () => {
   it("lists the window modules for the window's build, as renderer/window-module-list.ts", async () => {
     expect(windowModuleEntries()).toEqual({})
     await expect(windowModulesSource()).toMatchFileSnapshot("../renderer/window-module-list.ts")
+  })
+
+  it("bundles the page runtime and the built-in page modules for the app's page (PAR-1260)", () => {
+    expect(pageEntries()).toEqual({
+      "page-runtime": "@parity-app/page-runtime",
+      "page/react": "@parity-app/extension-react/page",
+      "page/tanstack-router": "@parity-app/extension-tanstack-router/page"
+    })
   })
 
   it("refuses both of two built-in extensions that bring the room", () => {

@@ -74,6 +74,21 @@ describe("guestConfig", () => {
     expect(config.optimization).toMatchObject({ runtimeChunk: { name: "runtime" }, splitChunks: false, nodeEnv: false })
   })
 
+  it("runs the page runtime first in each of the app's entries (PAR-1260)", () => {
+    const pageEntry = "/app/node_modules/.cache/parity-fake/page-entry.js"
+
+    const config = guestConfig(
+      { entry: { index: "./src/index.tsx", admin: ["./src/polyfills.ts", "./src/admin.tsx"] } },
+      bundler,
+      { ...options, pageEntry }
+    )
+
+    expect(config.entry).toMatchObject({
+      "app-index": { import: [pageEntry, "./src/index.tsx"] },
+      "app-admin": { import: [pageEntry, "./src/polyfills.ts", "./src/admin.tsx"] }
+    })
+  })
+
   it("keeps the project's rules and plugins, but its HTML pages and Fast Refresh, and adds hot updates", () => {
     const own = plugin("SvgrPlugin")
 

@@ -70,6 +70,21 @@ export function serveGuest(options: GuestServerOptions): Promise<Server> {
   })
 }
 
+/**
+ * Whether an origin is this server's own under a `*.localhost` name (PAR-1260): the canvas loads a project's pages from
+ * `http://<project>.localhost:<port>`, so each project's pages get a process of their own, and their chunks load from
+ * the build's public path on 127.0.0.1 with CORS.
+ */
+export function isPageOrigin(origin: string, port: number): boolean {
+  try {
+    const url = new URL(origin)
+
+    return url.protocol === "http:" && url.hostname.endsWith(".localhost") && url.port === String(port)
+  } catch {
+    return false
+  }
+}
+
 /** Answers a request, or says why it couldn't, as a component that doesn't build. */
 async function answerOrFail(
   options: GuestServerOptions,
@@ -91,7 +106,12 @@ async function answerOrFail(
 async function answer(options: GuestServerOptions, request: IncomingMessage, response: ServerResponse): Promise<void> {
   const origin = request.headers.origin
 
-  if (origin && (options.allowedOrigins.includes(origin) || options.allowedOrigins.includes("*"))) {
+  if (
+    origin &&
+    (options.allowedOrigins.includes(origin) ||
+      options.allowedOrigins.includes("*") ||
+      isPageOrigin(origin, options.port))
+  ) {
     response.setHeader("Access-Control-Allow-Origin", origin)
     response.setHeader("Vary", "Origin")
   }

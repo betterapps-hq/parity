@@ -73,7 +73,7 @@ export function selectedPageGroup(project: string, selection: Selection): string
 }
 
 /**
- * Where each page landed instead of its own path, by its design's key, as its frames say (see `pageLandedMessage`): a
+ * Where each page landed instead of its own path, by its design's key, as its frames say (`page.ready` and `page.moved`): a
  * route that redirects or guards sends its page elsewhere. Layers shows it on the page's row.
  */
 export const pageLandings = windowStore<ReadonlyMap<string, string>>(() => new Map())

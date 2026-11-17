@@ -11,6 +11,8 @@ asarUnpack:
   - "*.cjs"
   # Parity's own extensions, which import TypeScript from beside the service, as React's does to read components.
   - extensions/*.mjs
+  # Extensions' page modules, which a project's builder serves into the app's own page (PAR-1260).
+  - page/*.mjs
   - libraries/**/*
   - in-app.json
   # The CLI the parity command runs, with Electron as Node (PAR-906).
