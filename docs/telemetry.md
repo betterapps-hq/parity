@@ -606,6 +606,12 @@ Some failures are recorded for you, so code doesn't record them again:
 | `renderer.long_task`               | info  | all  | renderer                                | A task in the editor window runs for over 200 ms.                                                                                                                          |
 | `report.sent`                      | info  | all  | main                                    | Help > Report a problem, parity report or report_problem sends a report.                                                                                                   |
 | `request.handled`                  | debug | all  | service, main                           | The service or main answers another process's request.                                                                                                                     |
+| `room.hostChanged`                 | info  | all  | renderer                                | The room's host changes.                                                                                                                                                   |
+| `room.joined`                      | info  | all  | renderer                                | This copy joins a room.                                                                                                                                                    |
+| `room.latency`                     | info  | all  | renderer                                | Once a minute while in a room.                                                                                                                                             |
+| `room.left`                        | info  | all  | renderer                                | This copy leaves a room.                                                                                                                                                   |
+| `room.reconnected`                 | warn  | all  | renderer                                | The connection to the relay comes back.                                                                                                                                    |
+| `room.relayStarted`                | info  | all  | renderer                                | The window module asks its Node half for the relay, which starts it or finds one.                                                                                          |
 | `routeFrame.process`               | warn  | all  | renderer                                | A project's page process fails under its freezer frame.                                                                                                                    |
 | `routeFrame.refused`               | info  | all  | renderer                                | The freezer refuses a page's snapshot or gets none, so its board keeps what it had.                                                                                        |
 | `routeFrame.removed`               | debug | all  | renderer                                | The sanitizer takes anything out of a snapshot before its copy is built.                                                                                                   |
@@ -617,6 +623,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `styles.imported`                  | info  | all  | renderer                                | A library's styles are imported into the project's stylesheet.                                                                                                             |
 | `sync.caughtUp`                    | info  | all  | renderer                                | `changesSince` is answered, or changes that were pending are applied.                                                                                                      |
 | `sync.detached`                    | warn  | all  | renderer                                | The room goes away: the document stays open here, alone, and this copy writes files.                                                                                       |
+| `sync.diskIgnored`                 | info  | all  | renderer                                | A copy in a live room that doesn't write files ignores a file changed on its disk, once per file.                                                                          |
 | `sync.lineageRefused`              | warn  | all  | renderer                                | `sync.receive` refuses bytes from another lineage.                                                                                                                         |
 | `sync.openFailed`                  | warn  | all  | renderer                                | `sync.onOpen` rejects or takes over 30 s, so the project opens from files, alone, and sync is detached.                                                                    |
 | `sync.opened`                      | info  | all  | renderer                                | The project opens through an extension's `sync.onOpen`.                                                                                                                    |
@@ -1633,6 +1640,53 @@ Some failures are recorded for you, so code doesn't record them again:
 | `method`  | `string`           | The method asked for           |
 | `code`    | `string`, optional | The error code, when it failed |
 
+### `room.hostChanged`
+
+| Attribute    | Type      | Meaning                                            |
+| ------------ | --------- | -------------------------------------------------- |
+| `becameHost` | `boolean` | Whether this copy is now the host                  |
+| `peers`      | `integer` | How many copies are in the room, this one included |
+
+### `room.joined`
+
+| Attribute | Type      | Meaning                                                              |
+| --------- | --------- | -------------------------------------------------------------------- |
+| `host`    | `boolean` | Whether this copy hosts the room                                     |
+| `peers`   | `integer` | How many copies are in the room, this one included                   |
+| `waitMs`  | `number`  | How long joining took, the host's snapshot included, in milliseconds |
+
+### `room.latency`
+
+| Attribute            | Type      | Meaning                                                        |
+| -------------------- | --------- | -------------------------------------------------------------- |
+| `rttP50Ms`           | `number`  | The median round trip of a batch to the relay, in milliseconds |
+| `rttP95Ms`           | `number`  | The 95th percentile round trip, in milliseconds                |
+| `rttMaxMs`           | `number`  | The slowest round trip, in milliseconds                        |
+| `presenceSent`       | `integer` | Presence updates sent                                          |
+| `presenceReceived`   | `integer` | Presence updates received                                      |
+| `queueMax`           | `integer` | The most messages waiting to be sent at once                   |
+| `batchesInFlightMax` | `integer` | The most batches on their way at once                          |
+
+### `room.left`
+
+| Attribute    | Type                                                  | Meaning                                                                                 |
+| ------------ | ----------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `why`        | `"closed" \| "turnedOff" \| "lineage" \| "relayGone"` | Why: the project closed, the extension stopped, another lineage, or the relay went away |
+| `durationMs` | `number`                                              | How long this copy was in the room, in milliseconds                                     |
+
+### `room.reconnected`
+
+| Attribute | Type     | Meaning                                           |
+| --------- | -------- | ------------------------------------------------- |
+| `downMs`  | `number` | How long the connection was down, in milliseconds |
+
+### `room.relayStarted`
+
+| Attribute | Type                    | Meaning                                                      |
+| --------- | ----------------------- | ------------------------------------------------------------ |
+| `result`  | `"started" \| "shared"` | Whether this copy started the relay, or found another copy's |
+| `port`    | `integer`               | The port the relay listens on                                |
+
 ### `routeFrame.process`
 
 | Attribute | Type               | Meaning                                                            |
@@ -1713,6 +1767,12 @@ Some failures are recorded for you, so code doesn't record them again:
 | --------- | --------------------------- | -------------------------------------------------------------------- |
 | `why`     | `"stopped" \| "openFailed"` | Why: the extension that brought the room stopped, or never opened it |
 | `saved`   | `boolean`                   | Whether this copy then wrote everything that differed                |
+
+### `sync.diskIgnored`
+
+| Attribute | Type     | Meaning                                |
+| --------- | -------- | -------------------------------------- |
+| `path`    | `string` | The project file, relative to its root |
 
 ### `sync.lineageRefused`
 

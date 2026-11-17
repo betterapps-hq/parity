@@ -183,6 +183,15 @@ describe("window modules in a project tab", () => {
     expect(halves.at(-1)).toBe(`${id} stopped`)
   })
 
+  it("says when every activation started so far has settled, so the tab can open its document after", async () => {
+    const { runtime } = tab()
+
+    runtime.update([extension()])
+    expect(runtime.states()).toEqual({ "@parity-app/extension-window-test": "loading" })
+    await runtime.activating()
+    expect(runtime.states()).toEqual({ "@parity-app/extension-window-test": "active" })
+  })
+
   it("activates an onStartup module in every tab, each with its own parity", async () => {
     const first = tab()
     const second = tab()

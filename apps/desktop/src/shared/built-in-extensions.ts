@@ -1,5 +1,6 @@
 import { packageExport } from "@parity-app/core"
 import agentPresencePackage from "@parity-app/extension-agent-presence/package.json" with { type: "json" }
+import multiplayerPackage from "@parity-app/extension-multiplayer/package.json" with { type: "json" }
 import nextjsPackage from "@parity-app/extension-nextjs/package.json" with { type: "json" }
 import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
 import reactRouterPackage from "@parity-app/extension-react-router/package.json" with { type: "json" }
@@ -53,7 +54,8 @@ export const builtInExtensions: readonly BuiltInExtension[] = [
   { packageJson: storybookPackage, bundle: "storybook" },
   { packageJson: accessibilityPackage, bundle: "storybook-a11y" },
   { packageJson: portlessPackage, bundle: "portless" },
-  { packageJson: agentPresencePackage, bundle: "agent-presence" }
+  { packageJson: agentPresencePackage, bundle: "agent-presence" },
+  { packageJson: multiplayerPackage, bundle: "multiplayer" }
 ]
 
 /** A built-in extension as read, with its bundle's name. */

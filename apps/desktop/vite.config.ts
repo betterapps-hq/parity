@@ -30,7 +30,7 @@ export default defineConfig(({ mode }) => {
     // Dependencies come without their source maps inlined, which cost the window more memory than their code, and each
     // lucide icon loads on its own rather than every one with the first.
     plugins: lazyPlugins(() => [reactPlugin(react.react), tailwindcss(), dependencySourceMaps(), iconImportsPlugin()]),
-    // Loro, for the live room in development (src/renderer/live-room.ts), as the build that carries its WebAssembly
+    // Loro, for a project opened in a live room through `parity.sync` (renderer/workspace.ts), as the build that carries its WebAssembly
     // inline: the one Vite would pick imports the `.wasm` file as a module, which needs a plugin.
     resolve: {
       alias: [

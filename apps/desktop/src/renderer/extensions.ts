@@ -80,6 +80,14 @@ class Extensions {
     )
   }
 
+  /** The list the tab read before the session opened (PAR-1267), unless a newer one has come. */
+  seed(listed: ProjectExtensions): void {
+    if (!this.#loaded) {
+      this.#loaded = true
+      this.store.update((now) => ({ extensions: listed.extensions, logs: { ...listed.logs, ...now.logs } }))
+    }
+  }
+
   changed(extensions: ExtensionStatus[]): void {
     const before = this.store.get().extensions
     this.#loaded = true

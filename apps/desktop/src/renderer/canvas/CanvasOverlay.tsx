@@ -69,7 +69,6 @@ import { hoverTarget, pickDeeper, pressTarget } from "./pick.ts"
 import { type GestureProject, inFrame, layerRef, resizing, type Started, telling } from "./presence-gestures.ts"
 import { formatPx, RedlineView } from "./Redline.tsx"
 import { resizeCursors, ResizeHandles } from "./ResizeHandles.tsx"
-import { RoomTyping } from "./RoomTyping.tsx"
 import { shownEntry } from "./route-pages.ts"
 import { pressBackground } from "./select-box.ts"
 import {
@@ -459,7 +458,6 @@ export function CanvasOverlay() {
           />
         ))}
       {editing && <TextEditor key={`${editing.design}/${editing.node}`} />}
-      <RoomTyping />
     </div>
   )
 }

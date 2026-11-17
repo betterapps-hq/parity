@@ -103,6 +103,19 @@ describe("preview of a board", () => {
     ])
   })
 
+  it("settles at once on a write that came after its last move, before it was told to settle", () => {
+    const shown = preview(surface, [{ target: { design: "pricing" }, at: { x: 330, y: 40 } }], jonas)
+    written("pricing")
+    shown.update([{ target: { design: "pricing" }, at: { x: 316, y: 196 } }])
+    expect(placedBoards.at("tab", "pricing")).toEqual({ x: 330, y: 40 })
+
+    // The drop's write, in a batch ahead of the drag's end.
+    written("pricing")
+    shown.settleOnWrite()
+    expect(placedBoards.at("tab", "pricing")).toBeUndefined()
+    expect(sink.named("dragPreview.settled").map((event) => event.attributes.how)).toEqual(["write"])
+  })
+
   it("puts the board back where the document has it when no write comes within 2 s", () => {
     const shown = preview(surface, [{ target: { design: "pricing" }, at: { x: 330, y: 40 } }], jonas)
     shown.settleOnWrite()

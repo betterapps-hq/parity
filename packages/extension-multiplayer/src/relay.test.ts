@@ -1,7 +1,7 @@
 import { connect } from "node:net"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 import { z } from "zod"
-import { roomRelay } from "./dev-room.ts"
+import { roomRelay } from "./relay.ts"
 
 const servers: { close(): void }[] = []
 const crlf = String.fromCharCode(13, 10)
