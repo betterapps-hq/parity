@@ -7135,6 +7135,22 @@ each library's pages, logo (Simple Icons', and Fluent's mark from Microsoft's ow
 in its look, the registry file that previews one an extension sets up (`@buildkitgg/shadcn-baseui-{style}`), and its
 icon set.
 
+The eight shadcn style files are made from what shadcn-sync builds, not from the retired kits:
+`parity lib @buildkitgg/shadcn-baseui-nova --registry` runs sync at npm's latest version (or the one given after an `@`)
+with `--base base --style nova` in Tailwind mode, in a folder cached under `~/.parity/cache/packages`, and describes the
+`@buildkitgg/shadcn` package it builds. The files keep their kits' names, so projects still on a kit and the `registry:`
+entries in saved files keep finding them. A style's file names no range, so it covers every version of its kit, and its
+version is the sync release that built it. Its examples are shadcn's own, at the tag of the shadcn CLI release sync
+built with (`shadcn@4.23.0`), read from the snapshot sync records. Its tokens are kept from the file it replaces, the
+kits' DTCG tokens with their descriptions, since sync's stylesheet has the theme's values but not what each is for. A
+project still on a kit reads each component's props from the kit's `dist/ui/` declarations, since the file's `ui/` paths
+aren't in the kit. `fixtures/buildkit` stays on the kits, as the fixture for those projects.
+
+Code: `buildkitStyles` and `sync` in `packages/libgen/src/presets.ts`, `syncedStyle` in `published.ts`, `describedAs`
+and the kept tokens in `reviseLibrary` in `index.ts`, `tag` in `examples.ts`; `runLib` in `packages/cli/src/lib.ts`;
+`declarationsMoved` in `packages/project/src/libraries.ts`. Tests: `packages/libgen/src/synced.test.ts`; the kit case in
+`packages/project/src/library-files.test.ts`.
+
 Code: `chrome/AddLibraryDialog/` (the dialog, a file for each of its parts, `offeredLibraries`), `AddComponentLibrary`
 and `removeLibrary` in `chrome/AssetsPanel.tsx`; `catalogFor`, `previewFor` and `removeLibrary` in
 `apps/desktop/src/utility/libraries.ts`; `libraryPreview` and `familiesOf` in `packages/project/src/library-preview.ts`;
