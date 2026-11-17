@@ -24,12 +24,15 @@ export function travelMs(from: Point, to: Point): number {
   return Math.min(2200, 700 + 240 * Math.log2(1 + distance / 40))
 }
 
+/** The fastest a pointer plays, as a share of its own pace: for a long backlog, or a held board it has to reach. */
+export const fastestPace = 0.35
+
 /**
  * How much faster to play when calls pile up: full speed for a few waiting steps, down to about a third for a long
  * backlog, so the cursor never falls far behind the agent.
  */
 export function paceFor(waiting: number): number {
-  return waiting <= 2 ? 1 : Math.max(0.35, 1 - (waiting - 2) * 0.08)
+  return waiting <= 2 ? 1 : Math.max(fastestPace, 1 - (waiting - 2) * 0.08)
 }
 
 /**

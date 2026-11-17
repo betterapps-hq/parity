@@ -358,9 +358,10 @@ multiplayer is to become one.
   `layer:<id>` in `extension.callFailed`. It pauses while its tab is hidden (React's `Activity`), and a layer with
   `hideWhileEditing` hides while text is edited on the canvas. Layers take the pointer only where an element asks with
   `data-canvas-interactive`. A layer's id is unique in its tab. `box`, `onBoxChange` and `hit` say where designs and
-  their layers are, by `NodeRef`; `pageToScreen` and `screenToPage` convert points. `preview` shows someone else's drag
-  in their color (claimed from people's colors while it lasts, settling included), and `hold` (`hold`) holds a board
-  while an agent moves it, over the core previews and holds.
+  their layers are, by `NodeRef`; a layer's box asked with `caret` also says where a caret before that character of its
+  text stands, as the Multiplayer extension draws someone's caret (PAR-1275); `pageToScreen` and `screenToPage` convert
+  points. `preview` shows someone else's drag in their color (claimed from people's colors while it lasts, settling
+  included), and `hold` (`hold`) holds a board while an agent moves it, over the core previews and holds.
 - **What's drawn in a layer** reads it through [`@parity-app/canvas-layer`](../packages/canvas-layer/src/index.ts):
   `useCamera` (the zoom and what's in view, at most once a frame), `useBox`, `useColor`, which claims a color while it's
   mounted, and `useFrame`, which runs every `measure` in the tab, then every `draw`, once an animation frame while the
@@ -415,17 +416,26 @@ that draw the layers.
 
 `@parity-app/extension-agent-presence` draws agents at work: a pointer per agent that travels to what it reads or
 changes, scans it and drags the boards it moves ([editor.md](editor.md#agents-at-work-on-the-canvas-par-1269)). It's
-internal, with only a window module, activated `onStartup` in every project tab, and declares `canvas`, `agents` and
-`hold`.
+internal, with only a window module, activated `onSetting:agentPresence.show` in every project tab while **Show agents
+on canvas** is on (Settings → Extensions → Agent presence, an app setting that starts on), and declares `canvas`,
+`agents` and `hold`.
 
 - **What it listens to.** `parity.agents.onActivity`, this copy's steps and other copies' alike. Each is queued per
   agent, keyed by its id, or `${from}:${agentId}` for another copy's.
 - **What it draws.** One `overSelection` page layer, `agentPresence.agents`, with `@parity-app/presence-ui`'s
   `AgentPointer` and `AgentBadge`. It reads the camera and boxes through the layer, and claims each agent's color from
-  `parity.colors.agents` while its pointer is drawn.
+  `parity.colors.agents` while its pointer is drawn. In a live room the Multiplayer extension assigns those colors as
+  the host numbered them, under the same keys, so an agent is the same color in every copy (PAR-1277).
 - **Holds.** A move's board is held with `parity.canvas.hold` as its step is told, before the write lands, and let go
-  once the pointer has dragged it, or as the extension stops.
-- **Turned off,** agents work without being drawn, and the rest of the canvas is unchanged.
+  once the pointer has dragged it, or as the extension stops. A hold lasts at most `holdLimitMs` (10 s, from
+  `@parity-app/extension/internal`), so the queue keeps a board held only while its pointer can still drag it: it plays
+  at its fastest while a board waits, skips visits that would leave no time, and lets a board whose hold has all but run
+  out land where the agent put it.
+- **Turned off,** from Settings or after failing, agents work without being drawn, and the rest of the canvas is
+  unchanged.
+
+- **Its logo.** Its manifest's icon is the agent pointer's outline, one path in the text's color. Settings draws the
+  pointer itself instead, in an agent's colors with its glow (`extensionMark` in `renderer/chrome/settings/marks.tsx`).
 
 What it offers other window modules is its queue (`AgentPresenceApi`), for tests and stories.
 

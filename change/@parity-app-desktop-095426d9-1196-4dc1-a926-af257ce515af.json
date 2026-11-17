@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Agent presence can be turned off in Settings (Show agents on canvas), and a moved board stays held only while its agent's pointer can still drag it.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

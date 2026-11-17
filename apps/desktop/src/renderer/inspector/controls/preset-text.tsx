@@ -12,7 +12,6 @@ import {
   TokenName,
   StoresContext,
   styleMark,
-  Unstored,
   useTokenSets,
   ValueField
 } from "./field-parts.tsx"
@@ -30,7 +29,6 @@ import {
   overridesOf,
   type PresetLayer,
   type PresetMatch,
-  presetNamed,
   presetType,
   resetValue,
   setValue,
@@ -41,7 +39,6 @@ import {
   type TypePreset,
   type TypeTokens,
   typeOf,
-  typePresets,
   type TypeValues,
   valueWords,
   viewportsOf
@@ -69,7 +66,8 @@ export function PresetTextSection({
   color,
   onColor,
   initiallyOpen = false,
-  initiallyUnlocked = []
+  initiallyUnlocked = [],
+  after
 }: {
   layer: PresetLayer
   /** The layer its font is inherited from, as Font's placeholder says. */
@@ -82,8 +80,11 @@ export function PresetTextSection({
   initiallyOpen?: boolean
   /** Rows that start unlocked. */
   initiallyUnlocked?: TypeField[]
+  /** Rows after Color, as Wrap. */
+  after?: ReactNode
 }) {
-  const preset = presetNamed(layer.preset)
+  const { preset } = layer
+  const sets = useTokenSets()
   const covered = coveredBy(preset)
   const overridden = new Set(overridesOf(layer))
   const [open, setOpen] = useState(initiallyOpen)
@@ -167,7 +168,12 @@ export function PresetTextSection({
             onPick={(name) => {
               setUnlocked(new Set())
               refocus.current = "preset"
-              onChange(applyPreset(layer, name))
+              onChange(
+                applyPreset(
+                  layer,
+                  sets.typeStyle.find((each) => each.name === name)
+                )
+              )
             }}
             onDetach={() => {
               setUnlocked(new Set())
@@ -181,6 +187,7 @@ export function PresetTextSection({
           <Field label="Color">
             <ColorInput label="Text color" value={color} alpha={undefined} alphaPart="alpha" onChange={onColor} />
           </Field>
+          {after}
         </FieldGrid>
       </div>
     </PanelSection>
@@ -201,7 +208,7 @@ function PresetRow({
   onPick: (name: string | undefined) => void
   onDetach: () => void
 }) {
-  const preset = presetNamed(layer.preset)
+  const { preset } = layer
   const sets = useTokenSets()
 
   // The rows a wider viewport changes, by name, in the order the preset sets them.
@@ -217,9 +224,7 @@ function PresetRow({
         label="Preset"
         viewports={preset?.wider && `${changes.join(" and ")} change from ${preset.wider.viewport} up`}
       >
-        <Unstored part="preset">
-          <PresetPicker preset={preset} overrides={overridesOf(layer).length} onPick={onPick} onDetach={onDetach} />
-        </Unstored>
+        <PresetPicker preset={preset} overrides={overridesOf(layer).length} onPick={onPick} onDetach={onDetach} />
       </Field>
       <ClosestPreset match={closestPreset(layer, sets)} onUse={onPick} />
     </>
@@ -230,7 +235,7 @@ const valueCount = (count: number) => (count === 1 ? "1 value" : `${count} value
 
 /** The presets smallest first, as a scale reads, in every list of them, measured with the project's `tokens`. */
 const bySize = (tokens: TypeTokens) =>
-  typePresets.toSorted((a, b) => measured(presetType(a), tokens).size - measured(presetType(b), tokens).size)
+  tokens.typeStyle.toSorted((a, b) => measured(presetType(a), tokens).size - measured(presetType(b), tokens).size)
 
 /** A preset as the field's token list draws it: Ag in its family and weight, its size and line height after. */
 function presetToken(preset: TypePreset, tokens: TypeTokens): FieldToken {
@@ -299,7 +304,7 @@ export function PresetPicker({
       return { value: undefined }
     }
 
-    const named = typePresets.find((each) => each.name.toLowerCase() === typed.toLowerCase())
+    const named = sets.typeStyle.find((each) => each.name.toLowerCase() === typed.toLowerCase())
 
     return named ? { value: named.name } : { reason: `No preset named ${typed}` }
   }

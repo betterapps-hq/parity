@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "A copy taking over a live room writes files and token values changed back since the host saved, and a joining copy shows the room's token values",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

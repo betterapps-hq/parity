@@ -3,7 +3,7 @@ import { Puzzle } from "lucide-react"
 import type { SettingsExtension } from "../../../shared/settings-view.ts"
 import type { Extension } from "./definitions.ts"
 import { extensionSettings } from "./extension-settings.ts"
-import { markOf } from "./marks.tsx"
+import { extensionMark } from "./marks.tsx"
 
 /*
  * The extensions Settings lists (PAR-1129): every installed one, from its manifest, so a new extension shows there with
@@ -81,7 +81,7 @@ export function extensionsOfProject(list: readonly SettingsExtension[]): Extensi
     const extension: Extension = {
       id: entry.id,
       name: entry.name,
-      icon: entry.icon ? markOf(entry.icon, entry.name) : Puzzle,
+      icon: extensionMark(entry.prefix ?? entry.id, entry.icon, entry.name) ?? Puzzle,
       running: entry.running,
       found: entry.found,
       adds: entry.adds,

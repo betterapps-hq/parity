@@ -311,7 +311,7 @@ describe("nodeStyle", () => {
   it("lists its keys in the order panels show them", () => {
     expect(styleKeys.slice(0, 4)).toEqual(["display", "flexDirection", "gridTemplateColumns", "gridTemplateRows"])
     expect(styleKeys.slice(-2)).toEqual(["transition", "css"])
-    expect(styleKeys).toHaveLength(61)
+    expect(styleKeys).toHaveLength(63)
   })
 })
 

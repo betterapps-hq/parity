@@ -39,23 +39,33 @@ import { boardReader } from "./shown.ts"
  * clipboard's text may come from another Parity window or version. Parity never copies an empty list, so one isn't a
  * copy to paste.
  */
-const clipboardPayload = z.discriminatedUnion("kind", [
+export type ClipboardPayload =
+  | { kind: "layers"; nodes: z.output<typeof nodeTree>[] }
+  | { kind: "designs"; designs: ContainerSpec[] }
+  | { kind: "notes"; notes: NoteSpec[] }
+
+// Typed by hand: the style schema is too large for the declaration emit to spell the inferred type out.
+const clipboardPayload: z.ZodType<ClipboardPayload> = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("layers"), nodes: z.array(nodeTree).min(1) }),
   z.object({ kind: z.literal("designs"), designs: z.array(containerSpec).min(1) }),
   z.object({ kind: z.literal("notes"), notes: z.array(noteSpec).min(1) })
 ])
 
-export type ClipboardPayload = z.infer<typeof clipboardPayload>
+export interface ClipboardEnvelope {
+  parity: "clipboard"
+  version: 1
+  /** The project it was copied from, so a paste there can sit next to the original. */
+  project: string
+  payload: ClipboardPayload
+}
 
-const clipboardEnvelope = z.object({
+const clipboardEnvelope: z.ZodType<ClipboardEnvelope> = z.object({
   parity: z.literal("clipboard"),
   version: z.literal(1),
   /** The project it was copied from, so a paste there can sit next to the original. */
   project: z.string(),
   payload: clipboardPayload
 })
-
-export type ClipboardEnvelope = z.infer<typeof clipboardEnvelope>
 
 /** A copy as it goes on the system clipboard: the text, and the envelope it holds. */
 export interface ClipboardWrite {

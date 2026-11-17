@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Live room: others' carets, a Joining the live room step while opening, agents the same color in every copy, file writes set from the host once a joining copy opens, and people who left while disconnected cleared",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

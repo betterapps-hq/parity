@@ -1,4 +1,13 @@
-import type { BoxOptions, BoxResult, CanvasRef, Disposable, DrawnAt, Measure, PageRect } from "./canvas-surface.ts"
+import type {
+  BoxOptions,
+  BoxResult,
+  CanvasRef,
+  CaretAt,
+  Disposable,
+  DrawnAt,
+  Measure,
+  PageRect
+} from "./canvas-surface.ts"
 import type { Point } from "./drop-slot.ts"
 
 /** A frame a design draws, as the measuring service reads it. Each part is read when it's asked for. */
@@ -11,6 +20,11 @@ export interface MeasuredFrame {
   measure(): DrawnAt
   /** A node it draws, or nothing when it draws none. */
   node(id: string): DrawnAt | undefined
+  /**
+   * Where a caret before character `offset` of the text a node draws stands, on the page. Nothing when it draws no text
+   * that long, as another state or mode can draw other text.
+   */
+  caret?(id: string, offset: number): CaretAt | undefined
   /** Whether a page point is inside it. */
   contains(at: Point): boolean
   /** The nodes it draws under a page point, outermost first. */
@@ -58,6 +72,9 @@ const near = (a: number, b: number) => Math.abs(a - b) < 0.01
 const sameRect = (a: PageRect, b: PageRect) =>
   near(a.x, b.x) && near(a.y, b.y) && near(a.width, b.width) && near(a.height, b.height)
 
+const sameCaret = (a: CaretAt | undefined, b: CaretAt | undefined) =>
+  a === undefined || b === undefined ? a === b : near(a.x, b.x) && near(a.top, b.top) && near(a.bottom, b.bottom)
+
 /** Whether two results say the same thing, within a hundredth of a unit. */
 export function sameBox(a: BoxResult, b: BoxResult): boolean {
   if (a.kind === "drawn" && b.kind === "drawn") {
@@ -65,7 +82,8 @@ export function sameBox(a: BoxResult, b: BoxResult): boolean {
       sameRect(a.box, b.box) &&
       near(a.radius, b.radius) &&
       near(a.size.width, b.size.width) &&
-      near(a.size.height, b.size.height)
+      near(a.size.height, b.size.height) &&
+      sameCaret(a.caret, b.caret)
     )
   }
 
@@ -110,7 +128,13 @@ export function createMeasure(port: MeasurePort): Measure & Disposable {
 
     const node = frame.node(ref.node)
 
-    return node ? drawn(node) : missing
+    if (!node) {
+      return missing
+    }
+
+    const caret = options.caret === undefined ? undefined : frame.caret?.(ref.node, options.caret)
+
+    return drawn(caret ? { ...node, caret } : node)
   }
 
   interface Watch {

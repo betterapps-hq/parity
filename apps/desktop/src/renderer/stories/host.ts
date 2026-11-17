@@ -609,7 +609,8 @@ export function standInExtensions(info: ProjectInfo): ExtensionStatus[] {
       internal: true,
       window: true,
       node: false,
-      capabilities: agentPresenceExtension.manifest.capabilities ?? []
+      capabilities: agentPresenceExtension.manifest.capabilities ?? [],
+      settings: { "agentPresence.show": true }
     }
   ]
 

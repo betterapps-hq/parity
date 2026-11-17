@@ -1,11 +1,13 @@
 import { radiusKeywords } from "@parity-app/core"
 import { formatNumber } from "@parity-app/style-schema"
-import { defaultValues, type PreviewKind, previewKind, type Token } from "@parity-app/tokens"
+import { defaultValues, type PreviewKind, previewKind, type Token, typeStyleParts } from "@parity-app/tokens"
 import { px } from "../lengths.ts"
 import { comesTo } from "../token-values.ts"
 import { isPlainColor } from "./controls/css-values.ts"
 import type { ShadowLayer } from "./controls/lists-data.ts"
 import { easingValuePlot, splitUnit } from "./controls/motion-data.ts"
+import type { TypePreset } from "./controls/preset-data.ts"
+import type { FontSize, FontValue, LineHeight, WeightValue } from "./controls/text-writes.ts"
 import {
   colorToken,
   type ColorToken,
@@ -109,13 +111,16 @@ export function projectTokenSets(
     return easingToken(each.token.name, plot?.kind === "bezier" ? plot.curve : undefined)
   })
 
-  const font: FontToken[] = where((each) => each.token.category === "font").map((each) => ({
-    name: each.token.name,
-    kind: "font",
-    value: each.value,
-    detail: firstFamily(each.value),
-    stack: each.value
-  }))
+  // A typography preset named as a font (`--mui-font-h1`) is a preset, not a family.
+  const font: FontToken[] = where((each) => each.token.category === "font" && each.kind !== "type-style").map(
+    (each) => ({
+      name: each.token.name,
+      kind: "font",
+      value: each.value,
+      detail: firstFamily(each.value),
+      stack: each.value
+    })
+  )
 
   const ownWeights: WeightToken[] = where((each) => each.token.category === "font-weight").flatMap((each) => {
     const number = Number(each.value)
@@ -170,6 +175,101 @@ export function projectTokenSets(
       : []
   })
 
+  // A part a preset names by its token: one the fields list is that token; any other is what it comes to.
+  // A reference with a fallback (`var(--weight, 600)`) comes to the fallback where the project has no such token.
+  const referred = (part: string, listed: readonly { name: string }[]): { token: string } | { written: string } => {
+    const [, name, fallback] = /^var\(--([\w-]+)\s*(?:,\s*(.*))?\)$/.exec(part.trim()) ?? []
+
+    if (name !== undefined && listed.some((token) => token.name === name)) {
+      return { token: name }
+    }
+
+    return { written: name === undefined ? part : (comesTo(byName, name) ?? fallback?.trim() ?? part) }
+  }
+
+  const presetFont = (part: string): FontValue => {
+    const found = referred(part, font)
+
+    return "token" in found ? found : { stack: found.written }
+  }
+
+  const presetSize = (part: string): FontSize | undefined => {
+    const found = referred(part, size)
+
+    if ("token" in found) {
+      return found
+    }
+
+    return measurable(found.written) ? { px: length(found.written) } : undefined
+  }
+
+  const presetWeight = (part: string): WeightValue | undefined => {
+    const found = referred(part, ownWeights)
+
+    if ("token" in found) {
+      return found
+    }
+
+    const number = weightWords.get(found.written) ?? Number(found.written)
+
+    return Number.isFinite(number) ? { value: number } : undefined
+  }
+
+  const presetLineHeight = (part: string): LineHeight | undefined => {
+    const found = referred(part, leading)
+
+    if ("token" in found) {
+      return found
+    }
+
+    if (found.written === "normal") {
+      return { keyword: "normal" }
+    }
+
+    const multiple = Number(found.written)
+
+    if (Number.isFinite(multiple)) {
+      return { multiple }
+    }
+
+    return measurable(found.written) ? { px: length(found.written) } : undefined
+  }
+
+  // A preset's shorthand, through tokens that only name another (`--font-heading: var(--font-base)`), keeping the
+  // references inside it.
+  const shorthandOf = (token: Token, seen = new Set<string>()): string => {
+    const written = token.values.default ?? Object.values(token.values)[0] ?? ""
+    const named = /^var\(--([\w-]+)\)$/.exec(written.trim())?.[1] ?? ""
+    const next = byName.get(named)
+
+    if (!next || seen.has(named)) {
+      return written
+    }
+
+    return shorthandOf(next, seen.add(token.name))
+  }
+
+  // A typography preset: a token that sets a font, size and weight together, as a `font` shorthand writes them.
+  const typeStyle: TypePreset[] = where((each) => each.kind === "type-style").flatMap((each) => {
+    const parts = typeStyleParts(shorthandOf(each.token))
+    const sized = parts && presetSize(parts.size)
+    const weighs = parts?.weight === undefined ? undefined : presetWeight(parts.weight)
+
+    if (!parts || !sized || !weighs) {
+      return []
+    }
+
+    const lineHeight = parts.lineHeight === undefined ? undefined : presetLineHeight(parts.lineHeight)
+
+    return [
+      {
+        name: each.token.name,
+        source: "the project",
+        values: { font: presetFont(parts.family), size: sized, weight: weighs, ...(lineHeight && { lineHeight }) }
+      }
+    ]
+  })
+
   return {
     color,
     radius: [...radius, ...keywords],
@@ -192,9 +292,16 @@ export function projectTokenSets(
     tracking,
     opacity: [],
     cursor: [],
-    font
+    font,
+    typeStyle
   }
 }
+
+/** The weights a `font` shorthand writes as words. */
+const weightWords = new Map([
+  ["normal", 400],
+  ["bold", 700]
+])
 
 /** A stack's first family, unquoted, as a font field names it: `Geist` for `"Geist", sans-serif`. */
 function firstFamily(stack: string): string {

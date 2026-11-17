@@ -5,7 +5,7 @@ import { TokenList } from "./field-parts.tsx"
 import { Playground } from "./playground.tsx"
 import { measured, type PresetLayer, presetWrites, type TypeField, typeOf } from "./preset-data.ts"
 import { presetTokens, PresetTextSection } from "./preset-text.tsx"
-import { standInTokenSets } from "./stand-in-tokens.ts"
+import { presetNamed, standInTokenSets } from "./stand-in-tokens.ts"
 import { TextSample } from "./text-preview.tsx"
 
 /**
@@ -64,17 +64,17 @@ function PresetStory({ start, open, unlocked }: { start: PresetLayer; open?: boo
 }
 
 /** Heading applied, folded: one row, its summary with a lock under it, and nothing it sets shown. */
-export const Folded: Story = { render: () => <PresetStory start={{ preset: "heading", own: {} }} /> }
+export const Folded: Story = { render: () => <PresetStory start={{ preset: presetNamed("heading"), own: {} }} /> }
 
 /** Folded, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...Folded, parameters: { demo: true } }
 
 /** The summary open: the five rows Heading sets, each locked to it with Unlock, their values faint and read-only. */
-export const Opened: Story = { render: () => <PresetStory start={{ preset: "heading", own: {} }} open /> }
+export const Opened: Story = { render: () => <PresetStory start={{ preset: presetNamed("heading"), own: {} }} open /> }
 
 /** Size unlocked: the ordinary field, with a lock to put it back, still following Heading until it's changed. */
 export const Unlocked: Story = {
-  render: () => <PresetStory start={{ preset: "heading", own: {} }} open unlocked={["size"]} />
+  render: () => <PresetStory start={{ preset: presetNamed("heading"), own: {} }} open unlocked={["size"]} />
 }
 
 /**
@@ -82,17 +82,17 @@ export const Unlocked: Story = {
  * Heading's 28px, and the preset's pill has a dot. `type-heading leading-6`.
  */
 export const Overriding: Story = {
-  render: () => <PresetStory start={{ preset: "heading", own: { lineHeight: { px: 24 } } }} />
+  render: () => <PresetStory start={{ preset: presetNamed("heading"), own: { lineHeight: { px: 24 } } }} />
 }
 
 /** Label sets only size and line height, so Font and Weight stay ordinary rows while it's applied. */
 export const RowsItDoesntSet: Story = {
-  render: () => <PresetStory start={{ preset: "label", own: {} }} open />
+  render: () => <PresetStory start={{ preset: presetNamed("label"), own: {} }} open />
 }
 
 /** Display grows from Desktop up: a dot after the preset's name, and after Size and Line height, says what each is. */
 export const ChangesWithViewport: Story = {
-  render: () => <PresetStory start={{ preset: "display", own: {} }} open />
+  render: () => <PresetStory start={{ preset: presetNamed("display"), own: {} }} open />
 }
 
 /** No preset, with Heading's type set by hand: "Not a preset. One matches." and Use heading applies it. */
@@ -136,7 +136,7 @@ export const NoTypeOfItsOwn: Story = { render: () => <PresetStory start={{ own: 
 
 /** Typing searches the presets: each with its Ag and its name in its own type, smallest first, and what it comes to. */
 export const Picking: Story = {
-  render: () => <PresetStory start={{ preset: "heading", own: {} }} />,
+  render: () => <PresetStory start={{ preset: presetNamed("heading"), own: {} }} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.type(canvas.getByRole("combobox", { name: "Preset" }), "bo")
@@ -148,7 +148,7 @@ export const Picking: Story = {
  * Unlocking Size and typing 22 overrides Heading there; its reset arrow puts Heading's back and locks the row again.
  */
 export const OverridingAndResetting: Story = {
-  render: () => <PresetStory start={{ preset: "heading", own: {} }} open />,
+  render: () => <PresetStory start={{ preset: presetNamed("heading"), own: {} }} open />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.click(canvas.getByRole("button", { name: "Lock Size to heading", pressed: true }))

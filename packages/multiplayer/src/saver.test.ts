@@ -205,6 +205,35 @@ describe("ProjectSaver in a live room", () => {
     expect(writes.map((write) => write.path).toSorted()).toEqual(["app.par", "more.par"])
   })
 
+  it("writes every token value edited when it takes over, as it can't tell what the host saved (PAR-1254)", async () => {
+    // The host saved red and changed it back to black, the original, before it left: the stylesheet still holds red.
+    const { saver, others, tokenWrites } = setup({
+      writesFiles: false,
+      saved: { files: new Map(starting().map(({ path, document }) => [path, document])), modes: defaultModeSettings }
+    })
+
+    others([{ op: "setTokens", tokens: new Map([["primary default", primary("black")]]) }])
+
+    await expect(saver.setWritesFiles(true)).resolves.toEqual({ filesWritten: 0, stylesheetWritten: true })
+    expect(tokenWrites).toEqual([[{ name: "primary", theme: "default", value: "black" }]])
+    expect(saver.unsaved()).toEqual([])
+  })
+
+  it("takes a file as the host saved it to disk, so taking over writes what's changed back since (PAR-1254)", async () => {
+    const { doc, saver, others, writes } = setup({
+      writesFiles: false,
+      saved: { files: new Map(starting().map(({ path, document }) => [path, document])), modes: defaultModeSettings }
+    })
+
+    // The host renames Home and saves it; this copy changes it back to Home before the host's autosave.
+    others(renamedBy("Theirs"))
+    saver.read("app.par", doc.file("app.par")!)
+    rename(doc, "Home")
+
+    await expect(saver.setWritesFiles(true)).resolves.toEqual({ filesWritten: 1, stylesheetWritten: false })
+    expect(writes.map((write) => write.document.containers[0]?.name)).toEqual(["Home"])
+  })
+
   it("lets go after the write in flight, and writes nothing after", async () => {
     const { doc, saver, writes, hold, release } = setup()
     hold()

@@ -3,14 +3,15 @@ import {
   type RecoveryCopy,
   type SaveState,
   sameDocument,
-  sameTokenValues,
   sameValue,
   type TokenEdit,
   type TokenEdits,
   type TokenFailure,
   type TokenWrite,
+  noTokenEdits,
   tokenDifferences,
-  tokenWrites
+  tokenWrites,
+  withoutModes
 } from "@parity-app/editor"
 import type { DocChange, ProjectDoc } from "./types.ts"
 
@@ -21,7 +22,9 @@ import type { DocChange, ProjectDoc } from "./types.ts"
  *
  * In a live room only one copy writes files (docs/proposals/extensions-in-the-window.md: Saving in a room). That copy
  * writes others' changes like its own. A copy that doesn't write files has nothing of its own to save and records
- * nothing as saved, so when it takes over writing it writes every file that differs from what it last knew was written.
+ * nothing as saved, so when it takes over writing it writes every file that differs from what it last knew was written:
+ * what it read when it opened, or since, as the files changed on disk (`read`). It can't tell what the stylesheet holds
+ * once another copy may have saved token values to it, so taking over writes every token value edited (PAR-1254).
  */
 
 export interface Persistence {
@@ -52,7 +55,7 @@ export interface ProjectSaver {
   saved(path: string): CanvasDocument | undefined
   /** The modes as last written or read. */
   savedModes(): ModeSettings
-  /** The token values the stylesheet was last given. */
+  /** The token values the stylesheet was last given: none known in a copy that joined a room and hasn't written it. */
   savedTokens(): TokenEdits
   /** Writes that failed and haven't succeeded since, with why. */
   failures(): { path: string; error: string }[]
@@ -66,6 +69,11 @@ export interface ProjectSaver {
    * writes in flight to finish.
    */
   setWritesFiles(writes: boolean): Promise<{ filesWritten: number; stylesheetWritten: boolean }>
+  /**
+   * A file as it is on disk now, as another copy in a live room wrote it, or something outside Parity: what this copy
+   * takes as saved, so taking over writes it only if it differs. The main file's modes come with it.
+   */
+  read(path: string, document: CanvasDocument): void
   /** Says how token values reach the stylesheet. The latest writer is used. */
   writeTokensWith(writer: TokenWriter): void
   tokenFailure(): TokenFailure | undefined
@@ -81,7 +89,11 @@ export const saveDelay = 300
 export interface SavedBaseline {
   files: ReadonlyMap<string, CanvasDocument>
   modes: ModeSettings
-  tokens: TokenEdits
+  /**
+   * The token values the stylesheet holds. None for a copy that joined a room, which can't tell what the copy that saves
+   * has written to it since: taking over then writes every token value edited.
+   */
+  tokens?: TokenEdits
 }
 
 export function createProjectSaver(
@@ -98,7 +110,8 @@ export function createProjectSaver(
   const delay = options.delay ?? saveDelay
   const saved = new Map<string, CanvasDocument>(options.saved?.files ?? doc.files())
   let savedModes = options.saved?.modes ?? doc.modes()
-  let savedTokens = options.saved?.tokens ?? doc.tokens()
+  /** Undefined while this copy can't tell what the stylesheet holds. */
+  let savedTokens: TokenEdits | undefined = options.saved ? options.saved.tokens : doc.tokens()
   let writesFiles = options.writesFiles ?? true
   /** Other copies' changes to each file since it was last written, for `document.saved`. */
   const fromOthers = new Map<string, number>()
@@ -154,12 +167,18 @@ export function createProjectSaver(
       list.push(doc.main)
     }
 
-    if (!sameTokenValues(doc.tokens(), savedTokens)) {
+    if (tokensToWrite(doc.tokens()).length > 0) {
       list.push(stylesheet())
     }
 
     return list
   }
+
+  /** The token values to write to go from what the stylesheet holds to these: all of them when that isn't known. */
+  const tokensToWrite = (tokens: TokenEdits): TokenWrite[] =>
+    savedTokens
+      ? tokenWrites(tokens, savedTokens)
+      : [...tokens.values()].map(({ name, theme, value }) => ({ name, theme, value }))
 
   // A copy that doesn't write files has nothing of its own to save: the room's writing copy saves it.
   const unsaved = (): string[] => (writesFiles ? differing() : [])
@@ -215,7 +234,7 @@ export function createProjectSaver(
           console.error(`Saving ${path} failed`, cause)
 
           if (path === stylesheet()) {
-            const changes = tokenWrites(doc.tokens(), savedTokens)
+            const changes = tokensToWrite(doc.tokens())
             const what = changes.length === 1 ? `--${changes[0]!.name}` : `${changes.length} token values`
             failures.set(path, `Couldn't write ${what} to ${path}: ${reason}`)
             tokenFailure = { error: reason, tokens: changes }
@@ -244,7 +263,7 @@ export function createProjectSaver(
   const send = (path: string): Promise<() => void> | undefined => {
     if (path === stylesheet() && !doc.files().has(path)) {
       const tokens = doc.tokens()
-      const changes = tokenWrites(tokens, savedTokens)
+      const changes = tokensToWrite(tokens)
 
       if (changes.length === 0) {
         return undefined
@@ -336,7 +355,7 @@ export function createProjectSaver(
       }
     }
 
-    if (sameTokenValues(doc.tokens(), savedTokens) && (tokenFailure || failures.has(stylesheet()))) {
+    if (tokensToWrite(doc.tokens()).length === 0 && (tokenFailure || failures.has(stylesheet()))) {
       // Back at what the stylesheet holds, so nothing is left that failed to write.
       tokenFailure = undefined
       failures.delete(stylesheet())
@@ -376,7 +395,7 @@ export function createProjectSaver(
     hasUnsaved: () => unsaved().length > 0,
     saved: (path) => saved.get(path),
     savedModes: () => savedModes,
-    savedTokens: () => savedTokens,
+    savedTokens: () => savedTokens ?? noTokenEdits,
     failures: () => [...failures].map(([path, error]) => ({ path, error })),
 
     flush: async () => {
@@ -435,6 +454,16 @@ export function createProjectSaver(
       }
     },
 
+    read: (path, document) => {
+      saved.set(path, withoutModes(document))
+
+      if (path === doc.main) {
+        savedModes = document.modes ?? defaultModeSettings
+      }
+
+      notify()
+    },
+
     writeTokensWith: (next) => {
       writer = next
     },
@@ -446,7 +475,7 @@ export function createProjectSaver(
         .filter((path) => doc.file(path) !== saved.get(path))
         .map((path) => ({ path, document: doc.file(path) ?? null }))
 
-      const tokens = recoveredTokens(doc.tokens(), savedTokens)
+      const tokens = recoveredTokens(doc.tokens(), savedTokens ?? noTokenEdits)
       const copy: RecoveryCopy = { version: 1, keptAt, documents, tokens }
 
       if (!sameValue(doc.modes(), savedModes)) {

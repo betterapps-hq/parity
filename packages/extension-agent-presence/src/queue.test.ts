@@ -1,25 +1,32 @@
-import type { AgentStep, Point } from "@parity-app/extension/internal"
+import { type AgentStep, holdLimitMs, type Point } from "@parity-app/extension/internal"
 import { describe, expect, it } from "vite-plus/test"
+import { fastestPace, paceFor } from "./motion.ts"
 import { AgentQueue, agentKey, movedBoard } from "./queue.ts"
 
 const board = (key: string) => ({ owner: "design", type: "design", key })
 
-/** A queue whose holds are written down as `hold card 0,0`, `update card 40,40` and `release card`. */
+/** A queue whose holds are written down as `hold card 0,0`, `update card 40,40` and `release card`, on a clock of its own. */
 function queued() {
   const told: string[] = []
+  const clock = { now: 0 }
 
-  const queue = new AgentQueue((design, at) => {
-    told.push(`hold ${design} ${at.x},${at.y}`)
+  const queue = new AgentQueue(
+    (design, at) => {
+      told.push(`hold ${design} ${at.x},${at.y}`)
 
-    return {
-      update: (next: Point) => void told.push(`update ${design} ${next.x},${next.y}`),
-      release: () => void told.push(`release ${design}`),
-      dispose: () => void told.push(`dispose ${design}`)
-    }
-  })
+      return {
+        update: (next: Point) => void told.push(`update ${design} ${next.x},${next.y}`),
+        release: () => void told.push(`release ${design}`),
+        dispose: () => void told.push(`dispose ${design}`)
+      }
+    },
+    () => clock.now
+  )
 
-  return { queue, told }
+  return { queue, told, clock }
 }
+
+const read: AgentStep = { kind: "read", agentId: "claude", ref: board("card") }
 
 const move: AgentStep = {
   kind: "move",
@@ -92,6 +99,56 @@ describe("the agent queue", () => {
 
     expect(queue.waiting("claude")).toBe(17)
     expect(queue.take("claude")?.kind).toBe("start")
+    expect(told).toEqual(["hold card 0,0", "update card 40,40", "release card"])
+  })
+
+  it("drags a moved board while it's held, playing as fast as it goes until the pointer has it", () => {
+    const { queue, clock } = queued()
+    queue.watch()
+
+    queue.push([read, read, read, read])
+    expect(queue.pace("claude")).toBe(paceFor(4))
+
+    queue.push([move])
+    expect(queue.pace("claude")).toBe(fastestPace)
+
+    clock.now = 2000
+    expect(queue.take("claude")?.kind).toBe("read")
+    expect(queue.waiting("claude")).toBe(4)
+
+    while (queue.waiting("claude") > 1) {
+      queue.take("claude")
+    }
+
+    const step = queue.take("claude")!
+    expect(queue.drags(step)).toBe(true)
+    expect(queue.heldFor(step)).toBe(holdLimitMs - 2000)
+    expect(queue.pace("claude", step)).toBe(fastestPace)
+  })
+
+  it("skips the visits ahead of a held move that would leave its pointer no time to drag it", () => {
+    const { queue, clock } = queued()
+    queue.watch()
+
+    queue.push([{ kind: "start", agentId: "claude" }, read, read, read, read, read, read, move])
+    clock.now = 4000
+
+    // 6 s of the hold left: time to reach the board and grab it, and three visits on the way.
+    expect(queue.take("claude")?.kind).toBe("start")
+    expect(queue.waiting("claude")).toBe(4)
+    expect(queue.take("claude")?.kind).toBe("read")
+  })
+
+  it("lets a board land where it was put once its hold has all but run out, and visits it there", () => {
+    const { queue, told, clock } = queued()
+    queue.watch()
+
+    queue.push([move])
+    clock.now = 9000
+    const step = queue.take("claude")!
+
+    expect(queue.drags(step)).toBe(false)
+    expect(queue.heldFor(step)).toBe(Infinity)
     expect(told).toEqual(["hold card 0,0", "update card 40,40", "release card"])
   })
 

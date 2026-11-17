@@ -28,7 +28,7 @@
     "prefix": "agentPresence",
     "icon": {
       "viewBox": "0 0 24 24",
-      "path": "M4 3l15 7-6.5 2L10 18.5z"
+      "path": "M4.2 3.1C3.5 2.8 2.8 3.5 3.1 4.2L9.4 19.6C9.7 20.4 10.8 20.3 11 19.5L12.6 13.4C12.7 13 13 12.7 13.4 12.6L19.5 11C20.3 10.8 20.4 9.7 19.6 9.4Z"
     },
     "internal": true,
     "window": "./window",
@@ -36,13 +36,22 @@
       "always": true
     },
     "activates": [
-      "onStartup"
+      "onSetting:agentPresence.show"
     ],
     "capabilities": [
       "canvas",
       "agents",
       "hold"
     ],
-    "contributes": {}
+    "contributes": {
+      "settings": {
+        "agentPresence.show": {
+          "type": "boolean",
+          "default": true,
+          "scope": "app",
+          "title": "Show agents on canvas"
+        }
+      }
+    }
   }
 }

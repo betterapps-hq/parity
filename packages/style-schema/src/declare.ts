@@ -477,6 +477,10 @@ function type(css: Sheet, style: NodeStyle): void {
   if (style.overflowWrap) {
     css.set("overflow-wrap", style.overflowWrap, "overflowWrap")
   }
+
+  if (style.textWrap) {
+    css.set("text-wrap", style.textWrap, "textWrap")
+  }
 }
 
 /**

@@ -4581,8 +4581,11 @@ section with the group's own title leads it without a title of its own, and its 
   its default shown faintly, and choosing the default, or clearing the field, unsets it again.
 - **Content** (text layers only): the words, which wrap and grow in their field, with a handle to drag it taller. Enter
   or leaving makes the edit, Shift+Enter starts a line, and Escape puts the words back. In a component design, the
-  button beside it uses one of the component's props for the text. Then Tag. Not saved: Tag. A component whose only
-  content is text has no Label field: its text is edited in place on the canvas.
+  button beside it uses one of the component's props for the text. Then Tag, Paragraph unset, then Heading 1 to 6,
+  Label, Inline text and Strong, the text node's own `tag`, the same in every state (`setTag` in
+  `chrome/LayerPanel.tsx`, through `setOwnFields`; the tags in core's `textTags`). Text inside an instance has no Tag,
+  since it's the component's. A component whose only content is text has no Label field: its text is edited in place on
+  the canvas.
 - **Position:** Placement, in its layout or absolute, beside Layer order, always shown and Auto while unset, and an
   absolutely placed layer's inset box. Insets are measured in whole pixels from the layer's containing block, inside its
   border, as nudging measures them. Then Transform, which + adds. A design's root has no Position, so no Transform. Not
@@ -4616,8 +4619,17 @@ section with the group's own title leads it without a title of its own, and its 
   tokens and the families its stylesheets declare with `@font-face`, then the fonts installed on this computer, from
   Local Font Access, each set in its own face; Weight offers the faces the font has, and a variable font's whole axis
   (`inspector/controls/fonts.ts`, tested in `fonts.test.ts`; the project's faces from `declaredFaces` in `guest.ts`).
-  Storybook lists them as the app does, the computer's fonts included. The presets listed are still the stand-in
-  project's, measured with the project's type tokens. Not saved: Preset, and the color's opacity.
+  Storybook lists them as the app does, the computer's fonts included. The presets are the project's typography tokens
+  (PAR-930), each a `font` shorthand that sets a font, size and weight together, as a library's text styles do
+  (`--mui-font-h1`); a token named as a font that is one is a preset, not a family (`projectTokenSets` in
+  `inspector/token-sets.ts`, tested in `token-sets.test.ts`; the shorthand read by `typeStyleParts` in
+  `@parity-app/tokens`, tested in `type-style.test.ts`). Picking one writes `typePreset` and its parts as one change,
+  exactly as the preset gives them, a part it names by a token as that token and any other written out (`presetStyle` in
+  `inspector/style-values.ts`, tested in `style-values.test.ts`); never `font`. A row still holding its part follows the
+  preset, and one that differs overrides it, a value written out showing as written (`typeShown`), so one the preset no
+  longer gives still shows; picking it again takes back every override, and Detach keeps the values and drops the link.
+  Wrap, after Color, sets `textWrap`: Wrap, Balance, Pretty or No wrap; a text layer that hugs its width has none, since
+  it never wraps. Storybook's stories still list the stand-in project's presets. Not saved: the color's opacity.
 - **Appearance:** Opacity beside Blend mode, Radius from the project's radius tokens, and Clip content, a menu of
   Visible, Clip, Scroll and Scroll when needed. Not saved: Blend mode, Corner shape, Each corner and Scroll always.
 - **Stroke:** + adds the project's usual stroke and − removes it; then its color and one width. Not saved: the color's
@@ -5684,8 +5696,9 @@ rather than the whole text), `textBack` and `follow` in `packages/multiplayer/sr
 typing, following this person's characters through the changes Loro reports as `texts`), and `TextEditor.tsx`, which
 feeds it the textarea's input and the document's changes and tells the room where the caret is. In a room: the text
 gesture `TextEditor.tsx` tells `parity.presence`, which the Multiplayer extension's `Selections` layer
-(`packages/extension-multiplayer/src/layers.tsx`) outlines with the typist's name, and `caretLine` in
-`canvas/text-caret.ts`.
+(`packages/extension-multiplayer/src/layers.tsx`) outlines with the typist's name, drawing their caret (`caretMark` in
+`people.ts`) where `parity.canvas.box` with `caret` says it stands: `caretLine` in `canvas/text-caret.ts`, read by
+`canvas/surface/measure-dom.ts` (PAR-1275).
 
 Tests:
 
@@ -5804,11 +5817,11 @@ Resizing out of the panel).
 
 ### Inline text, alignment and long words (PAR-898)
 
-A text layer whose tag is drawn inline, `span` or `strong`, has no box of its own outside a flex or grid layout, as in a
-component's slot or a table cell, so a width, height, minimum or maximum, `textAlign` or `lineClamp: 1` would do nothing
-there. Given any of these, it's drawn `display: block`, so a `span` with a maximum width is cut off at it and a number
-in a table cell lines up at its end. Without them it stays inline, in the line of text around it. More than one line
-already draws its own box, which clamps it. A `p` or a heading is a block anyway.
+A text layer whose tag is drawn inline, `span`, `label` or `strong`, has no box of its own outside a flex or grid
+layout, as in a component's slot or a table cell, so a width, height, minimum or maximum, `textAlign` or `lineClamp: 1`
+would do nothing there. Given any of these, it's drawn `display: block`, so a `span` with a maximum width is cut off at
+it and a number in a table cell lines up at its end. Without them it stays inline, in the line of text around it. More
+than one line already draws its own box, which clamps it. A `p` or a heading is a block anyway.
 
 `overflowWrap` says where a word too long for its line breaks, such as a web address in a narrow column: `anywhere`,
 which also lets a table cell or a hugging layout narrow to fit, or `break-word`, which breaks it only once it can't fit
@@ -6383,7 +6396,11 @@ the signed-in person's first name.
 - **The first copy in hosts.** Window modules start before the project's document opens (PAR-1267), so the extension
   says how it opens through `parity.sync`. The host opens the files in a new Loro document. A later copy opens on a
   snapshot, asked of the copies already there, so it starts from the same document, unsaved edits included. When the
-  host leaves, the copy that joined next takes over.
+  host leaves, the copy that joined next takes over. A copy that becomes host before its document is open, as when the
+  host leaves just after sending the snapshot, turns file writes on once it's open (PAR-1281).
+- **Joining shows.** While the project waits for the room, its opening screen adds the step "Joining the live room",
+  with "If no one answers, it opens without the room." under the steps (PAR-1276). It waits for the relay and, for a
+  copy that isn't hosting, the host's snapshot, up to 25 s, then opens alone.
 - **Edits merge.** Each copy sends the changes it commits, repairs included, and takes in the others', which show as
   `remote` changes: in neither person's undo. A copy that finds a gap asks the host for what it's missing. One whose
   connection comes back asks both ways: the host sends what it missed and asks in turn for what the copy sent while it
@@ -6391,20 +6408,30 @@ the signed-in person's first name.
   it's typed (PAR-1230).
 - **Only the host writes files** (PAR-1231). It writes the others' edits like its own, autosaving them on its usual
   delay, and writes the stylesheet. A copy that doesn't write files has nothing to save: its name shows no unsaved dot,
-  closing it asks nothing, and Save says "Saved by the room". When it takes over, it writes every file that differs from
-  what it read from disk. Only the host takes in a file changed on disk; the others ignore their own disk, recording it
-  once per file (`sync.diskIgnored`).
+  closing it asks nothing, and Save says "Saved by the room". Only the host takes in a file changed on disk; the others
+  ignore their own disk, recording it once per file (`sync.diskIgnored`), but take the file as what's saved (PAR-1254).
+  When one takes over, it writes every file that differs from what it last read from disk, when it opened or as the host
+  saved it since, and every token value edited: it can't tell which the host saved to the stylesheet, so it writes them
+  all.
+- **A copy that joins shows the room's token values,** compared with the stylesheet it loaded, not the edits' originals,
+  so a value the host saved and changed back shows as the room has it (PAR-1254).
 - **Everyone sees the same state and mode** (PAR-1231): which state and mode a design shows is an edit like any other.
 - **People.** Each person is drawn in the palette the host assigned them, so they're the same color in every copy, and
   colors never run out (`parity.colors.assign`). Their pointer glides between the positions sent, with a badge of their
   first name, and stays where it was, faded, when they leave the canvas. What they've selected, and the text they're
-  typing in, is outlined in their color with their name. Their marquee shows as they drag it. A drag shows through
-  `parity.canvas.preview`, with the lift, carry and settle of a local drag (PAR-1199), and settles on its write.
+  typing in, is outlined in their color with their name, with their caret where they're typing (PAR-1275). Their marquee
+  shows as they drag it. A drag shows through `parity.canvas.preview`, with the lift, carry and settle of a local drag
+  (PAR-1199), and settles on its write.
+- **Coming back.** A copy whose connection to the relay comes back drops everyone who left meanwhile as if it had heard
+  them leave: their pointer, a drag they were showing, following them, and their color (PAR-1282).
 - **Who's here.** The avatar stack sits at the canvas's top right. A face opens the person's card, with **Follow** and
   **Go to**. Following keeps the camera on what they see, with a frame and banner, until Esc, a pan or zoom, Stop, or
   they leave; a note then says why it ended.
 - **Agents.** This copy's agents' steps go to the room, and steps from the room go to `parity.agents.receive`, so agent
-  presence, where it's on, draws every copy's agents.
+  presence, where it's on, draws every copy's agents. The host numbers agents' colors as it does people's, by copy and
+  agent, so an agent is the same color in every copy (PAR-1277). Each copy assigns the numbers under the keys agent
+  presence claims colors with (`parity.colors.agents.assign`): the agent's id for its own agents, `copy:agentId` for
+  another copy's.
 - **In order, coalesced.** Changes, gestures, agents' steps and the host's colors go in order, one batch on its way at a
   time; presence goes with them, only the latest kept meanwhile. A move's write arrives before its end, so the preview
   settles on it, in the same batch or an earlier one.
@@ -6412,20 +6439,28 @@ the signed-in person's first name.
   `room.latency`, recorded through `parity.telemetry`, beside core's `sync.*`.
 
 Code: `packages/extension-multiplayer` (`window.tsx` wires the room, `room.ts` talks to the relay, `relay.ts` is the
-relay, `people.ts` and `follow.ts` keep who's here and following, `layers.tsx` draws them); `startTabModules` in
-`apps/desktop/src/renderer/window-modules.ts` and `joinRoom` in `renderer/workspace.ts` (opening through `parity.sync`,
-on Loro); `openDocSession` in `renderer/project-doc.ts` (the room's provider, and the saver writing files only while
-hosting); `setWritesFiles` and `written` in `packages/multiplayer`'s saver; and `openLoro`'s `snapshot`,
-`subscribeLocalUpdates`, `pending` and tokens map in `packages/multiplayer-loro`.
+relay, `people.ts` and `follow.ts` keep who's here and following, `agents.ts` the agents the host numbers, `hosting.ts`
+file writes following the host, `layers.tsx` draws them); `startTabModules` in
+`apps/desktop/src/renderer/window-modules.ts` and `joinRoom` and `setJoining` in `renderer/workspace.ts` (opening
+through `parity.sync`, on Loro, and saying so in `ProjectStatus.tsx`); `openDocSession` in `renderer/project-doc.ts`
+(the room's provider, and the saver writing files only while hosting); `setWritesFiles` and `written` in
+`packages/multiplayer`'s saver; and `openLoro`'s `snapshot`, `subscribeLocalUpdates`, `pending` and tokens map in
+`packages/multiplayer-loro`.
 
 Tests:
 
 - `packages/extension-multiplayer/src/room.test.ts`: who hosts and who's here, from the relay; one batch at a time, in
   order, with only the latest presence; the first snapshot opened on; another copy's events, presence and missing
-  changes told, and a dropped connection and a reconnect noticed; asking the host for what's missing, and asking another
-  copy in turn when asked to.
+  changes told, and a dropped connection and a reconnect noticed; who left while the connection was down told before
+  who's here; asking the host for what's missing, and asking another copy in turn when asked to.
 - `packages/extension-multiplayer/src/people.test.ts`: colors kept and given out lowest first; each person's latest
-  presence, gesture and color; dragged nodes placed from the pointer; selections grouped by node.
+  presence, gesture and color; dragged nodes placed from the pointer; selections grouped by node; a caret's mark.
+- `packages/extension-multiplayer/src/agents.test.ts`: agents known by copy and id, forgotten with their copy, and kept
+  from another host's numbers; the host's numbers assigned under each copy's own keys.
+- `packages/extension-multiplayer/src/hosting.test.ts`: file writes turned on once the document opens for a copy that
+  became host before; left alone when the host is who it opened as; following the host once open; a failure said.
+- `apps/desktop/src/renderer/workspace.test.ts`, "opening in a live room (PAR-1276)": the joining step and its note
+  while the room holds the opening, and no room mentioned without one.
 - `packages/extension-multiplayer/src/relay.test.ts`: the relay's rooms, hosts and messages.
 - `apps/desktop/src/renderer/tab-slot.test.ts`: what window modules subscribe to before the document opens starts once
   it does, and stops with the tab.
@@ -6435,8 +6470,13 @@ Tests:
 - `packages/multiplayer-loro/src/backend.test.ts`: opening on a snapshot as the replica holds it; two documents kept in
   step through each one's local updates, delivered late as a relay does, with a merge repaired the same on both.
 - `packages/multiplayer/src/saver.test.ts`, "ProjectSaver in a live room": others' changes written and counted in
-  `fromOthers`; nothing written or unsaved in a copy that doesn't write files; taking over and letting go.
-- `packages/multiplayer/src/testing/describe-project-doc.ts`, "concurrent", run on Loro.
+  `fromOthers`; nothing written or unsaved in a copy that doesn't write files; taking over and letting go; every token
+  value edited written on taking over, one changed back to its original included; a file the host saved taken as what
+  the file holds, so one changed back since is written (PAR-1254).
+- `packages/multiplayer/src/testing/describe-project-doc.ts`, "concurrent", run on Loro: a copy taking over after the
+  host saved and left writes the file and token value it changed back since (PAR-1254).
+- `apps/desktop/src/renderer/tokens-store.test.ts`, "joining a live room" (2), in Chrome: a guest that loaded a value
+  the host saved shows the room's, though it's the edit's original; and shows a saved edit again on redo after undo.
 
 ### The canvas surface: colors, the camera and boxes (PAR-1236)
 
@@ -6460,9 +6500,10 @@ land (PAR-1233). The project's canvas starts its own as it mounts (`surfaceOf(ed
 - **Boxes** say where a design's board, the frame a state and mode draws in, or a node in that frame is on the page,
   with its corner radius and its laid-out size in design pixels. With no frame in that state and mode, one in the mode
   is used, then the primary frame. A frame asleep, or a board culled out of view, gives the box to point at instead
-  (`asleep`), and one not on the canvas says so (`missing`). `onBoxChange` checks once a frame while anyone listens.
-  `hit` gives the design under a page point and the deepest node there, and `pageToScreen` and `screenToPage` convert
-  between the page and the canvas area's pixels.
+  (`asleep`), and one not on the canvas says so (`missing`). Asked with `caret`, a node's box also says where a caret
+  before that character of its text stands, when the text drawn reaches it (PAR-1275). `onBoxChange` checks once a frame
+  while anyone listens, and a caret moving counts as a change. `hit` gives the design under a page point and the deepest
+  node there, and `pageToScreen` and `screenToPage` convert between the page and the canvas area's pixels.
 
 Code: `createColors` in `packages/presence-colors/src/colors.ts`; the camera, following and measuring policy in
 `packages/editor/src/`: `canvas-surface.ts` (the shapes), `canvas-camera.ts` and `canvas-measure.ts`, each over a port;
@@ -6479,8 +6520,9 @@ Tests:
 - `packages/editor/src/canvas-camera.test.ts` (8): fitting a view within the zoom limits; gliding; telling a zoom from a
   pan; `show` gliding with listeners told once a frame; following through its own moves and ending on the person's pan
   or zoom; each other ending; fitting again on resize.
-- `packages/editor/src/canvas-measure.test.ts` (6): the frame fallback; boards, frames and nodes; a sleeping frame and a
-  culled board; changes told once a frame until disposed; hits on the deepest node.
+- `packages/editor/src/canvas-measure.test.ts` (7): the frame fallback; boards, frames and nodes; a sleeping frame and a
+  culled board; changes told once a frame until disposed; a caret in a node's text only when asked and when the text
+  reaches it, its moving told; hits on the deepest node.
 
 ### Presence components (PAR-1256)
 
@@ -6521,7 +6563,7 @@ Tests:
   sentence; initials by face size; ids telling namesakes apart; the line under a name; a palette's gradient; the stack's
   order, with whoever you follow first and an agent whose runner isn't here; how many faces show.
 
-### Agents at work on the canvas (PAR-1269)
+### Agents at work on the canvas (PAR-1269, PAR-1273, PAR-1274)
 
 Each agent working in a project has a pointer in its own colors that goes to what the agent reads or changes, at a pace
 a person can follow. It's Parity's first internal extension, `@parity-app/extension-agent-presence`, with only a window
@@ -6534,13 +6576,18 @@ through `parity.agents`. The extension does the rest.
   gives its color back. Its badge has the icon for the step and the call's label, and a strip in the bottom left names
   the agent and says what its call is doing, or that it's done.
 - **Moved boards.** When an agent moves a board, the board is held where it was as the step is told, before the write
-  lands, and the pointer grabs it and drags it to where the agent put it.
+  lands, and the pointer grabs it and drags it to where the agent put it. Core lets go of a hold after 10 seconds, so
+  while a board waits the pointer plays as fast as it goes, and skips the oldest of the steps ahead that wouldn't leave
+  it time to drag the board. A drag ends before the hold does. If the hold has all but run out when the move's turn
+  comes, the board lands where the agent put it and the pointer looks at it there instead.
 - **Keeping up.** Steps queue per agent. When several are waiting the pointer speeds up, to about a third of the time at
   most, and a long call keeps its first step and the latest 16.
 - **A measurement** labels its target with its laid-out size while the pointer looks at it.
 - **Other copies' agents** play the same way: steps passed in with a `from` are queued under `${from}:${agentId}`, the
   key their color is claimed under, so with multiplayer on everyone in a room sees every agent.
-- **Turned off,** agents work as before and nothing draws them. Nothing else on the canvas changes.
+- **Show agents on canvas,** in Settings → Extensions → Agent presence, an app setting that starts on
+  (`agentPresence.show`). Turned off, agents work as before and nothing draws them: their pointers go, and boards held
+  for them are let go. Nothing else on the canvas changes.
 - **With reduced motion** the pointer jumps instead of travelling and doesn't breathe, and scans don't sweep.
 
 It draws in one `overSelection` page layer. Inside it, a pane covers what's in view at the screen's scale, moved with
@@ -6557,16 +6604,20 @@ development room's steps told apart) and `windowAgentsPort` in `renderer/window-
 
 Tests:
 
-- `packages/extension-agent-presence/src/queue.test.ts` (8): each agent's steps in order with a pointer until it
+- `packages/extension-agent-presence/src/queue.test.ts` (11): each agent's steps in order with a pointer until it
   retires; another copy's agents kept apart under their key; a moved board held while it's played and let go where it
-  landed; moves left alone while nothing plays the queue; a long call trimmed, letting go of the boards it skips; every
+  landed; moves left alone while nothing plays the queue; a long call trimmed, letting go of the boards it skips; a held
+  board dragged, at the fastest pace until the pointer has it and while it drags it; the visits ahead of a held move
+  skipped when they'd leave no time to drag it; a board let go where it was put once its hold has all but run out; every
   hold let go as it stops; listeners told as agents come and go; the board a move drags.
 - `packages/extension-agent-presence/src/targets.test.ts` (8): a page box on the screen; a layer in its state and mode's
   frame with its radius and size; falling back to the frame, then the board; a move by its board; an asleep frame; out
   of view, missing or naming no design skipped; a layer's design found when its key has a slash; staying put when the
   target goes.
-- `packages/extension-agent-presence/src/window.test.ts` (2): one layer over the selection, playing this copy's and
-  other copies' agents alike; a board held as its step is told, and let go with the layer gone as it stops.
+- `packages/extension-agent-presence/src/window.test.ts` (3): running while its app setting, on to start with, is on;
+  one layer over the selection, playing this copy's and other copies' agents alike; a board held as its step is told,
+  and let go with the layer gone as it stops. Deactivating a window module as its setting goes off is
+  `packages/extension-host/src/window-modules.test.ts`'s.
 - `packages/extension-agent-presence/src/motion.test.ts`: easing, travel time, pace, arcs, curves, breathing and
   glances.
 - `packages/extension-host/src/window-seams.test.ts`, "parity.agents": the development room's steps told with their
@@ -6576,8 +6627,8 @@ The stories under `Parity/Multiplayer/Agents/Behavior` play the extension's own 
 through a stand-in layer (`renderer/agent/story-layer.ts`), and `Parity/Multiplayer/Agents/On the canvas` runs the real
 extension in the app's window.
 
-Gaps: a board is held when its step is told and let go after 10 s whatever happens, so in a long queue the board can
-land before its pointer gets to it. The choreography's timing isn't unit tested; the stories are its check.
+Gaps: how long a visit and a grab take at the fastest pace is estimated (1.6 s and 1.2 s), not measured, so a slow frame
+can still let a board land a moment early. The choreography's timing isn't unit tested; the stories are its check.
 
 ## Tokens
 
@@ -10309,7 +10360,9 @@ taken for the size or the keyword.
   `{ value: "#2563eb" }`), a keyword (`{ keyword: "currentColor" }`) or an expression.
 - **A value that names a token of its kind** (`borderRadius`, `fontFamily`, `fontSize`, `letterSpacing`) is a token, a
   value, a keyword or an expression: `{ token: "radius-lg" }`. `lineHeight` takes steps as well, and `zIndex` is
-  `{ step: 10 }` or a token.
+  `{ step: 10 }` or a token. `typePreset` is only a token, the typography preset the type follows: it writes nothing
+  itself, since its parts are the type keys beside it.
+- **A keyword set** is its word: `textWrap: "balance"` (`wrap`, `nowrap`, `balance` or `pretty`), as `textAlign` is.
 - **Opacity, a border's width and a font weight** each take a number in their own form, or a token of their kind:
   `opacity: { step: 50 }` (a percentage; `{ value: 0.5 }` is the same from 0 to 1), `borderWidth: { step: 2 }` (whole
   pixels) and `fontWeight: { value: 600 }`.

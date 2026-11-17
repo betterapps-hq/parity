@@ -55,6 +55,7 @@ export type {
   Camera,
   CameraView,
   CanvasRef,
+  CaretAt,
   Disposable,
   DrawnAt,
   FollowEnd,

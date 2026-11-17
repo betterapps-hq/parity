@@ -1,4 +1,5 @@
 import type { ShadowLayer } from "./lists-data.ts"
+import type { TypePreset } from "./preset-data.ts"
 /*
  * The exploration's stand-in tokens, every kind in one place, for the stories: shadcn's neutral theme's colors, as hex,
  * and Tailwind v4's radius, blur, shadow, text, leading, tracking and weight scales, with a few of the project's own
@@ -323,6 +324,54 @@ export const lengthVars = Object.fromEntries([
   ...radiusTokens.flatMap((token) => (token.name === "radius-lg" ? [[token.name, token.px] as const] : []))
 ])
 
+/**
+ * The stand-in project's presets, written as Tailwind project utilities (`type-heading`) or, for one that sets only a
+ * size and its line height, a `--text-*` size (`text-label`). Display grows from Desktop up; Label sets no font or
+ * weight, so those rows stay ordinary while it's applied.
+ */
+const typePresets: TypePreset[] = [
+  {
+    name: "display",
+    source: "the project",
+    values: {
+      font: { token: "brand" },
+      size: { token: "display" },
+      weight: { token: "bold" },
+      lineHeight: { px: 40 },
+      letterSpacing: { token: "tight" }
+    },
+    wider: { viewport: "Desktop", values: { size: { px: 48 }, lineHeight: { px: 48 } } }
+  },
+  {
+    name: "heading",
+    source: "the project",
+    values: {
+      font: { token: "sans" },
+      size: { token: "xl" },
+      weight: { token: "semibold" },
+      lineHeight: { px: 28 },
+      letterSpacing: { token: "tight" }
+    }
+  },
+  {
+    name: "body",
+    source: "the project",
+    values: { font: { token: "sans" }, size: { token: "base" }, weight: { token: "normal" }, lineHeight: { px: 24 } }
+  },
+  { name: "label", source: "the project", values: { size: { token: "sm" }, lineHeight: { px: 20 } } },
+  {
+    name: "caption",
+    source: "the project",
+    values: {
+      font: { token: "sans" },
+      size: { token: "xs" },
+      weight: { token: "medium" },
+      lineHeight: { px: 16 },
+      letterSpacing: { token: "wide" }
+    }
+  }
+]
+
 /** Every stand-in set, by name, as a story's `ProjectData` starts. */
 export const standInTokenSets: TokenSets = {
   color: colorTokens,
@@ -346,5 +395,9 @@ export const standInTokenSets: TokenSets = {
   tracking: trackingTokens,
   opacity: opacityTokens,
   cursor: cursorTokens,
-  font: fontTokens
+  font: fontTokens,
+  typeStyle: typePresets
 }
+
+/** One of the stand-in presets by name, as the stories start a layer on one. */
+export const presetNamed = (name: string) => typePresets.find((preset) => preset.name === name)
