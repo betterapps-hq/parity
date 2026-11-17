@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Move the lens shell into the app behind a Dockview adapter and a lens registry; the Lenses exploration renders it with test lenses",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}
