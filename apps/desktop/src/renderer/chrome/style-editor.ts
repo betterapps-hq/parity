@@ -90,7 +90,10 @@ export interface LayerPlace {
   inFlow: { x: number; y: number }
 }
 
-/** A layer's drawn size and type as text, to tell when either changes, or empty while it isn't drawn. */
+/**
+ * A layer's drawn size and type, and the cells of the grid it's in, as text, to tell when any changes, or empty while
+ * it isn't drawn. A grid child moved to other cells at the same size changes only its grid's.
+ */
 function drawnKey(
   editor: ProjectSession["editor"],
   design: string,
@@ -99,11 +102,18 @@ function drawnKey(
 ): string {
   const size = measureNode(editor, design, layer, picked)
 
-  return size ? `${size.width}x${size.height} ${typeStyleKey(nodeTypeStyle(editor, design, layer, picked))}` : ""
+  if (!size) {
+    return ""
+  }
+
+  const grid = nodeGrid(editor, design, layer, picked, () => undefined)
+  const cells = grid ? JSON.stringify([grid.weights, grid.children.map((child) => [child.id, child.area])]) : ""
+
+  return `${size.width}x${size.height} ${typeStyleKey(nodeTypeStyle(editor, design, layer, picked))} ${cells}`
 }
 
 /**
- * Draws the panel again when the one selected layer's drawn size or type changes: its frame drawing it for the first time, an
+ * Draws the panel again when the one selected layer's drawn size, type or grid cells change: its frame drawing it for the first time, an
  * edit laying it out again, or the frame resizing. The panel reads the size as it draws (`measure`, `place`, `type`), and
  * nothing else tells it a frame has drawn, so a layer picked before its frame drew showed no size in Size or Spacing.
  * It watches the design's frames as the canvas's overlay does, and measures once an animation frame at most.
