@@ -276,20 +276,19 @@ export function TextEditor() {
       aria-label="Edit text"
       rows={1}
       spellCheck={false}
-      className="text-editor pointer-events-auto absolute m-0 resize-none overflow-hidden border-0 bg-transparent p-0 outline-none field-sizing-content"
+      className="text-editor pointer-events-auto absolute m-0 resize-none overflow-clip border-0 bg-transparent p-0 outline-none field-sizing-content"
       style={
         layout
           ? {
               ...layout.style,
               left: layout.box.x + layout.box.w * anchors[layout.anchor].along,
               translate: anchors[layout.anchor].translate,
-              // Room above and below the lines for letters taller than them, as a heading set solid has, which the
-              // textarea would otherwise cut off and scroll to the caret; the text stays where the frame draws it.
-              top: `calc(${layout.box.y}px - ${glyphRoom})`,
-              paddingBlock: glyphRoom,
+              top: layout.box.y,
+              // Letters taller than their line, as a heading set solid has, drawn past the box rather than cut off.
+              overflowClipMargin: glyphRoom,
               // Growing, it's as wide as its longest line up to its maximum, however near the canvas's edge it starts.
               ...(layout.grows ? { minWidth: layout.box.w, width: "max-content" } : { width: layout.box.w }),
-              minHeight: `calc(${layout.box.h}px + 2 * ${glyphRoom})`
+              minHeight: layout.box.h
             }
           : { display: "none" }
       }
@@ -458,9 +457,17 @@ function hugging(
   const right = parent.getBoundingClientRect().right - side(outer, "border-right-width") - side(outer, "padding-right")
   // What around the text isn't text: its own padding, border and margins.
   const around = own.width - width + side(inner, "margin-left") + side(inner, "margin-right")
-  const room = right - left - around
+  const maxWidth = inner.maxWidth.endsWith("px") ? parseFloat(inner.maxWidth) * scale : Infinity
+  const borderBox = inner.boxSizing === "border-box"
+  const sides = own.width - width
+  const room = Math.min(right - left - around, borderBox ? maxWidth - sides : maxWidth)
+  // Only a single line its box fits tightly: wrapped text, or text in a box set wider, keeps its width.
+  const text = textBounds(element)
+  const lineHeight = inner.lineHeight === "normal" ? parseFloat(inner.fontSize) * 1.2 : parseFloat(inner.lineHeight)
+  const oneLine = text !== undefined && text.height < lineHeight * scale * 1.5
+  const tight = text !== undefined && Math.abs(text.width - width) < 1
 
-  if (room - width < 1) {
+  if (!oneLine || !tight || room - width < 1) {
     return undefined
   }
 

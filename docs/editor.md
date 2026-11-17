@@ -5480,13 +5480,14 @@ as it's typed, and layers after it move with it (docs/proposals/extensions-in-th
   when they close the editor or leave. The person's own caret stays in the text's color, as a text field's does.
 - **One outline while editing.** The editor has no outline of its own: the text's selection outline is the one shown. It
   used to draw a thick 2px outline over it.
-- **Letters aren't cut off.** The editor leaves room above and below its lines (0.3em) for letters that reach past them,
-  as a heading set solid has, so their tops and descenders show and the text doesn't shift up when the caret moves; the
-  text stays where the frame draws it.
-- **Hugging text grows as it's typed.** Text whose box hugs its line in a wider layout, as a heading centred in a column
-  does, is edited growing along the line up to the room its layout has, from the side it sits on (its middle when it's
-  centred), as the frame draws it once it's written. It used to wrap at the width it opened with until the next write
-  measured it again, so what was typed past it jumped onto a second line and back.
+- **Letters aren't cut off.** The editor's box is the text's, but it draws letters up to 0.3em past it
+  (`overflow-clip-margin`), as a heading set solid has them, so their tops and descenders show and the text doesn't
+  shift up when the caret moves.
+- **Hugging text grows as it's typed.** Text on one line whose box hugs it in a wider layout, as a heading centred in a
+  column does, is edited growing along the line up to the room its layout has and its own maximum width, from the side
+  it sits on (its middle when it's centred), as the frame draws it once it's written. Text that wraps, or sits in a box
+  wider than it, keeps its width. It used to wrap at the width it opened with until the next write measured it again, so
+  what was typed past it jumped onto a second line and back.
 - **A frame named after its text** follows each write, as it did the closing one.
 - Without a room nothing else changes: the text is written sooner, in the same steps' worth of undo.
 
@@ -5580,8 +5581,9 @@ Tests:
   "viewers", on the second line, selects that word; Enter selects the whole text; the editor sits over the text's 560px
   box, on its two lines, and grows down as it's typed in; it follows the text as the wheel pans and Ctrl and the wheel
   zoom, with its font scaled to match and the selection kept; Escape keeps the edit as one Edit text step with the layer
-  still selected; Enter and Escape during a composition leave it open and change nothing, and Enter after
-  `compositionend` keeps it. The test of switching from Resizing went with the control (PAR-923).
+  still selected; what's typed before a composition is written as it's typed, Enter and Escape during it leave the
+  editor open and write nothing more, and Enter after `compositionend` keeps it. The test of switching from Resizing
+  went with the control (PAR-923).
 
 Gaps: the composition test sends `compositionstart` and `compositionend` itself, so a real input method's keys haven't
 been tried. With several layers selected, a switch measures each text layer in its own box, changes only the text layers
