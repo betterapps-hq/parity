@@ -1,7 +1,7 @@
-import type { Palette } from "@parity-app/presence-colors"
+import type { PaletteLook } from "./member.ts"
 
 interface CanvasFrameProps {
-  palette: Palette
+  palette: PaletteLook
 }
 
 /**

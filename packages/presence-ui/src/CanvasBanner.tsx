@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { floatingBar } from "../chrome/toolbar-parts.tsx"
+import { floatingBar } from "./bar.tsx"
 
 interface CanvasBannerProps {
   /** A 22px face, or an icon. */

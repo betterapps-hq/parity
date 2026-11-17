@@ -1,5 +1,5 @@
 import { Button, Kbd } from "@buildkitgg/shadcn"
-import { shortcutOf } from "../chrome/keymap.ts"
+import { stopKey } from "./bar.tsx"
 import { CanvasBanner } from "./CanvasBanner.tsx"
 import { CanvasFrame } from "./CanvasFrame.tsx"
 import { Face } from "./Face.tsx"
@@ -24,9 +24,10 @@ export function FollowFrame({ leader, onStop }: FollowFrameProps) {
           variant="secondary"
           onClick={onStop}
           aria-label={`Stop following ${shortName(leader)}`}
+          aria-keyshortcuts="Escape"
           className="gap-1.5"
         >
-          Stop <Kbd>{shortcutOf("close")}</Kbd>
+          Stop <Kbd aria-hidden>{stopKey}</Kbd>
         </Button>
       </CanvasBanner>
     </>

@@ -24,6 +24,7 @@ import {
   DropdownMenuShortcut,
   Kbd
 } from "@buildkitgg/shadcn"
+import { AgentBadge, AgentPointer } from "@parity-app/presence-ui"
 /**
  * The start page's parts: what Home, a new tab and the first run are built from. The design is one page in three
  * contexts, so a person learns it once. It stays quiet: a render of each project and a few words about it, with the
@@ -56,7 +57,6 @@ import {
 } from "lucide-react"
 import { createContext, type CSSProperties, type ReactNode, useContext, useEffect, useRef, useState } from "react"
 import { agentPalettes } from "../../agent/agent-colors.ts"
-import { AgentBadge, AgentPointer } from "../../agent/AgentPointer.tsx"
 import { formatKeys } from "../../chrome/keys.ts"
 import { me, people, type Person } from "../explore-data.ts"
 import { Avatar, AzureDevOpsMark, ExploreWindow, GitHubMark, type MockTab, withVariables } from "../parts.tsx"

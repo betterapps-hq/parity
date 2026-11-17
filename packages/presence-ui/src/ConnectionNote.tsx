@@ -2,12 +2,7 @@ import { Button } from "@buildkitgg/shadcn"
 import { RefreshCw, WifiOff } from "lucide-react"
 import { CanvasBanner } from "./CanvasBanner.tsx"
 import { Face } from "./Face.tsx"
-import { type Member, shortName } from "./member.ts"
-
-/** Names in a sentence: "Mia", "Mia and Claude Code", "Mia, Jonas and Claude Code". */
-function listed(names: string[]): string | undefined {
-  return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0]
-}
+import { keyOf, listed, type Member, shortName } from "./member.ts"
 
 interface ConnectionNoteProps {
   state: "offline" | "reconnecting"
@@ -49,7 +44,7 @@ export function ConnectionNote({ state, catchingUp = [], changes = 0, onRetry }:
           <span className="sr-only"> from {listed(catchingUp.map(shortName))}</span>
           <span className="flex" aria-hidden>
             {catchingUp.map((member, index) => (
-              <span key={member.name} className={index > 0 ? "-ml-1" : ""}>
+              <span key={keyOf(member)} className={index > 0 ? "-ml-1" : ""}>
                 <Face member={member} size={16} />
               </span>
             ))}

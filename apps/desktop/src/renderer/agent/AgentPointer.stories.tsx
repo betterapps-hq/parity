@@ -1,7 +1,7 @@
+import { AgentBadge, AgentPointer } from "@parity-app/presence-ui"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { PresenceEvent } from "../../shared/protocol.ts"
 import { agentPalettes } from "./agent-colors.ts"
-import { AgentBadge, AgentPointer } from "./AgentPointer.tsx"
 
 type State = "rest" | "pressed" | "idle"
 

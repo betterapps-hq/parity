@@ -14,6 +14,7 @@ export function Marquee({ member, rect }: MarqueeProps) {
 
   return (
     <span
+      aria-hidden
       className="pointer-events-none absolute rounded-[1px]"
       style={{
         left: rect.x,

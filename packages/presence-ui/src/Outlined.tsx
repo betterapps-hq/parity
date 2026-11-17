@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react"
-import { hairline, type Member } from "./member.ts"
+import { hairline, keyOf, type Member } from "./member.ts"
 import { NameTag } from "./NameTag.tsx"
 
 interface OutlinedProps {
@@ -34,14 +34,15 @@ export function Outlined({ by, children, className = "", dashed, radius = 6, tag
           boxShadow: hairline(member.palette.ink)
         }
 
-        return <span key={member.name} className="pointer-events-none absolute" style={style} />
+        return <span key={keyOf(member)} aria-hidden className="pointer-events-none absolute" style={style} />
       })}
       <span
+        aria-hidden
         className="pointer-events-none absolute flex gap-px"
         style={{ top: spread - 18, ...(tagAt === "start" ? { left: spread } : { right: spread }) }}
       >
         {by.map((member) => (
-          <NameTag key={member.name} member={member} />
+          <NameTag key={keyOf(member)} member={member} />
         ))}
       </span>
     </div>

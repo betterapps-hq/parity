@@ -1,7 +1,6 @@
+import { Outlined, RemotePointer } from "@parity-app/presence-ui"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type ReactNode, type RefObject, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { Outlined } from "../multiplayer/Outlined.tsx"
-import { RemotePointer } from "../multiplayer/RemotePointer.tsx"
 import { members } from "../multiplayer/story-kit.tsx"
 import { type Marker, scrolls, type Stat, stickerHome } from "../stories/canvas-kit.tsx"
 import { CanvasBoard } from "../stories/CanvasBoard.tsx"
