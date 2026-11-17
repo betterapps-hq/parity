@@ -31,17 +31,27 @@ export interface LibOptions {
  */
 export async function runLib(packageName: string | undefined, options: LibOptions): Promise<void> {
   // Loaded only here, so the other commands don't load TypeScript.
-  const { appManifestPath, generateLibrary, manifestText, mergeManifest, reviseLibrary } =
+  const { appManifestPath, generateLibrary, manifestText, mergeManifest, presets, reviseLibrary } =
     await import("@parity-app/libgen")
 
   const { covers, registryDir, registryEntries, registryFileName } = await import("@parity-app/registry")
   const spec = packageName === undefined ? undefined : packageSpec(packageName)
   let root = resolve(options.root ?? ".")
+  // A shadcn style, named by its kit as `@buildkitgg/shadcn-baseui-nova`, is built by shadcn-sync, at the version
+  // given or npm's latest, and described from the package sync builds.
+  const synced = spec && !options.root ? presets.get(spec.name)?.sync : undefined
+  let describe: LibInputs["describe"]
 
-  // A package named with a version, or one written into the registry with no project given, is installed on its own at
-  // that version, so describing it needs no project that has it. Regenerating a registry file reads the version it
-  // covers; one new to the registry reads npm's latest.
-  if (spec && (spec.version !== undefined || (options.registry && !options.root))) {
+  if (spec && synced) {
+    const { publishedVersion, syncedPackage, syncedStyle } = await import("@parity-app/libgen/published")
+    const version = await publishedVersion("@buildkitgg/shadcn-sync", spec.version ?? "latest")
+    stderr(`Building ${spec.name} with shadcn-sync ${version} --base ${synced.base} --style ${synced.style}…`)
+    root = await syncedStyle(synced, version)
+    describe = { package: syncedPackage, as: spec.name }
+  } else if (spec && (spec.version !== undefined || (options.registry && !options.root))) {
+    // A package named with a version, or one written into the registry with no project given, is installed on its own
+    // at that version, so describing it needs no project that has it. Regenerating a registry file reads the version
+    // it covers; one new to the registry reads npm's latest.
     const { installedVersion, publishedVersion } = await import("@parity-app/libgen/published")
     const listed = (await registryEntries()).filter((entry) => entry.manifest.package?.name === spec.name)
 
@@ -75,7 +85,9 @@ export async function runLib(packageName: string | undefined, options: LibOption
   // An app's tokens are read from the stylesheets its builder says it loads, as the desktop app reads them.
   const styles = spec ? undefined : await appStylesheets(root)
 
-  const generated = await generateLibrary(generateOptions(root, options, { spec, trialEdits, appErrors, styles }))
+  const generated = await generateLibrary(
+    generateOptions(root, options, { spec, describe, trialEdits, appErrors, styles })
+  )
 
   const id = String(generated.manifest.id)
   let target: string | undefined
@@ -97,7 +109,8 @@ export async function runLib(packageName: string | undefined, options: LibOption
 
     const files = (await registryEntries()).filter((entry) => entry.manifest.package?.name === name)
     const major = described?.version === undefined ? Number.NaN : Number.parseInt(described.version, 10)
-    const covering = files.find((entry) => covers(entry.manifest, described?.version))
+    // A synced style has one file, which covers every version of its kit.
+    const covering = synced ? files[0] : files.find((entry) => covers(entry.manifest, described?.version))
 
     target = join(
       registryDir(),
@@ -173,6 +186,8 @@ type ReviseOptions = Pick<GenerateOptions, "previous" | "only" | "edits" | "edit
  */
 interface LibInputs {
   spec: PackageSpec | undefined
+  /** The package read in place of the one named, and the name it's described by, for a style shadcn-sync built. */
+  describe: { package: string; as: string } | undefined
   trialEdits: GenerateOptions["trialEdits"]
   appErrors: GenerateOptions["appErrors"]
   styles: GenerateOptions["styles"]
@@ -211,7 +226,7 @@ async function appStylesheets(root: string): Promise<string[] | undefined> {
 function generateOptions(
   root: string,
   options: LibOptions,
-  { spec, trialEdits, appErrors, styles }: LibInputs
+  { spec, describe, trialEdits, appErrors, styles }: LibInputs
 ): GenerateOptions {
   const generate: GenerateOptions = { root }
 
@@ -235,7 +250,10 @@ function generateOptions(
     generate.tags = false
   }
 
-  if (spec) {
+  if (describe) {
+    generate.package = describe.package
+    generate.describedAs = describe.as
+  } else if (spec) {
     generate.package = spec.name
   }
 

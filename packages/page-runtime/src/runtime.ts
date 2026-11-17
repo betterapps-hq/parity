@@ -4,6 +4,7 @@ import {
   type FrameRole,
   isObject,
   maxPreviewCss,
+  isRole,
   maxSheetIds,
   maxSnapshotWait,
   isPortFor,
@@ -14,6 +15,7 @@ import {
   pageDeadlines,
   pageProtocol,
   type ParityMethods,
+  passesBack,
   readFrameName,
   readMode,
   readViewport
@@ -74,7 +76,7 @@ export function startPageRuntime(options: PageRuntimeOptions = {}, page: Window 
     module.install()
   }
 
-  const role: FrameRole = name.role ?? "live"
+  let role: FrameRole = name.role ?? "live"
   Object.assign(page, { parityFrame: { role } })
 
   const document = page.document
@@ -173,6 +175,61 @@ export function startPageRuntime(options: PageRuntimeOptions = {}, page: Window 
   page.addEventListener("pointerdown", used, { capture: true, signal })
   page.addEventListener("keydown", used, { capture: true, signal })
 
+  // The live page's own scrolling moves its live window down its board.
+  page.addEventListener(
+    "scroll",
+    () => {
+      if (role === "live") {
+        tell("page.scrolled", { top: page.scrollY })
+      }
+    },
+    { passive: true, signal }
+  )
+
+  // A pinch, or the wheel with Ctrl or Cmd, is the canvas's zoom, once the page has had its turn: in the bubbling phase,
+  // and only when the page didn't take it. The page never zooms itself.
+  page.addEventListener(
+    "wheel",
+    (event) => {
+      if (!event.ctrlKey && !event.metaKey) {
+        return
+      }
+
+      const taken = event.defaultPrevented
+      event.preventDefault()
+
+      if (!taken) {
+        tell("page.zoom", { deltaY: event.deltaY, x: event.clientX, y: event.clientY })
+      }
+    },
+    { passive: false, signal }
+  )
+
+  // Escape and Parity's shortcuts go back to Parity when the page didn't handle them.
+  page.addEventListener(
+    "keydown",
+    (event) => {
+      // A keydown made by script may carry no key.
+      if (!isText(event.key)) {
+        return
+      }
+
+      const key = {
+        key: event.key,
+        code: event.code,
+        ctrl: event.ctrlKey,
+        meta: event.metaKey,
+        shift: event.shiftKey,
+        alt: event.altKey
+      }
+
+      if (!event.defaultPrevented && !event.isComposing && passesBack(key)) {
+        tell("page.key", key)
+      }
+    },
+    { signal }
+  )
+
   const ready = hydrated(page, hydration, signal).then(() => routers.find((router) => isFound(router)))
 
   channel.serve({
@@ -235,6 +292,12 @@ export function startPageRuntime(options: PageRuntimeOptions = {}, page: Window 
     "page.reload": () => {
       // After the answer has gone, so Parity hears it before the page goes.
       page.setTimeout(() => page.location.reload(), 0)
+
+      return null
+    },
+    "role.set": ({ role: next }) => {
+      role = next
+      Object.assign(page, { parityFrame: { role } })
 
       return null
     }
@@ -392,7 +455,16 @@ function pageChecks(): Checks<PageMethods> {
 
       return { css }
     },
-    "page.reload": () => ({})
+    "page.reload": () => ({}),
+    "role.set": (params) => {
+      const role = isObject(params) && "role" in params ? params.role : undefined
+
+      if (!isRole(role)) {
+        throw new Error("role.set needs a frame's role")
+      }
+
+      return { role }
+    }
   }
 }
 

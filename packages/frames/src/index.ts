@@ -12,9 +12,32 @@ export {
   withMarkup
 } from "./keys.ts"
 
-export { skippedTags, type TokenPreview, tokenPreviewCss, updatesItself } from "./preview.ts"
+export {
+  type PreviewThemeAttributes,
+  skippedTags,
+  type TokenPreview,
+  type TokenPreviewOptions,
+  tokenPreviewCss,
+  updatesItself
+} from "./preview.ts"
 
 export type { PageMode } from "./mode.ts"
+
+export {
+  type LiveChoice,
+  liveExpired,
+  type LiveFrom,
+  liveOutOfView,
+  type LivePick,
+  liveWindowTop,
+  type LiveWindowView,
+  parkedScale,
+  pickLive,
+  refillAfter,
+  reparkAfter,
+  usedPause,
+  warmAfter
+} from "./live.ts"
 
 export { planPool, type PoolFrame, type PoolPlan, type PoolView } from "./pool.ts"
 

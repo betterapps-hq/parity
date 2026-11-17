@@ -81,6 +81,12 @@ export interface GenerateOptions {
   root: string
   /** The package to describe, by the name the project depends on it by. Unset describes the app at `root`. */
   package?: string
+  /**
+   * The name the file describes the package by, when it isn't the package's own: the style's kit,
+   * `@buildkitgg/shadcn-baseui-nova`, for the `@buildkitgg/shadcn` package shadcn-sync built. It picks the preset and
+   * is the file's `package.name`.
+   */
+  describedAs?: string
   id?: string
   name?: string
   description?: string
@@ -204,10 +210,12 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
   }
 
   const { dir, manifest: pkg } = installed
-  const name = pkg.name ?? importName
+  const name = options.describedAs ?? pkg.name ?? importName
   const version = pkg.version ?? "0.0.0"
   const preset = presets.get(name)
   const notes = [...(preset?.notes ?? [])]
+  // Modules named by the name it's described by, as its decorators' are, load from the package installed.
+  const load = renamed(loader(root, dir), name, importName)
 
   const iconImport = preset?.icons?.import
   const componentImport = iconImport ?? preset?.components
@@ -247,7 +255,7 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
 
   if (preset?.theme) {
     try {
-      const theme = await preset.theme(loader(root, dir))
+      const theme = await preset.theme(load)
 
       for (const token of theme.tokens) {
         tokens.set(token.var, token)
@@ -278,7 +286,10 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
     manifest.description = description
   }
 
-  manifest.package = { name, version, range: options.range ?? defaultRange(version) }
+  // A style sync generates is looked up by its settings, not a version, and covers every version of its kit, so
+  // projects still on one keep finding it. Its version is the sync release that built it.
+  const range = options.range ?? (preset?.sync ? undefined : defaultRange(version))
+  manifest.package = range ? { name, version, range } : { name, version }
 
   if (styles && !isIcons) {
     manifest.styles = styles
@@ -324,8 +335,6 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
 
     if (!dataIcons) {
       // Styles kept in modules of their own, as Heroicons keeps `16/solid` beside `24/outline`.
-      const load = loader(root, dir)
-
       const entries = isRecord(pkg.exports) ? Object.keys(pkg.exports) : []
 
       const modules = await styleModules(name, entries, iconImport ?? name, load, await iconDrawer(load))
@@ -341,7 +350,7 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
       }
     }
 
-    const exported = await exportedIcons(loader(root, dir), iconImport ?? name, icons)
+    const exported = await exportedIcons(load, iconImport ?? name, icons)
     icons.count = exported.count
     // Where an icon has several names, the one its types say to insert (Phosphor's current `GearIcon`, not `Gear`).
     const typesFile = typesFor(iconImport ?? name, root)
@@ -380,7 +389,8 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
     let exampleFiles: ExampleFile[] = []
 
     if (options.examples !== false) {
-      const fetched = await fetchExamples(pkg, dir, preset?.examples)
+      const hints = preset?.sync ? { ...preset.examples, tag: await syncedShadcnTag(root) } : preset?.examples
+      const fetched = await fetchExamples(pkg, dir, hints)
 
       if (fetched.note) {
         notes.push(fetched.note)
@@ -425,7 +435,7 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
     const listItem = takesItem.size > 0 ? exampleItem(exampleFiles, made) : undefined
 
     const parts = await relateParts({
-      load: loader(root, dir),
+      load,
       specifier: componentImport ?? name,
       components: scan.components,
       providers,
@@ -560,6 +570,20 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
   return reviseLibrary({ manifest, report }, options)
 }
 
+/** The snapshot shadcn-sync records beside the app's `package.json`, for the shadcn CLI release it built with. */
+const syncSnapshot = z.looseObject({ shadcn: z.string().min(1) })
+
+/**
+ * The tag of shadcn's repository at the CLI release sync built a project's components with, as `shadcn@4.23.0`, read
+ * from its snapshot. Undefined without one.
+ */
+async function syncedShadcnTag(root: string): Promise<string | undefined> {
+  const text = await readFile(join(root, "shadcn-registry.json"), "utf8").catch(() => undefined)
+  const snapshot = text === undefined ? undefined : syncSnapshot.safeParse(JSON.parse(text)).data
+
+  return snapshot && `shadcn@${snapshot.shadcn}`
+}
+
 /**
  * Lays a freshly generated file over the one it replaces: reports which components are new, changed and removed,
  * keeps the old entries `only` leaves alone, and carries the hand edits over (or points at shared ones), reporting
@@ -581,6 +605,19 @@ export async function reviseLibrary(
       ...components,
       list: selectComponents(previous, components.list, report.changes, options.only ?? "all")
     }
+  }
+
+  // A style shadcn-sync builds keeps the tokens of the file it replaces: sync's stylesheet has the theme's values but
+  // not the names and descriptions the kits' own DTCG file gave them, and adds Tailwind's animation utilities.
+  const describedAs = manifest.package?.name
+
+  if (describedAs && presets.get(describedAs)?.sync && read?.file.tokens !== undefined) {
+    // SAFETY: the file read through the library schema in readPrevious, so its tokens are tokens the schema reads.
+    manifest.tokens = read.file.tokens as LibraryManifest["tokens"]
+    report.notes = [
+      ...report.notes,
+      "Tokens are kept from the file it replaces; sync's stylesheet doesn't describe them."
+    ]
   }
 
   // SAFETY: the file read through the library schema in readPrevious, so its edits, kept as written, are a path or
@@ -1088,6 +1125,16 @@ export function loader(root: string, packageDir: string): Load {
 
     throw new Error(`Can't find ${specifier} from ${root}`)
   }
+}
+
+/** A load that takes `name` and its subpaths, as `name/select`, from the package the project imports as `importName`. */
+function renamed(load: Load, name: string, importName: string): Load {
+  if (name === importName) {
+    return load
+  }
+
+  return (specifier) =>
+    load(specifier === name || specifier.startsWith(`${name}/`) ? importName + specifier.slice(name.length) : specifier)
 }
 
 function resolveRequire(from: string, specifier: string): string | undefined {

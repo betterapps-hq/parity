@@ -742,9 +742,18 @@ Each is an issue, in this order.
    `routeFrame.refused`, `routeFrame.removed` and `routeFrame.process`, as the telemetry registry names events in camel
    case. `prepareFrame` takes the copy's registry, `elementLayers` takes `style` as optional, and copies' layers reach
    Layers, the Design panel and hit-testing through the window's entries (`withCopyEntries`), never the document.
-5. **Live frames from the pool:** spares, hover, parking, Interact, engaging and disengaging, the zoom wheel and keys
-   passed back, the live window, fixed elements hidden in the copy, frames stopped leaving the builder's origin, and
-   when live ends.
+5. **Live frames from the pool** (PAR-1263), done: spares, hover, parking, Interact, engaging and disengaging, the zoom
+   wheel and keys passed back, the live window, fixed elements hidden in the copy, frames stopped leaving the builder's
+   origin, and when live ends. With the Interact tool a board goes live instead of loading its page in an iframe. Built:
+   spares wait only while the Interact tool is on, two of them, with no `routeFrames.spares` setting yet. The runtime
+   takes `role.set`, so a spare that goes live says so in `window.parityFrame`. `page.key` passes back Ctrl or Cmd keys
+   except the ones that edit or move through text, which stay the page's. The live frame is placed over its board from
+   the board's box each animation frame while it's live, in a layer in tldraw's page space, and `page.zoom` reaches the
+   canvas as tldraw's own wheel event. A navigation off the builder's origin is stopped on `will-frame-navigate` and
+   `will-redirect`, and the board says "Tried to open" with the host. When live ends the board's frozen copy stays: the
+   live page's snapshot doesn't stand in for it yet, since nothing makes copies stale before step 7. The freezer waits 2
+   s after each `page.used` and 1.5 s after a board goes live or spares open or move. The events are `routeFrame.live`
+   and `routeFrame.miss`.
 6. **Pictures.** Page jobs in the render pool built from copies, `RenderJob` as a union, page bitmap names, traces by
    builder, and tiers by size on screen. This is where PAR-1200 lands.
 7. **Code changes and previews** (PAR-1264), done: the watcher's changes reaching the window, stale copies by trace,

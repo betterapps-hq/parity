@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 17 Nov 2026 11:01:40 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 12:03:28 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.81.1
+
+Tue, 17 Nov 2026 12:03:28 GMT
+
+### Patches
+
+- The registry's shadcn style files are made from what shadcn-sync builds, and projects still on a Buildkit kit read
+  each component's props from the kit's own declarations (ajcraswell@gmail.com)
 
 ## 0.81.0
 

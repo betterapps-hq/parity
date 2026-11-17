@@ -21,7 +21,6 @@ import {
   designStates,
   fitsContent,
   fittedKey,
-  type FrameGeometry,
   type ModeVariable,
   orderedStates,
   type ParamSpec,
@@ -47,15 +46,11 @@ import {
   hugsContent,
   kindName,
   kindTitle,
-  pageFrameUrl,
-  pageMode,
   pickPreviews,
-  landedElsewhere,
   stateLabelSpace,
   titleReach
 } from "@parity-app/editor"
 import { updateContainer, updateView } from "@parity-app/multiplayer"
-import { frameName, pageProtocol } from "@parity-app/page-runtime/protocol"
 import { ChevronDown, TriangleAlert } from "lucide-react"
 import {
   type CSSProperties,
@@ -65,7 +60,6 @@ import {
   type RefObject,
   useCallback,
   useEffect,
-  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -108,11 +102,9 @@ import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { type LabelReach, useCanvasLabel } from "./labels.ts"
 import { Used, useMountOnUse, useUsed } from "./mount-on-use.tsx"
-import { useTokenPreview } from "./page-changes.ts"
-import { usePageChannel } from "./page-channel.ts"
 import { PreviewHeader, type PreviewTarget, useSavedView } from "./preview-parts.tsx"
 import { PreviewResize, useBreakpoints } from "./preview-resize.tsx"
-import { pageLandings, routePagePath, routePageUrl, setPageLanding } from "./route-pages.ts"
+import { landingLabel, pageLandings, routePagePath, routePageUrl } from "./route-pages.ts"
 import { RouteBoard } from "./RouteBoard.tsx"
 import { storyScreensFile } from "./story-screens.ts"
 import { containerModes, withModes } from "./view.ts"
@@ -1499,7 +1491,7 @@ const FrameTile = memo(function FrameTile({
         data-measured={height === undefined ? undefined : ""}
         data-asleep={awake && !waiting ? undefined : ""}
       >
-        {page && !interactive && (
+        {page && (
           <RouteBoard
             url={page}
             project={session.id}
@@ -1511,16 +1503,6 @@ const FrameTile = memo(function FrameTile({
             primary={primary}
             rank={view.rank}
             asleep={!awake || waiting}
-          />
-        )}
-        {page && interactive && (
-          <PageFrame
-            url={page}
-            project={session.id}
-            design={entry.key}
-            frame={frame}
-            mode={drawn}
-            scale={scale}
             interactive={interactive}
           />
         )}
@@ -1553,92 +1535,6 @@ const FrameTile = memo(function FrameTile({
 })
 
 /**
- * A page of the app in a screen's frame (PAR-1076), drawn live with the Interact tool only: otherwise a route board shows
- * its frozen copy (`RouteBoard`, PAR-1262), until live frames come from the pool (route-frames.md, step 5). It's the
- * app's own entry at the page's URL, in a document of its own, so its router, layouts, loaders and redirects run as
- * they do in a browser. It loads under the project's own `.localhost` name (`pageFrameUrl`), so its pages run in a
- * process of their own. The page runtime in it (`@parity-app/page-runtime`) says hello and gets a channel: the
- * mode changes over it without the page loading again, and the page says how tall it is in the mode's window, so the
- * frame grows to the page. It's never shorter than the window, unless the frame has been given a height, which it then
- * clips to. When the page lands somewhere other than its own path, as a route that redirects sends it, it notes where
- * for its board and Layers.
- */
-function PageFrame({
-  url,
-  project,
-  design,
-  frame,
-  mode,
-  scale,
-  interactive
-}: {
-  url: string
-  /** The open project, whose own name the page loads under. */
-  project: string
-  /** The page's design, by key, which Layers notes where it landed under. */
-  design: string
-  frame: FrameGeometry
-  mode: ResolvedMode
-  scale: number
-  /** With the Interact tool, the page takes the pointer and keys, as a design does; otherwise the canvas has them. */
-  interactive: boolean
-}) {
-  const page = useRef<HTMLIFrameElement>(null)
-  const id = useId()
-  const src = pageFrameUrl(url, project)
-  const drawn = useMemo(() => pageMode(mode), [mode])
-
-  const viewport = useMemo(
-    () => ({ width: frame.viewport.width, height: frame.viewport.height }),
-    [frame.viewport.width, frame.viewport.height]
-  )
-
-  // Named once, with the mode it opens in, so the app's first render is in it; the mode changes over the channel.
-  const [name] = useState(() =>
-    frameName({
-      protocol: pageProtocol,
-      frame: id,
-      parent: window.location.origin,
-      role: "live",
-      mode: drawn,
-      viewport
-    })
-  )
-
-  const { tokens } = useProject()
-  // Token edits reach the page while no copy of a route is drawn, as with the Interact tool.
-  useTokenPreview(project, tokens)
-  const heard = usePageChannel(page, { id, src, mode: drawn, viewport, project })
-  const height = frame.height ?? Math.max(frame.viewport.height, heard.height ?? 0)
-  const landed = heard.location
-  const elsewhere = landed ? landedElsewhere(url, landed.path) : undefined
-
-  // Layers says where the page landed too, once the page has said.
-  useEffect(() => {
-    if (landed) {
-      setPageLanding(design, elsewhere)
-    }
-  }, [design, elsewhere, landed])
-
-  return (
-    <div className="overflow-hidden" style={{ width: frame.width * scale, height: height * scale }}>
-      <iframe
-        ref={page}
-        key={src}
-        name={name}
-        title={url}
-        src={src}
-        // Outside Interact it's as inert as a design's frame, so Tab on the canvas never goes into the page and leaves
-        // the canvas's keys behind.
-        inert={!interactive}
-        className={`${interactive ? "pointer-events-auto" : "pointer-events-none"} block origin-top-left border-0 bg-white`}
-        style={{ width: frame.width, height, transform: `scale(${scale})` }}
-      />
-    </div>
-  )
-}
-
-/**
  * Where a page landed instead of its own path, under its board, lined up with its left edge, sized for the zoom as a
  * frame's caption is, and the same few screen pixels below at any zoom: a warning, since the page drawn isn't the
  * route's own.
@@ -1652,7 +1548,7 @@ function LandedElsewhere({ path, width }: { path: string; width: number | undefi
     <div ref={ref} className="pointer-events-none absolute top-full left-0 origin-top-left pt-2">
       <div className="flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-sm whitespace-nowrap text-amber-700 dark:text-amber-400">
         <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
-        Lands on {path}
+        {landingLabel(path)}
       </div>
     </div>
   )

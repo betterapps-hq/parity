@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { dirname, join, posix, relative } from "node:path"
 import { packageExports } from "@parity-app/code"
@@ -356,10 +357,13 @@ export async function findLibraries(
       // and ones it has that the file doesn't list are found by name until the file is updated.
       // What an extension found is always checked, as shadcn-sync's components are: they're generated from upstream
       // shadcn, which the kit's file may be ahead of or behind.
-      const mismatched = hint || fromRegistry?.older || fromRegistry?.newer
+      // So is a package that keeps its declarations elsewhere than the file says, as a shadcn kit keeps them in
+      // `dist/ui/` where the file, made from what shadcn-sync builds, says `ui/`.
+      const versionDiffers = fromRegistry?.older || fromRegistry?.newer
+      const mismatched = hint || versionDiffers || declarationsMoved(packageDir, listed.list)
       const differs = mismatched ? await otherExports(entry, renderer, listed.list) : undefined
 
-      if (differs && fromRegistry && !hint) {
+      if (differs && fromRegistry && !hint && versionDiffers) {
         const made = fromRegistry.manifest.package?.version ?? "another version"
 
         const about = fromRegistry.older
@@ -385,8 +389,8 @@ export async function findLibraries(
           continue
         }
 
-        // The package's own declarations, where they were read, over the file's: shadcn-sync's package keeps them in
-        // `ui/`, where the kit the file was made from kept them in `dist/ui/`.
+        // The package's own declarations, where they were read, over the file's: a shadcn kit keeps them in `dist/ui/`,
+        // where shadcn-sync's package, which the file was made from, keeps them in `ui/`.
         const declaration =
           differs?.files.get(name.split(".")[0]!) ??
           (component.declaration ? join(packageDir, component.declaration) : entry)
@@ -477,6 +481,13 @@ function designsOf(manifest: LibraryManifest | undefined, id: string): { designs
   const designs = manifest ? libraryDesigns(manifest, id) : []
 
   return designs.length > 0 ? { designs } : {}
+}
+
+/** Whether the installed package lacks the declaration file its file gives the first component that names one. */
+function declarationsMoved(packageDir: string, list: LibraryComponents["list"]): boolean {
+  const declaration = Object.values(list).find((component) => component.declaration)?.declaration
+
+  return declaration !== undefined && !existsSync(join(packageDir, declaration))
 }
 
 /**

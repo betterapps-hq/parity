@@ -150,6 +150,8 @@ export interface PageMethods {
    * it loaded takes a code change this way.
    */
   "page.reload": { params: Record<string, never>; result: null }
+  /** Says what the frame is for now, as a spare that goes live becomes the live frame; `window.parityFrame` follows. */
+  "role.set": { params: { role: FrameRole }; result: null }
 }
 
 /** The most text one `preview.set` may carry. */
@@ -180,6 +182,57 @@ export interface ParityMethods {
   "page.height": { params: { height: number }; result: null }
   /** Someone pressed a key or the pointer in the page. Sent at most once a second while they do. */
   "page.used": { params: Record<string, never>; result: null }
+  /** The live page scrolled itself to `top`, in CSS pixels, so its live window moves down its board. */
+  "page.scrolled": { params: { top: number }; result: null }
+  /** A pinch, or the wheel with Ctrl or Cmd, over the page: the canvas's zoom, at a point in the page's window. */
+  "page.zoom": { params: { deltaY: number; x: number; y: number }; result: null }
+  /** Escape, or a Ctrl or Cmd shortcut, that the page didn't handle, for Parity to act on. */
+  "page.key": { params: PageKey; result: null }
+}
+
+/** A key the page passes back to Parity, with its modifiers. */
+export interface PageKey {
+  key: string
+  /** The physical key, which Parity's shortcuts for punctuation and digits match by. */
+  code: string
+  ctrl: boolean
+  meta: boolean
+  shift: boolean
+  alt: boolean
+}
+
+/** Keys that edit or move through text with Ctrl or Cmd, which stay the page's even when it doesn't handle them. */
+const textKeys = new Set([
+  "a",
+  "c",
+  "v",
+  "x",
+  "y",
+  "z",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "ArrowDown",
+  "Backspace",
+  "Delete",
+  "Home",
+  "End",
+  "Control",
+  "Meta",
+  "Shift",
+  "Alt"
+])
+
+/**
+ * Whether a key the page didn't handle goes back to Parity: Escape, and Ctrl or Cmd with a key, except the ones that
+ * edit or move through text, which the browser does in the page.
+ */
+export function passesBack(key: PageKey): boolean {
+  if (key.key === "Escape") {
+    return true
+  }
+
+  return (key.ctrl || key.meta) && !textKeys.has(key.key.length === 1 ? key.key.toLowerCase() : key.key)
 }
 
 /** How long Parity waits for each of its requests, in milliseconds, before it takes the frame to be stuck. */
@@ -192,7 +245,8 @@ export const pageDeadlines: Record<keyof PageMethods, number> = {
   "snapshot.take": 2000,
   "sheets.get": 5000,
   "preview.set": 1000,
-  "page.reload": 1000
+  "page.reload": 1000,
+  "role.set": 1000
 }
 
 /** How long Parity waits for a snapshot: the quiet it asked the page to wait for, and two seconds more. */
@@ -252,6 +306,6 @@ function isSize(value: unknown): value is number {
   return Number.isFinite(value) && Number(value) > 0
 }
 
-function isRole(value: unknown): value is FrameRole {
+export function isRole(value: unknown): value is FrameRole {
   return value === "spare" || value === "live" || value === "freezer" || value === "picture"
 }

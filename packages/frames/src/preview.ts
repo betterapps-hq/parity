@@ -28,15 +28,25 @@ export interface TokenPreview {
   value: string
 }
 
-/** What a theme's name may be, as a class on the page's root. */
+/** What a theme's name may be, as a class on the page's root, and an attribute's name or value that turns one on. */
 const themeName = /^[\w-]+$/
+
+/** What the attributes that turn themes on are, by theme: `{ dark: { "data-theme": "dark" } }` for `[data-theme="dark"]`. */
+export type PreviewThemeAttributes = Readonly<Record<string, Readonly<Record<string, string>>>>
+
+/** What else a token preview's CSS goes by: each token's saved default, and the attributes that turn themes on. */
+export interface TokenPreviewOptions {
+  defaults?: ReadonlyMap<string, string>
+  attributes?: PreviewThemeAttributes
+}
 
 /**
  * Previewed token values as CSS custom properties, for a copy (`"copy"`), where the page's root rules are on the copy's
  * host and its body stand-in, and a theme's class is on the host, the element around the body and the body stand-in, or
- * for the live page (`"page"`), on its root. A default value leaves out roots with the class of a theme that token has a
- * value of its own in (`themes`, by token), so that theme's value still wins there, and reaches every other theme; a
- * theme's value is declared where the theme's class is. A theme's value taken out (`""`, a value given in a theme that
+ * for the live page (`"page"`), on its root. A theme is on where its class is, or an attribute that turns it on
+ * (`attributes`, as `[data-theme="dark"]`). A default value leaves out roots where a theme that token has a value of its
+ * own in is on (`themes`, by token), so that theme's value still wins there, and reaches every other theme; a theme's
+ * value is declared where the theme is on. A theme's value taken out (`""`, a value given in a theme that
  * had none, saved and undone) is declared as the token's default there, previewed or saved (`defaults`), so the saved
  * one stops winning; with no default it's left out. Values that would end their declaration early, and themes that
  * aren't a class's name, are left out.
@@ -45,18 +55,30 @@ export function tokenPreviewCss(
   tokens: readonly TokenPreview[],
   themes: ReadonlyMap<string, readonly string[]>,
   scope: "copy" | "page",
-  defaults: ReadonlyMap<string, string> = new Map()
+  { defaults = new Map(), attributes = {} }: TokenPreviewOptions = {}
 ): string {
-  const defaultSelector = (classes: readonly string[]) => {
-    const others = classes.length > 0 ? `:not(${classes.join(", ")})` : ""
+  // What turns a theme on: its class, and the attributes that do.
+  const switches = (theme: string) => [
+    `.${theme}`,
+    ...Object.entries(attributes[theme] ?? {}).flatMap(([name, value]) =>
+      themeName.test(name) && themeName.test(value) ? [`[${name}="${value}"]`] : []
+    )
+  ]
+
+  const defaultSelector = (on: readonly string[]) => {
+    const others = on.length > 0 ? `:not(${on.join(", ")})` : ""
 
     return scope === "page"
       ? `:root${others}`
-      : `:host${classes.length > 0 ? `(${others})` : ""}, [data-copy-root]${others}, [data-canvas-body]${others}`
+      : `:host${on.length > 0 ? `(${others})` : ""}, [data-copy-root]${others}, [data-canvas-body]${others}`
   }
 
   const themeSelector = (theme: string) =>
-    scope === "page" ? `:root.${theme}` : `:host(.${theme}), [data-copy-root].${theme}, [data-canvas-body].${theme}`
+    switches(theme)
+      .flatMap((on) =>
+        scope === "page" ? [`:root${on}`] : [`:host(${on})`, `[data-copy-root]${on}`, `[data-canvas-body]${on}`]
+      )
+      .join(", ")
 
   // Declarations by selector, in the order their first token came.
   const bySelector = new Map<string, string[]>()
@@ -83,7 +105,7 @@ export function tokenPreviewCss(
 
     if (theme === "default") {
       const own = (themes.get(name) ?? []).flatMap((each) =>
-        each !== "default" && themeName.test(each) ? [`.${each}`] : []
+        each !== "default" && themeName.test(each) ? switches(each) : []
       )
 
       selector = defaultSelector(own.toSorted((a, b) => a.localeCompare(b, "en")))

@@ -47,13 +47,27 @@ describe("tokenPreviewCss (PAR-1264)", () => {
   it("declares a theme's value taken out as the token's default, previewed or saved", () => {
     const undone = [{ name: "radius", theme: "dark", value: "" }]
 
-    expect(tokenPreviewCss(undone, themes, "page", new Map([["radius", "0.5rem"]]))).toBe(
+    expect(tokenPreviewCss(undone, themes, "page", { defaults: new Map([["radius", "0.5rem"]]) })).toBe(
       ":root.dark { --radius: 0.5rem; }"
     )
     expect(tokenPreviewCss([...undone, { name: "radius", theme: "default", value: "1rem" }], themes, "page")).toBe(
       ":root.dark { --radius: 1rem; }\n:root { --radius: 1rem; }"
     )
     expect(tokenPreviewCss(undone, themes, "page")).toBe("")
+  })
+
+  it("turns a theme on by the attributes that do as by its class", () => {
+    const attributes = { dark: { "data-theme": "dark" } }
+
+    expect(tokenPreviewCss(tokens.slice(0, 2), themes, "page", { attributes })).toBe(
+      [
+        ':root:not(.dark, [data-theme="dark"]) { --primary: #ff0000; }',
+        ':root.dark, :root[data-theme="dark"] { --primary: #880000; }'
+      ].join("\n")
+    )
+    expect(tokenPreviewCss([tokens[1]!], themes, "copy", { attributes })).toBe(
+      ':host(.dark), [data-copy-root].dark, [data-canvas-body].dark, :host([data-theme="dark"]), [data-copy-root][data-theme="dark"], [data-canvas-body][data-theme="dark"] { --primary: #880000; }'
+    )
   })
 
   it("is a real stylesheet a document takes", () => {
