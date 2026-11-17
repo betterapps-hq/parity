@@ -95,7 +95,7 @@ function Selected({
   const info = lenses[lens]
   const item = thing(lens, selected)
 
-  if (info.missing) {
+  if (info.unavailable) {
     return null
   }
 
@@ -169,7 +169,7 @@ function Selected({
         </PanelSection>
       )}
       {linked.map(([other, refs]) => (
-        <PanelSection key={other} title={lenses[other].label} count={refs.length}>
+        <PanelSection key={other} title={lenses[other].name} count={refs.length}>
           <ul className="-mx-1.5 flex flex-col">
             {refs.map((ref) => (
               <LinkRow key={ref.id} target={ref} onShow={onShow} onShowBeside={onShowBeside} onPeek={onPeek} />
@@ -211,7 +211,7 @@ function LinkRow({
       onPointerEnter={() => onPeek(target)}
       onPointerLeave={() => onPeek(undefined)}
     >
-      <Hint label={`Show in ${lenses[target.lens].label}`} wait>
+      <Hint label={`Show in ${lenses[target.lens].name}`} wait>
         <button
           type="button"
           onClick={() => onShow(target)}

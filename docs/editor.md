@@ -4113,7 +4113,7 @@ Tests:
   attributes left alone.
 - `packages/editor/src/insert.test.ts`: a video layer at its proportions, and "Add video".
 - `chrome/layer-kind.test.ts`: an image is Image and a video Video.
-- `chrome/LayerPanel.stories.tsx` Video: its section's fields and Controls found by their labels (PAR-892).
+- `chrome/MediaPanel.stories.tsx` Video: its section's fields and Controls found by their labels (PAR-892).
 - `packages/agent/src/dispatch.test.ts`: a video saved and placed in a video node, and a picture and a video each
   refused by the other's node.
 
@@ -4562,7 +4562,11 @@ section with the group's own title leads it without a title of its own, and its 
   linked from. A code component's links, to its stories and its file, are in the header. Beside the name, one of the
   design's own instances has the menu with Swap component, Reset overrides with how many there are, Push to main where
   the component is the project's, and Detach. Then its props, or "No props to set." Before a code component's props are
-  read from its source, it says so, and its + adds any prop by name.
+  read from its source, it says so, and its + adds any prop by name. An icon's props are its set's, which its icons
+  share: read like any component's from the component that draws the set's icons from data (Hugeicons' `HugeiconsIcon`),
+  or from the first icon its library file prefers, so a Lucide icon shows Size and its stroke options, and its color and
+  stroke width, SVG attributes it passes on, are in Attributes (`componentInfoOf`, `packages/core/src/project.test.ts`;
+  `iconSetSource`, `packages/project/src/library-files.test.ts`).
 - **Attributes** (PAR-1026), after a code component's Component instance: what it passes on to its component's root
   element, apart from its own props. + adds one from a searchable list grouped as Attributes, Accessibility and Events,
   each with its kind; its row says Accessibility or Events on hover, and × removes it until a state changes it. Without
@@ -4593,8 +4597,15 @@ section with the group's own title leads it without a title of its own, and its 
   Size, Weight with italic, Line height and Letter spacing, from the project's type tokens, and the text's Color. A
   layer with type of its own and no preset is offered the preset it matches, or the nearest within three steps summed
   over the rows the preset sets (a different font, 4px of size or line height, 100 of weight, 0.025em of letter
-  spacing). A layer that sets no type of its own is offered none. The presets listed are still the stand-in project's,
-  measured with the project's type tokens. Not saved: Preset, and the color's opacity.
+  spacing). A layer that sets no type of its own is offered none. A row the layer doesn't set shows faintly what its
+  text draws in, read from the canvas's computed style for its element, inherited values included (`nodeTypeStyle`,
+  `renderedType` in `inspector/controls/rendered-type.ts`, tested in `rendered-type.test.ts`); before the layer is
+  drawn, and in Storybook, it shows the stand-in project's defaults. Font lists the project's fonts first, its font
+  tokens and the families its stylesheets declare with `@font-face`, then the fonts installed on this computer, from
+  Local Font Access, each set in its own face; Weight offers the faces the font has, and a variable font's whole axis
+  (`inspector/controls/fonts.ts`, tested in `fonts.test.ts`; the project's faces from `declaredFaces` in `guest.ts`).
+  Storybook lists them as the app does, the computer's fonts included. The presets listed are still the stand-in
+  project's, measured with the project's type tokens. Not saved: Preset, and the color's opacity.
 - **Appearance:** Opacity beside Blend mode, Radius from the project's radius tokens, and Clip content, a menu of
   Visible, Clip, Scroll and Scroll when needed. Not saved: Blend mode, Corner shape, Each corner and Scroll always.
 - **Stroke:** + adds the project's usual stroke and − removes it; then its color and one width. Not saved: the color's
@@ -4706,8 +4717,8 @@ Tests:
   it's written; color tokens and other values left out; a limit; and none for a design with no colors.
 - `inspector/sections/*.stories.tsx` (Sections › Layout, Position, Size, Appearance, Fill, Stroke, Effects and Text):
   each style section alone on Pricing's and Sign in's layers, with PickingAColor, PickingASpacing, PickingAWeight and
-  PickingASizing opening their pickers by name. Layers › Layout and Text are those kinds' own panels, and Layers › Kinds
-  (`chrome/LayerPanel.stories.tsx`) shows the sections each other kind of layer gets.
+  PickingASizing opening their pickers by name. Layers › Layout, Text, Image and video, Icon and Component instance are
+  those kinds' own panels.
 
 - `apps/desktop/e2e/fields.e2e.ts`, listed under "Typing, stepping and scrubbing" above.
 
@@ -4763,7 +4774,7 @@ Tests:
 - `inspector/controls/FieldRow.stories.tsx` (Fields › Parts › Field row): Set finds the field by the row's name; Changed
   In A State puts the value back with the reset arrow; Mixed, Long Name, Half Rows, With An Action, Locked To A Preset,
   Overriding A Preset and Changes With The Viewport, for review.
-- `chrome/LayerPanel.stories.tsx` Image and Video: File, Alt text, Fit and Controls found by role and name.
+- `chrome/MediaPanel.stories.tsx` Image and Video: File, Alt text, Fit and Controls found by role and name.
 - `chrome/LayerSlots.stories.tsx` InstanceSlots, for review.
 - `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker, PAR-1046): Filled selects the layer from its chip
   and clears the slot with its ×, without selecting the layer; Open lists On this screen before Components; Searching
@@ -4840,22 +4851,48 @@ Code: `useSelectedLayer` and `useLayer` in `apps/desktop/src/renderer/chrome/sel
 `AttributesSection` in `inspector/sections/PropsSection.tsx`; `DesignTabFields` in `chrome/DesignPanel.tsx`, which a
 story puts one section in; `renderSection` in `chrome/layer-stories.tsx`.
 
-### A layout's and a text layer's own panels (PAR-1057, PAR-1058)
+### Each layer kind's own panel (PAR-1057 to PAR-1064)
 
-A layout and a text layer each have a Design panel of their own, which puts the style sections in that kind's order
-([layer-panels.md](proposals/layer-panels.md)). A layout's opens with Layout, then Size with Spacing, Position, Fill,
-Stroke and Appearance, with Typography, Effects, Motion and CSS after them. A text layer's opens with Content and
-Typography, then Size, Position and Appearance, with Fill, its background, after them. The capability table still leaves
-out what the layer can't take: a design's root has no Position, and a frame's root starts with its size. On a layout, a
-component or an instance, Typography folds to its title and + until it sets something; + opens it.
+Layouts, text layers, images, videos, icons and component instances each have a Design panel of their own, which puts
+the style sections in that kind's order ([layer-panels.md](proposals/layer-panels.md)). After each kind's own lead,
+every kind shares one order, leaving out what it doesn't have: Size with Spacing, Position, Appearance, Typography,
+Fill, Stroke, then Effects, Motion and CSS. A layout's has Layout after Position, as Penpot and Figma put a layer's own
+size and place first. A text layer's opens with Content and Typography, with Fill, its background, after Appearance. An
+image's or a video's opens with Content, its file, alt text, fit and credit, and a video's controls, then Size,
+Position, Appearance and Stroke; it has no Typography or Fill, since the picture fills it. An icon's opens with
+Component instance, which icon it is and its set's props, and Attributes, as its accessible name, then Size, Position
+and Appearance; its color and stroke are its own, so it has no Typography, Fill or Stroke. A component instance's opens
+with Component instance, its props and the slots it fills, and Attributes, then Size, Position, Appearance, and
+Typography for the text inside it, with no Layout; when its component takes no `className`, a note stands in for its
+style sections. The capability table still leaves out what the layer can't take: a design's root has no Position, and a
+frame's root starts with its size. Typography is always open, on a layout, a component or an instance as on a text
+layer.
 
-Code: `LayoutPanel` and `layoutSections` in `chrome/LayoutPanel.tsx`, `TextPanel` and `textSections` in
-`chrome/TextPanel.tsx`, which `LayerPanel` draws for those kinds; `StyleSections`' `order`; the fold in
-`inspector/sections/TypographySection.tsx`.
+A layer read from a component's element (read-only viewer) shows its type's own sections, from
+`@parity-app/layer-types`, Appearance straight after Size as in the shared order, with Spacing and Position after Size,
+as every box has them, Typography for a structure element, whose text inside inherits it, and Effects, Motion and CSS
+folded last. What a story draws takes edits to its props only: every kind's other sections are read-only there.
 
-Tests: `chrome/LayoutPanel.stories.tsx` (Layers › Layout): In A Layout, Layout first and Typography folded behind Add
-typography; Root, no Position. `chrome/TextPanel.stories.tsx` (Layers › Text): Headline, Typography before Size and no
-Layout. Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every kind's panel side by side, each column the app's
+Several layers of one kind show their style sections in that kind's order, as its own panel does; several layers of
+different kinds show only the sections they all share, in the shared order, with Mixed where values differ (PAR-1064).
+
+Code: `kindPanel` in `chrome/KindPanels.tsx` builds each kind's panel from the sections before its style and its order
+(`LayoutPanel`, `TextPanel`, `MediaPanel` for images and videos, `IconPanel`, and `InstancePanel` for both kinds of
+instance), and `kindPanels` with `panelKind` pick the one `LayerPanel` draws, an icon by `isIconLayer`; `elementOrder`
+for a layer read from an element; `kindOrders` and `oneKindOrder`, which `MultiLayerPanel` in `chrome/MultiPanel.tsx`
+uses too; `StyleSections`' `order`; the fold in `inspector/sections/TypographySection.tsx`.
+
+Tests: `chrome/LayoutPanel.stories.tsx` (Layers › Layout): In A Layout, Size first, Layout after Position, Appearance
+before Typography, Fill and Stroke, and Typography open with no Add typography; Root, no Position.
+`chrome/TextPanel.stories.tsx` (Layers › Text): Headline, Typography before Size and no Layout.
+`chrome/MediaPanel.stories.tsx` (Layers › Image and video): Image and Video, Content first, then Size, Position,
+Appearance and Stroke, with no Layout, Typography or Fill, and Video's Controls switch. `chrome/IconPanel.stories.tsx`
+(Layers › Icon): Check, Component instance first, with no Typography, Fill or Stroke. `chrome/InstancePanel.stories.tsx`
+(Layers › Component instance): Code Component, Component instance then Attributes first and no Layout; Design Instance,
+Component instance first. `chrome/MultiPanel.stories.tsx` (Layers › Several layers): Layers Of One Kind, Typography
+before Size; Layers Of Different Kinds, no Layout or Content. `chrome/ElementPanel.stories.tsx` (Layers › Element):
+Button, Typography, Size, Spacing, Position and Appearance; Section, Layout, Size, Spacing, Position and Typography.
+Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every kind's panel side by side, each column the app's
 `LayerPanel` with its own selection, to compare them while each kind's panel is built.
 
 Tests:
@@ -4900,7 +4937,7 @@ Tests:
 - `apps/desktop/src/renderer/chrome/fields.test.ts`, in Chrome: a number prop's field found by its label.
 - `inspector/controls/FieldRow.stories.tsx` Typing: the text field found by its row's name, committing nothing until
   Enter.
-- `chrome/LayerPanel.stories.tsx` Image and Video: Visible, File, Alt text, Fit and, for a video, Controls found by role
+- `chrome/MediaPanel.stories.tsx` Image and Video: Visible, File, Alt text, Fit and, for a video, Controls found by role
   and name.
 - `apps/desktop/e2e/fields.e2e.ts`: a number prop's field found by its row's label (number props, PAR-203).
 
@@ -4971,8 +5008,8 @@ one sentence ("Editing Default changes every state") and wraps when it doesn't f
 Code: `panelEnd` in `apps/desktop/src/renderer/chrome/PanelSection.tsx` is the right padding sections and headers use;
 `Field` in `chrome/fields.tsx` places the reset arrow beside the label.
 
-Tests: none; it's checked in the Inspector stories (Layers › Kinds: Image; Sections › State selector: Editing A State;
-Fields › Parts › Field row: Changed In A State; Layers › Designs: Screen Selected), in light and dark.
+Tests: none; it's checked in the Inspector stories (Layers › Image and video: Image; Sections › State selector: Editing
+A State; Fields › Parts › Field row: Changed In A State; Layers › Designs: Screen Selected), in light and dark.
 
 ### What's selected, above its name (PAR-723)
 
@@ -5039,9 +5076,9 @@ libraries and the project's own components; a library matched by its whole id; a
 is green apart from its layout; its chip and its text on a panel take their own steps; an icon layer is Smile in a
 project's tab, beside a component instance's Diamond; and outside a tab when it's given the libraries; an unnamed icon's
 label is its icon, a named one's its name; and its id without the libraries), and `chrome/canvas-menu.test.ts` (Select
-layer names an unnamed icon by its icon). The header itself is checked in the Inspector stories (Layers › Kinds, Layers
-› Instances: Layer Inside An Instance, Sections › Header: Unnamed Layer, Layers › Designs: Screen Selected), in light
-and dark.
+layer names an unnamed icon by its icon). The header itself is checked in the Inspector stories (Layers › Icon, Layers ›
+Instances: Layer Inside An Instance, Sections › Header: Unnamed Layer, Layers › Designs: Screen Selected), in light and
+dark.
 
 ### A layer's own fields (PAR-1051)
 
@@ -5472,8 +5509,9 @@ A slot it leaves empty shows the placeholder.
   Of several dragged layers, the first that can go in does. A layer from another design, the instance itself, or a layer
   it's inside can't, and a toast says why ("Only layers in this design can go in Features", "Pricing can't go in
   Features, which is inside it").
-- **A selected slot** has a panel of its own: its name, the instance it's in, which goes back to it, its picture, and
-  Clear. A click in Components adds into it, at its end.
+- **A selected slot** has a panel of its own (PAR-1063): its name, the instance it's in, which goes back to it, then
+  Contents, with the same picker as the instance's row, its × clearing it, and the slot's picture. A click in Components
+  adds into it, at its end. The rest of the slot's panel waits on how slots behave (PAR-1070).
 - **On the canvas** the fill is drawn where the placeholder was, and its layers are the design's own: picking and
   selecting them works as for any other. Layers doesn't list them under the instance.
 - **Detach** bakes the fill in where the placeholder was, keeping its layers' ids. A component can place an instance of
@@ -5490,10 +5528,10 @@ The file keeps a fill as `slots` on the instance, by slot name, as a code compon
 Detach in `instances.ts`. Where a click inserts is `whereToInsert` in `@parity-app/editor`, and the picture's tree
 `slotPreviewTree`.
 
-Code: `chrome/instance-slots.tsx` (the rows, the card and the slot's panel), `SlotPickerField` in
-`inspector/controls/slot-picker.tsx`, `layersMime` and the drag in `chrome/LayerTree.tsx`, `DesignInstanceProps` in
-`inspector/sections/PropsSection.tsx`, `LayerPanel` in `chrome/LayerPanel.tsx`, `treePreviewJob` and `useOneOffPreview`
-in `component-previews.ts`, and `insertAtSelection` in `canvas/insert.ts`.
+Code: `chrome/instance-slots.tsx` (`SlotFill`, the picker the rows and the slot's panel share, the card and the slot's
+panel), `SlotPickerField` in `inspector/controls/slot-picker.tsx`, `layersMime` and the drag in `chrome/LayerTree.tsx`,
+`DesignInstanceProps` in `inspector/sections/PropsSection.tsx`, `LayerPanel` in `chrome/LayerPanel.tsx`,
+`treePreviewJob` and `useOneOffPreview` in `component-previews.ts`, and `insertAtSelection` in `canvas/insert.ts`.
 
 Tests:
 
@@ -5597,7 +5635,10 @@ as it's typed, and layers after it move with it (docs/proposals/extensions-in-th
   as it does any change, after its own 300 ms, so the file isn't rewritten per key.
 - **One undo step per pause.** Typing goes in a gesture that ends once it stops for a second, or when the editor closes,
   so Undo takes back a pause's worth of typing, not each key. Typing that ends where it began leaves no step. Undo takes
-  out only this person's typing: what someone else typed in the text since stays (PAR-1238).
+  out only this person's typing: what someone else typed in the text since stays (PAR-1238), in the pause's typing too.
+  Their characters are told apart by where they went, not by what they are: each step's characters are followed through
+  the changes others make as they come in, so undoing an "X" beside an "X" someone else wrote takes out this person's
+  (PAR-1258). It used to match the text, and could take out theirs.
 - **Others' changes are taken in.** When the text changes under the editor, as someone in a live room types in it too,
   the editor shows it as it is and the caret moves with the characters around it, so it stays where the person is
   typing. Their change isn't in this person's undo. While an input method is composing, the change waits until it's
@@ -5624,10 +5665,11 @@ as it's typed, and layers after it move with it (docs/proposals/extensions-in-th
 Code: `LiveText` in `apps/desktop/src/renderer/canvas/live-text.ts` (writing each key, the gesture per pause and taking
 in others' changes), `spliceAt` and `rebaseText` in `packages/editor/src/text-editing.ts` (the change typed, and merging
 two changes and moving the selection), `typeInContainer` in `packages/multiplayer/src/callers.ts` (writing the change
-rather than the whole text), `textBack` in `packages/multiplayer/src/project-doc.ts` (undo keeping others' typing), and
-`TextEditor.tsx`, which feeds it the textarea's input and the document's changes and tells the room where the caret is.
-In a room: `Typing`, `setTyping` and `typists` in `renderer/live-room.ts`, `canvas/RoomTyping.tsx` (the outline, name
-and caret, with `Outlined` from `multiplayer/`), and `caretLine` in `canvas/text-caret.ts`.
+rather than the whole text), `textBack` and `follow` in `packages/multiplayer/src/project-doc.ts` (undo keeping others'
+typing, following this person's characters through the changes Loro reports as `texts`), and `TextEditor.tsx`, which
+feeds it the textarea's input and the document's changes and tells the room where the caret is. In a room: `Typing`,
+`setTyping` and `typists` in `renderer/live-room.ts`, `canvas/RoomTyping.tsx` (the outline, name and caret, with
+`Outlined` from `multiplayer/`), and `caretLine` in `canvas/text-caret.ts`.
 
 Tests:
 
@@ -5637,13 +5679,19 @@ Tests:
   Undo taking back only the typing; what an input method composed while someone else typed written where the text is
   now; its own writes not taken in again; and, on Loro, two editors typing at the end of one text at once, a key each in
   turn with the room passing keys on every other turn, ending with the same text holding every letter.
-- `packages/editor/src/text-editing.test.ts`, "the change typed in a text" (2): a letter typed beside the same letter
-  placed by the caret, and the first place without one, with a replaced selection and a deletion.
+- `packages/editor/src/text-editing.test.ts`, "the change typed in a text" (3): a letter typed beside the same letter
+  placed by the caret, and the first place without one, with a replaced selection and a deletion; an emoji changed
+  whole, both people replacing one keeping whole characters (PAR-1252).
 - `packages/multiplayer/src/type-in-container.test.ts` (2): a layer's own text written as the change typed; a state's
   text, and a change that doesn't make the text typed, written whole.
 - `packages/multiplayer/src/testing/describe-project-doc.ts`, "concurrent", on Loro: two people typing the same keys in
-  40 orders of their own, carets moving and copies exchanging at times of their own, keeping every letter; and Undo
-  taking out only this person's typing, keeping what the other typed since.
+  40 orders of their own, carets moving and copies exchanging at times of their own, keeping every letter; Undo taking
+  out only this person's typing, keeping what the other typed since; a pause's typing undone whole with the other's
+  typing taken in between its keys (PAR-1252); and an "X" undone beside the same letter the other wrote, a deletion put
+  back after the other wrote the same letters there, and typing deleted and put back again by this person's own undo
+  before the other typed (PAR-1258).
+- `packages/editor/src/text-editing.test.ts`, "following characters through changes" (1): characters moved and dropped
+  by changes in order.
 - `packages/editor/src/text-editing.test.ts`, "taking someone else's change into text being typed" (8): a change before
   the typing moving the caret, one after it leaving the caret, both writing at one place, both changing the same
   characters, what the other wrote where a deletion starts kept (PAR-1230), a selection moved by a deletion before it,
@@ -6173,8 +6221,8 @@ Tests:
 - `packages/agent/src/run.test.ts`, "states, only a component's" (10): `Designs()` by kind, eight calls refused on a
   screen, and a screen edited and drawn in its base state.
 - `apps/desktop/src/renderer/chrome/convert-to-frame.test.ts`, "converting a component to a screen": the notice's line.
-- Stories: `chrome/LayerPanel.stories.tsx` Text (a screen's layer, no Editing control) and ComponentInstance (no State
-  row).
+- Stories: `chrome/TextPanel.stories.tsx` Headline (a screen's layer, no Editing control) and
+  `chrome/InstancePanel.stories.tsx` Code Component (no State row).
 
 ### A design's modes in its own order (PAR-923)
 
@@ -8440,7 +8488,7 @@ group in the panel: the UI kit's by file, as Card with CardHeader and CardTitle,
   handlers it passes through to its element aren't listed. A layer inside it shows its type's sections: first the ones
   its attributes fill (`panelData`), as Link with its `href` and target, a Checkbox with its name and whether it's
   checked, or a video's Source and Playback, leaving out one with nothing set; then its text, for text; then the style
-  sections its type has, as a Button's Typography, Size, Fill, Stroke and Appearance. A layer of a page shows the Design
+  sections its type has, as a Button's Typography, Size, Appearance, Fill and Stroke. A layer of a page shows the Design
   tab's sections with its values. None of them edits it.
 - **Never saved.** The boards are laid out each time the project opens, in a design file of their own that's never
   written. Neither a move, the width a board is drawn at, nor its layers being read marks the project unsaved. Pages and

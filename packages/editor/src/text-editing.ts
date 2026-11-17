@@ -387,6 +387,23 @@ export function keptCharacters(before: string, after: string): number[] {
   return where
 }
 
+/**
+ * Where characters are after changes, given where they were before (-1 for gone): each change, in order, moves the
+ * characters after it and takes out the ones it replaced. Unlike `keptCharacters` it never guesses from equal text, so
+ * it follows a character exactly when the changes are known, as others' typing comes in (PAR-1258).
+ */
+export function movedThrough(where: readonly number[], splices: readonly TextSplice[]): number[] {
+  const moved = (at: number, { start, end, insert }: TextSplice) => {
+    if (at < start) {
+      return at
+    }
+
+    return at >= end ? at + insert.length - (end - start) : -1
+  }
+
+  return splices.reduce<number[]>((now, splice) => now.map((at) => moved(at, splice)), [...where])
+}
+
 /** The most changes `sharedRun` looks through before it gives up and treats the rest as changed. */
 const mostChanges = 2000
 

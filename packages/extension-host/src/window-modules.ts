@@ -113,15 +113,39 @@ export interface WindowHalves {
   state(extension: string, state: HalfState): void
 }
 
+/** What a surface is made with, for one extension's run in a tab. */
+export interface SurfaceContext {
+  extension: string
+  displayName: string
+  tab: string
+  /** Throws `CapabilityMissingError`, recording it once, unless the manifest names `capability`; for nested APIs. */
+  need(capability: Capability, api: string): void
+  /**
+   * Wraps a listener the module gave, so core's calls into it are counted as its failures and stop once it has
+   * stopped, as `selection.onChange`'s are.
+   */
+  listener<Args extends unknown[]>(api: string, listener: (...args: Args) => void): (...args: Args) => void
+  /** Counts a failure core caught from the module, as a layer's render. */
+  failed(api: string, error: Error): void
+  /** Runs `dispose` when the module stops in this tab, or at once if it has. */
+  onEnd(dispose: () => void): void
+}
+
 /**
- * Something on `WindowParity` that needs a capability, which later phases give: the canvas, presence, sync, agents.
- * Reading it checks the capability first.
+ * Something on `WindowParity` beyond the basics: the canvas, the camera, colors, and later presence, sync and agents.
+ * Reading one that needs a capability checks it first.
  */
 export interface WindowSurface {
-  capability: Capability
+  /** What the manifest must name to read it; none for what every window module gets, as `colors`. */
+  capability?: Capability
   /** Makes it for one extension in this tab, the first time that extension reads it. */
-  make(context: { extension: string; tab: string }): object
+  make(context: SurfaceContext): object
 }
+
+/** What's on `WindowParity` through `options.surfaces`, which the app gives. */
+export type SurfaceName = "colors" | "canvas" | "camera"
+
+const surfaceNames: readonly SurfaceName[] = ["colors", "canvas", "camera"]
 
 /** Where a module is in a tab. */
 export type ModuleState = "loading" | "active" | "inactive"
@@ -153,7 +177,7 @@ export interface WindowModulesOptions {
    */
   reported?: Set<string>
   /** What needs a capability, by its name on `WindowParity`, as `canvas`. */
-  surfaces?: Record<string, WindowSurface>
+  surfaces?: Partial<Record<SurfaceName, WindowSurface>>
   /** How many failures in a tab stop a module there. 5 unless given. */
   failureLimit?: number
   /** The time, in milliseconds. `Date.now` unless given. */
@@ -442,7 +466,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
       }
     }
 
-    const parity: WindowParity = {
+    const parity: Omit<WindowParity, SurfaceName> = {
       extension: { id: extension.id, version: extension.version, displayName: extension.displayName },
       project: { root: options.project.root, name: options.project.name },
       tab,
@@ -546,27 +570,48 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
       extensions: { get: other }
     }
 
+    /** Throws, recording it once a session, unless the manifest names `capability`. */
+    const need = (capability: Capability, api: string) => {
+      if (entry.extension.capabilities.includes(capability)) {
+        return
+      }
+
+      const seen = `${extension.id} ${api}`
+
+      if (!reported.has(seen)) {
+        reported.add(seen)
+        options.record?.("extension.capabilityMissing", { extension: extension.id, capability, api })
+      }
+
+      throw new CapabilityMissingError(extension.displayName, capability, api)
+    }
+
+    const context: SurfaceContext = {
+      extension: extension.id,
+      displayName: extension.displayName,
+      tab,
+      need,
+      listener:
+        (api, listener) =>
+        (...args) => {
+          if (!run.ended) {
+            guarded(entry, run, api, () => listener(...args))
+          }
+        },
+      failed: (api, error) => fail(entry, run, api, error),
+      onEnd: (dispose) => run.subscriptions.push({ dispose })
+    }
+
     // What needs a capability is checked as it's read, with a clear error naming what's missing.
     for (const [name, surface] of Object.entries(options.surfaces ?? {})) {
       Object.defineProperty(parity, name, {
         enumerable: false,
         get: () => {
-          if (!extension.capabilities.includes(surface.capability)) {
-            const seen = `${extension.id} parity.${name}`
-
-            if (!reported.has(seen)) {
-              reported.add(seen)
-              options.record?.("extension.capabilityMissing", {
-                extension: extension.id,
-                capability: surface.capability,
-                api: `parity.${name}`
-              })
-            }
-
-            throw new CapabilityMissingError(extension.displayName, surface.capability, `parity.${name}`)
+          if (surface.capability !== undefined) {
+            need(surface.capability, `parity.${name}`)
           }
 
-          const made = run.surfaces.get(name) ?? surface.make({ extension: extension.id, tab })
+          const made = run.surfaces.get(name) ?? surface.make(context)
           run.surfaces.set(name, made)
 
           return made
@@ -574,7 +619,20 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
       })
     }
 
-    return parity
+    // One the window doesn't give, as in a test that leaves it out, says so when it's read.
+    for (const name of surfaceNames) {
+      if (!Object.hasOwn(parity, name)) {
+        Object.defineProperty(parity, name, {
+          enumerable: false,
+          get: () => {
+            throw new Error(`parity.${name} isn't available in this window`)
+          }
+        })
+      }
+    }
+
+    // SAFETY: every surface's name was just defined on it, as a getter.
+    return parity as WindowParity
   }
 
   /** The activation event that holds for an extension now, if one does. */

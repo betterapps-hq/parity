@@ -24,9 +24,11 @@ import {
   useTokens,
   ValueField
 } from "./field-parts.tsx"
+import { askForInstalledFonts, findFont, projectFonts, useInstalledFonts } from "./fonts.ts"
 import { NumberField } from "./number-field.tsx"
-import { type FontFamily, findFont, genericOf, moreFonts, stackFamilies, weightName } from "./text-data.ts"
+import { type FontFamily, genericOf, stackFamilies, weightName } from "./text-data.ts"
 import type { FontSize, FontValue, LetterSpacing, LineHeight, WeightValue } from "./text-writes.ts"
+import { namespacedName } from "./token-scale.ts"
 import {
   type FontToken,
   fontToken,
@@ -74,11 +76,13 @@ function nearestFontToken(stack: string, tokens: readonly FontToken[]): FontToke
   return tokens.find((token) => genericOf(token.stack) === generic) ?? tokens[0]
 }
 
-/** A font the list offers: one of the project's tokens, or one of More fonts, which choosing adds to the project. */
+/** A font the list offers: one of the project's tokens or other fonts, or one installed on this computer. */
 interface FontOption {
   name: string
   stack: string
   token?: string
+  /** The project declares it, with a token or without one; otherwise it's installed on this computer. */
+  inProject: boolean
 }
 
 /**
@@ -106,6 +110,9 @@ export function FontFamilyField({
   onPreview: (value: FontValue | undefined) => void
 }) {
   const { tokens, create } = useTokens("font")
+  // The computer's fonts, listed after the project's.
+  const installed = useInstalledFonts()
+
   // What Add font says it'll do, under the row.
   const [note, setNote] = useState<Message>()
 
@@ -119,9 +126,27 @@ export function FontFamilyField({
   const heldToken = tokens.find((token) => token.name === held)
   const own = value !== undefined && "stack" in value ? value : undefined
 
+  // Each family once: a token's, then the project's other fonts, then the computer's.
+  const listed = new Set(tokens.map((token) => token.detail.toLowerCase()))
+
+  const unlisted = (font: FontFamily) => {
+    const name = font.name.toLowerCase()
+    const fresh = !listed.has(name)
+    listed.add(name)
+
+    return fresh
+  }
+
   const fonts: FontOption[] = [
-    ...tokens.map((token) => ({ name: token.detail, stack: token.stack, token: token.name })),
-    ...(tokensOnly ? [] : moreFonts)
+    ...tokens.map((token) => ({ name: token.detail, stack: token.stack, token: token.name, inProject: true })),
+    ...(tokensOnly
+      ? []
+      : [
+          ...projectFonts()
+            .filter(unlisted)
+            .map((font) => ({ name: font.name, stack: font.stack, inProject: true })),
+          ...installed.filter(unlisted).map((font) => ({ name: font.name, stack: font.stack, inProject: false }))
+        ])
   ]
 
   const valueOf = (font: FontOption): FontValue =>
@@ -149,14 +174,14 @@ export function FontFamilyField({
         {
           key: `${font.token ?? ""}${font.name}`,
           value: valueOf(font),
-          group: font.token === undefined ? "More fonts, added to the project when chosen" : "In the project",
+          group: font.inProject ? "In the project" : "On this computer",
           content: (
             <>
               <span className="text-sm" style={{ fontFamily: font.stack }}>
                 {font.name}
               </span>
               {font.token !== undefined && (
-                <span className="font-mono text-2xs text-muted-foreground">font-{font.token}</span>
+                <span className="font-mono text-2xs text-muted-foreground">{namespacedName(font.token, "font-")}</span>
               )}
             </>
           )
@@ -178,7 +203,7 @@ export function FontFamilyField({
       const named = fonts.find(
         (font) =>
           font.name.toLowerCase() === words ||
-          (font.token !== undefined && (font.token === words || `font-${font.token}` === words))
+          (font.token !== undefined && tokenNamed([{ name: font.token }], words, "font-") !== undefined)
       )
 
       if (named) {
@@ -231,7 +256,8 @@ export function FontFamilyField({
   }
 
   return (
-    <div>
+    // A click or a key in the field asks again for the computer's fonts where the browser gave none without one.
+    <div onPointerDownCapture={askForInstalledFonts} onKeyDownCapture={askForInstalledFonts}>
       <ValueField
         label="Font"
         shown={own ? resolved?.name : undefined}
@@ -635,12 +661,15 @@ const unitOf = (lineHeight: LineHeight | undefined): LineUnit => {
  */
 export function LineHeightField({
   value,
+  inherited,
   size,
   fontSize = 16,
   mixed = false,
   onChange
 }: {
   value: LineHeight | undefined
+  /** What the text draws with while this is unset, read from the canvas, shown faintly. */
+  inherited?: LineHeight
   /** The text's size token, whose paired line height shows while this is unset. */
   size: SizeToken | undefined
   /** The text's size in pixels, for converting between a multiple and pixels. */
@@ -794,6 +823,8 @@ export function LineHeightField({
   if (value === undefined && size && !mixed) {
     placeholder = unit === "px" ? String(size.lineHeight) : formatNumber(size.lineHeight / size.px)
     comesTo = "From size"
+  } else if (value === undefined && inherited && !("keyword" in inherited) && !mixed) {
+    placeholder = formatNumber(currentIn(inherited, unit) ?? 0)
   }
 
   // A multiple, or pixels off the spacing steps, is a value of its own, marked; whole pixels are a step.
@@ -1034,11 +1065,14 @@ const signed = (value: number) => (value < 0 ? `−${formatNumber(-value)}` : fo
  */
 export function LetterSpacingField({
   value,
+  inherited,
   fontSize = 16,
   mixed = false,
   onChange
 }: {
   value: LetterSpacing | undefined
+  /** What the text draws with while this is unset, read from the canvas, shown faintly. */
+  inherited?: LetterSpacing
   fontSize?: number
   mixed?: boolean
   onChange: (value: LetterSpacing | undefined) => void
@@ -1125,7 +1159,7 @@ export function LetterSpacingField({
         by: unit === "em" ? { step: 0.005, shiftStep: 0.025 } : { step: 0.5, shiftStep: 2.5 }
       }}
       shown={shown}
-      placeholder="0"
+      placeholder={formatNumber(inherited ? (currentIn(inherited, unit) ?? 0) : 0)}
       mixed={mixed}
       chip={tokenChip(held, token, {
         pick: (name) => onChange(asToken(name)),

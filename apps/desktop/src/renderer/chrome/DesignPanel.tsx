@@ -1,3 +1,4 @@
+import { componentInfoOf } from "@parity-app/core"
 import { designCapabilities, kindTitle, type InspectorSection, panelParts, selectionKey } from "@parity-app/editor"
 import { updateNote } from "@parity-app/multiplayer"
 import { Crown, MousePointerClick } from "lucide-react"
@@ -147,7 +148,7 @@ function SelectedPanel() {
 function DesignPanel({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
   const components = useComponents(session.components)
-  const can = designCapabilities(entry.container, (component) => components[component]?.takesStyle)
+  const can = designCapabilities(entry.container, (component) => componentInfoOf(components, component)?.takesStyle)
   // A page of the app (PAR-1076): its header, its path params as props, its route and Export; nothing of it is designed.
   const route = routePageRoute(session.id, entry.container.id)
 

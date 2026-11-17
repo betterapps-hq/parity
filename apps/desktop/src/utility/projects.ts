@@ -271,8 +271,12 @@ interface Project extends OpenProject {
   builder: BuilderDescription
   startOptions: BuilderStartOptions
   watcher?: Watching
-  /** The props inferred from each component's source, read again as the list says. */
+  /**
+   * The props inferred from each component's source, read again as the list says, with `iconProps` among them.
+   */
   components: Promise<Record<string, ComponentInfo>>
+  /** The props each icon set's icons share, by `iconSetPropsId`, read once from one icon of each set. */
+  iconProps: Promise<Record<string, ComponentInfo>>
   /** What reads the app's files for components when they change. */
   renderer: RendererAdapter
   /** Where the windows load the project's guest from: `info.guestUrl`, unless they couldn't load it after it moved. */
@@ -944,12 +948,14 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       known,
       // A saved detection brings its props; discovery's list has every one read.
       components: Promise.resolve(saved?.props ?? {}),
+      iconProps: inferProps({ root, name: info.name, pkg }, config.iconSets ?? {}),
       renderer,
       openedAt: performance.now(),
       stylesVersion: 0,
       detected: inputs && { key: inputs.key, files: new Set(inputs.files) }
     }
 
+    project.components = withIconProps(project, project.components)
     readProps(project, opened, config.componentFiles)
     project.watcher = watchProjectFiles(project)
 
@@ -1764,7 +1770,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    */
   function readProps(project: Project, step: ComponentListStep, files?: string[]): void {
     if (step.props === "all") {
-      project.components = inferProps(project, step.list.sources, files)
+      project.components = withIconProps(project, inferProps(providerProject(project), step.list.sources, files))
 
       return
     }
@@ -1776,7 +1782,10 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const named = new Set(step.props)
     const needed = Object.fromEntries(Object.entries(step.list.sources).filter(([id]) => named.has(id)))
     const known = project.components
-    const more = named.size > 0 ? inferProps(project, needed) : Promise.resolve<Record<string, ComponentInfo>>({})
+
+    const more =
+      named.size > 0 ? inferProps(providerProject(project), needed) : Promise.resolve<Record<string, ComponentInfo>>({})
+
     project.components = Promise.all([known, more]).then(([props, read]) => {
       const all = { ...props, ...read }
 
@@ -1789,6 +1798,15 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
       return all
     })
+    project.components = withIconProps(project, project.components)
+  }
+
+  /** Components' props with the props each icon set's icons share among them, which the list doesn't name. */
+  function withIconProps(
+    project: Pick<Project, "iconProps">,
+    components: Promise<Record<string, ComponentInfo>>
+  ): Promise<Record<string, ComponentInfo>> {
+    return Promise.all([components, project.iconProps]).then(([props, icons]) => ({ ...props, ...icons }))
   }
 
   /** Tells the windows the project's component list, with its props, as they are now. */
@@ -1799,11 +1817,11 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
   /** Props inference that never fails the project: without it, panels fall back to free-form props. */
   function inferProps(
-    project: Project,
+    project: ProviderProject,
     sources: Record<string, ComponentSource>,
     files?: string[]
   ): Promise<Record<string, ComponentInfo>> {
-    const { root } = project.info
+    const { root } = project
 
     return checker.inferComponents(root, sources, files).then(
       (components) => withOwnSize(project, components),
@@ -1820,7 +1838,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    * size, with those classes left out. None is when no styles provider can say.
    */
   async function withOwnSize(
-    project: Project,
+    project: ProviderProject,
     components: Record<string, ComponentInfo>
   ): Promise<Record<string, ComponentInfo>> {
     const classed = Object.values(components).filter((info) => info.ownClasses)
@@ -1831,7 +1849,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     const classes = classed.map((info) => info.ownClasses ?? [])
 
-    const sized = await provide(providerProject(project), {
+    const sized = await provide(project, {
       kind: "styles",
       method: "setsOwnSize",
       params: { classes }

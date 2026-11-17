@@ -51,7 +51,9 @@ Across all of them:
 - **Extensions say which they are** (PAR-1235). Every error from an internal extension's window module carries the tags
   `extension` (its id), `extension_half` (`window`) and `tab`, and both halves' lifecycle is recorded as `extension.*`
   events: activating, failing to, stopping, crashing, failed calls into a window module, one stopped in a tab, calls to
-  a half that isn't ready, refused manifests and missing capabilities.
+  a half that isn't ready, refused manifests and missing capabilities, including those nested in `parity.canvas`. A
+  canvas layer's render that throws is caught by its own error boundary and counted as `layer:<id>`; the followings,
+  previews and holds a window module opens are recorded with its id (PAR-1257).
 - **Almost nothing is sampled.** No process sets `tracesSampleRate` or a sampler, so the SDKs make no spans of their
   own, and every span Parity makes is sent. No registered event uses `defineEvent`'s `sample` option. Two events thin
   themselves: `dragPreview.settled` records one in ten previews of others' drags that end by their write, and every

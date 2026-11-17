@@ -278,7 +278,12 @@ async function discover(): Promise<{
   const { stories } = await importStories(projectSource(root, config.components))
   const storybook = projectStorybook(pkg.scripts, ".storybook", stories)
 
-  return { config, info, components: withOwnSize(inferProps(root, config.components)), storybook }
+  return {
+    config,
+    info,
+    components: withOwnSize(inferProps(root, { ...config.components, ...config.iconSets })),
+    storybook
+  }
 }
 
 /** The example's components, each `fixedSize` where Tailwind says the classes on its own element set it, as the app's are. */
