@@ -52,6 +52,7 @@ import { keybindingsFile } from "./keybindings.ts"
 import { readLogEvents } from "./log-files.ts"
 import { listenOnLoopback } from "./loopback.ts"
 import { isPackaged } from "./packaged.ts"
+import { pageFrameGuard } from "./page-frames.ts"
 import { fetchPageSheet } from "./page-sheets.ts"
 import { onPage, opensInBrowser, pageGuard } from "./parity-page.ts"
 import { launchLink, passLink } from "./pass-link.ts"
@@ -584,6 +585,10 @@ function createWindow(): void {
   const guard = pageGuard({ page: rendererUrl, openBrowser: (url) => void shell.openExternal(url) })
   window.webContents.on("will-navigate", guard.navigate)
   window.webContents.on("will-redirect", guard.redirect)
+  // A route frame's page stays on its builder's origin, and the window hears where it tried to go (route-frames.md).
+  const frames = pageFrameGuard((stop) => window.webContents.send(ipc.pageStopped, stop))
+  window.webContents.on("will-frame-navigate", frames)
+  window.webContents.on("will-redirect", frames)
   // The page decides whether the window closes, through `hostMethods`' close methods, which only its own page may send.
   closeFlow.watch({
     id: window.id,

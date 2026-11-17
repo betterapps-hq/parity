@@ -373,7 +373,10 @@ describe("snapshot.take and sheets.get over the channel", () => {
         "page.ready": () => null,
         "page.moved": () => null,
         "page.height": () => null,
-        "page.used": () => null
+        "page.used": () => null,
+        "page.scrolled": () => null,
+        "page.zoom": () => null,
+        "page.key": () => null
       }
     })
 

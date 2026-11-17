@@ -626,6 +626,8 @@ export interface CanvasHost {
   pages: {
     /** A stylesheet on another host a page links to, which the page can't read, or nothing; it never fails. */
     sheet: (href: string) => Promise<string | null>
+    /** Calls `listener` each time a route frame is stopped leaving its page's origin. Returns what stops it. */
+    onStopped: (listener: (stop: { frame: string; url: string }) => void) => () => void
   }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string

@@ -197,7 +197,15 @@ const host: CanvasHost = {
     placed: (placed) => ask("connectorsPlaced", placed)
   },
   pages: {
-    sheet: (href) => ask("pageSheet", href)
+    sheet: (href) => ask("pageSheet", href),
+    onStopped: (listener) => {
+      const stopped = (_event: Electron.IpcRendererEvent, stop: { frame: string; url: string }) => listener(stop)
+      ipcRenderer.on(ipc.pageStopped, stopped)
+
+      return () => {
+        ipcRenderer.removeListener(ipc.pageStopped, stopped)
+      }
+    }
   },
   initialProject: process.argv
     .find((argument) => argument.startsWith("--parity-initial-project="))

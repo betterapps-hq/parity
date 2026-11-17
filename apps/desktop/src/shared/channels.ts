@@ -17,6 +17,8 @@ export const ipc = {
   showUpdates: "canvas:show-updates",
   /** Main tells windows what's new in the console log, or that a project's was cleared. */
   consoleChanged: "canvas:console-changed",
+  /** Main tells a window a route frame in it was stopped leaving its page's origin, and where it tried to go. */
+  pageStopped: "canvas:page-stopped",
   /** Main tells windows the account changed. */
   accountChanged: "canvas:account-changed",
   /** Main tells windows what `keybindings.json` holds now (PAR-1085). */
