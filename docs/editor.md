@@ -8971,24 +8971,24 @@ pool itself (`live-frames.ts`) has no unit test; it was tried in the app. Pictur
 (6: a route's file and its parents', its own first; none for an unknown route, and a loop stopped; what the builder says
 the files load, with their scan, styles and shared files; every file under the route's folder, and those directly in the
 folders above it and their parallel slots, for routes named by folder; the whole project where the builder can't say or
-the route isn't known, and for a page that didn't land), `apps/desktop/src/utility/page-traces.test.ts` (5: the route's
+the route isn't known, and for a page that didn't land), `apps/desktop/src/utility/page-traces.test.ts` (6: the route's
 files, imports, loads, stylesheets and shared config; the whole project without the builder's word; none when a file
 changed after the copy's page started loading; holding until a file it lists changes; stopping when a file it would now
-list is added), `render.test.ts` (5, "canvasRender with a page's copy": built at the mode's width and the page's full
-height with viewport units measuring the window; sanitized again so nothing in it runs; lazy images loaded at once;
-clipped at the frame's own height; why when there's no copy), `render-job.test.ts` (3, "a page's picture's name": by
-path and query, not the builder's address; changed by the mode, state and scale; without the copy),
-`bitmap-store.test.ts` (2, "a page's picture in the store": kept while its trace holds and stale after; apart from
-frames' bitmaps and the page in another mode), `frame-bitmaps.test.ts` (a page's picture asked of the service again each
-time, so a stale verdict holds) and `copy-sheets.test.ts`, which moved from `freezer.test.ts`. Gaps: reading routes when
-the project opens, the page frames, the freezer (its stale copies, markup groups and second hello included), building
-and selecting copies, a board's tier as the camera moves, `usePagePicture`, drawing the lines, groups, landing warning
-and the titles' backdrop, Layers' route tree, and the bundling have no test of their own; all were tried in the app. The
-lines were checked on the example at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting
-its page's top edge. Each page frame was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the
-rest at 800. Bringing lines forward was checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example
-opened with its own routes and Settings' redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and
-hovering Projects.
+list is added; a Next template's imports scanned), `render.test.ts` (5, "canvasRender with a page's copy": built at the
+mode's width and the page's full height with viewport units measuring the window; sanitized again so nothing in it runs;
+lazy images loaded at once; clipped at the frame's own height; why when there's no copy), `render-job.test.ts` (3, "a
+page's picture's name": by path and query, not the builder's address; changed by the mode, state and scale; without the
+copy), `bitmap-store.test.ts` (2, "a page's picture in the store": kept while its trace holds and stale after; apart
+from frames' bitmaps and the page in another mode), `frame-bitmaps.test.ts` (a page's picture asked of the service again
+each time, so a stale verdict holds) and `copy-sheets.test.ts`, which moved from `freezer.test.ts`. Gaps: reading routes
+when the project opens, the page frames, the freezer (its stale copies, markup groups and second hello included),
+building and selecting copies, a board's tier as the camera moves, `usePagePicture`, drawing the lines, groups, landing
+warning and the titles' backdrop, Layers' route tree, and the bundling have no test of their own; all were tried in the
+app. The lines were checked on the example at 5%, 10% and 22%: every page's name and path read clearly, with each line
+meeting its page's top edge. Each page frame was checked on the example at 1280 wide: App at 849 tall with no scrollbar,
+the rest at 800. Bringing lines forward was checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the
+example opened with its own routes and Settings' redirect) at 5% and 10%, by selecting Pricing, Settings' group and
+Billing and hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 
