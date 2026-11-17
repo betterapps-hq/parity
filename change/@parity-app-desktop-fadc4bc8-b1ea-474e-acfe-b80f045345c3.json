@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Undo in a live room takes out only your own typing, even beside the same letter someone else wrote",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
