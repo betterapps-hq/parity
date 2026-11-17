@@ -89,6 +89,8 @@ describe("printing declarations as classes", () => {
     ["font-weight", "500", "font-medium"],
     ["font-weight", "600", "font-semibold"],
     ["line-height", "1.5", "leading-normal"],
+    ["text-wrap", "balance", "text-balance"],
+    ["text-wrap", "nowrap", "text-nowrap"],
     ["color", "#fff", "text-white"]
   ])("writes %s: %s as %s, which Tailwind says is the same value written another way", (property, value, expected) => {
     expect(classes({ property, value })).toEqual([expected])

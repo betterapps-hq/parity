@@ -119,7 +119,7 @@ describe("styleOfElement", () => {
     expect(nodeStyle.safeParse(style).success).toBe(true)
   })
 
-  it("reads a text's type, leaving a transparent fill and normal spacing out", () => {
+  it("reads a text's type and how it wraps, leaving a transparent fill and normal spacing out", () => {
     const style = styleOfElement(
       {
         style: {
@@ -130,6 +130,8 @@ describe("styleOfElement", () => {
           "line-height": "20px",
           "letter-spacing": "normal",
           "text-align": "left",
+          "text-wrap-mode": "wrap",
+          "text-wrap-style": "balance",
           "background-color": "rgba(0, 0, 0, 0)"
         }
       },
@@ -141,7 +143,8 @@ describe("styleOfElement", () => {
       fontFamily: { value: "Geist, sans-serif" },
       fontSize: { value: "14px" },
       fontWeight: { value: 500 },
-      lineHeight: { value: "20px" }
+      lineHeight: { value: "20px" },
+      textWrap: "balance"
     })
     expect(nodeStyle.safeParse(style).success).toBe(true)
   })

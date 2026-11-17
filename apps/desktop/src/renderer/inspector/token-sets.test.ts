@@ -43,6 +43,8 @@ const tokens: Token[] = [
   token("leading-tight", "leading", "1.25"),
   token("tracking-wide", "tracking", "0.025em"),
   token("font-sans", "font", '"Geist", sans-serif'),
+  token("font-heading", "font", '600 1.25rem/1.4 "Geist", sans-serif'),
+  token("font-body", "font", "var(--font-semibold) var(--text-xl)/var(--leading-tight) var(--font-sans)"),
   token("shadow-sm", "shadow", "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)"),
   token("inset-shadow-xs", "shadow", "inset 0 1px 1px rgb(0 0 0 / 0.1)"),
   token("drop-shadow-md", "shadow", "0 3px 3px rgb(0 0 0 / 0.1)"),
@@ -62,7 +64,7 @@ const tokens: Token[] = [
 const sets = projectTokenSets(tokens, length, color)
 
 describe("the project's tokens as the Design tab's fields offer them", () => {
-  const cases: { set: TokenSetName; offers: [string, string][]; why: string }[] = [
+  const cases: { set: Exclude<TokenSetName, "typeStyle">; offers: [string, string][]; why: string }[] = [
     {
       set: "color",
       offers: [
@@ -122,6 +124,34 @@ describe("the project's tokens as the Design tab's fields offer them", () => {
 
   it("pairs a text size with its line height", () => {
     expect(sets.size[0]).toMatchObject({ lineHeight: 28 })
+  })
+
+  it("offers a token that sets a font, size and weight together as a preset, not a font", () => {
+    expect(sets.font.map((each) => each.name)).toEqual(["font-sans"])
+
+    expect(sets.typeStyle).toEqual([
+      {
+        name: "font-heading",
+        source: "the project",
+        values: {
+          font: { stack: '"Geist", sans-serif' },
+          size: { px: 20 },
+          weight: { value: 600 },
+          lineHeight: { multiple: 1.4 }
+        }
+      },
+      {
+        name: "font-body",
+        source: "the project",
+        // Each part another token names stays that token.
+        values: {
+          font: { token: "font-sans" },
+          size: { token: "text-xl" },
+          weight: { token: "font-semibold" },
+          lineHeight: { token: "leading-tight" }
+        }
+      }
+    ])
   })
 
   it("steps through Tailwind's hundreds where the project has no weights", () => {

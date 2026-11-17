@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 import { closestPreset } from "./preset-data.ts"
-import { standInTokenSets } from "./stand-in-tokens.ts"
+import { presetNamed, standInTokenSets } from "./stand-in-tokens.ts"
 
 // docs/editor.md, The style sections on the approved controls (PAR-923): the preset Typography offers.
 
@@ -13,7 +13,9 @@ describe("the preset a layer is offered", () => {
   })
 
   it("offers none to a layer with a preset", () => {
-    expect(closestPreset({ preset: "heading", own: { size: { px: 21 } } }, standInTokenSets)).toBeUndefined()
+    expect(
+      closestPreset({ preset: presetNamed("heading"), own: { size: { px: 21 } } }, standInTokenSets)
+    ).toBeUndefined()
   })
 
   it("offers the preset its type matches in every row the preset sets, with nothing differing", () => {

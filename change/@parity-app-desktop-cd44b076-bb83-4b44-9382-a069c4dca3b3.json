@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Typography presets come from the project's typography tokens, and text wrap and a text layer's tag are set in the Design panel",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

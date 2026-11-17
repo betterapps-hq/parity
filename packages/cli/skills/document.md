@@ -107,9 +107,10 @@ in one state.
 
 ### `text`
 
-Words. `tag` is `p` (the default), `span`, `h1` to `h4` or `strong`, and sets what the text is, not how it looks; size
-and weight come from `style`. A `span` or `strong` given a width, a minimum or maximum, `textAlign` or `lineClamp: 1` is
-drawn as a block, so the style works in a component's slot or a table cell too; without them it stays in the line.
+Words. `tag` is `p` (the default), `span`, `h1` to `h6`, `label` or `strong`, and sets what the text is, not how it
+looks; size and weight come from `style`. A `span`, `label` or `strong` given a width, a minimum or maximum, `textAlign`
+or `lineClamp: 1` is drawn as a block, so the style works in a component's slot or a table cell too; without them it
+stays in the line.
 
 ```json
 {
@@ -216,6 +217,7 @@ CSS property doesn't take gets `invalid_value`. Both are in execute.md, under Mo
 | `filter`, `backdropFilter`                       | A list of filters on the layer, or on what's behind it; see Effects below     |
 | `translate`, `rotate`, `scale`, `transform`,     | Move, turn, resize and skew how the layer is drawn; see Effects below         |
 | `transformOrigin`                                |                                                                               |
+| `typePreset`                                     | The typography preset token the type follows; set its parts beside it         |
 | `fontFamily`, `fontSize`, `letterSpacing`        | A named value, such as `{ "token": "font-mono" }`, `text-sm`, `tracking-wide` |
 | `lineHeight`                                     | A named value, such as `{ "token": "leading-tight" }`, or `{ "step": 6 }`     |
 | `fontWeight`                                     | `{ "value": 600 }` (400, 500, 600, 700), or a font weight token               |
@@ -225,6 +227,7 @@ CSS property doesn't take gets `invalid_value`. Both are in execute.md, under Mo
 | `fontStyle`                                      | `italic`; `normal` in a patch takes italic off                                |
 | `lineClamp`                                      | Lines of text before an ellipsis                                              |
 | `overflowWrap`                                   | Where a word too long for its line breaks: `anywhere` or `break-word`         |
+| `textWrap`                                       | How lines break: `wrap`, `nowrap`, `balance` or `pretty`                      |
 | `transition`                                     | How the layer moves when its style changes; see Transitions below             |
 | `css`                                            | Declarations for CSS properties no key above writes; see The CSS map below    |
 

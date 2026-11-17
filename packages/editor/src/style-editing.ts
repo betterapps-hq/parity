@@ -108,6 +108,8 @@ export const styleRows = {
   strokeWidth: ["borderWidth"],
   strokeStyle: ["borderStyle"],
   textColor: ["color"],
+  // A typography preset sets its parts with it, as one change.
+  preset: ["typePreset", "fontFamily", "fontSize", "fontWeight", "lineHeight", "letterSpacing"],
   font: ["fontFamily"],
   textSize: ["fontSize"],
   weight: ["fontWeight"],
@@ -118,6 +120,7 @@ export const styleRows = {
   decoration: ["fontStyle", "textDecorationLine"],
   case: ["textTransform"],
   lines: ["lineClamp"],
+  wrap: ["textWrap"],
   transitions: ["transition"]
 } as const satisfies Record<string, readonly (keyof NodeStyle)[]>
 

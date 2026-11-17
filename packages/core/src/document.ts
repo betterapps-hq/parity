@@ -324,7 +324,7 @@ export type ComponentNode = z.infer<typeof componentNode>
 export type PropValues = NonNullable<ComponentNode["props"]>
 
 /** The elements a text node can be. */
-export const textTags = ["p", "span", "h1", "h2", "h3", "h4", "strong"] as const
+export const textTags = ["p", "span", "h1", "h2", "h3", "h4", "h5", "h6", "label", "strong"] as const
 
 const textNode = nodeBase.extend({
   type: z.literal("text"),

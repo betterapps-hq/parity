@@ -8,12 +8,14 @@ import {
   lengthSteps,
   lengthToken,
   type Named,
+  type NodeStyle,
   type Opacity as StoredOpacity,
   opacityPercent,
   type Padding,
   type Size
 } from "@parity-app/core"
 import { sidesOf, tidySides } from "@parity-app/editor"
+import { formatNumber } from "@parity-app/style-schema"
 import { isFixedSize, isLengthToken, isTokenSize, type Radius, type Size as ControlSize } from "./controls/data.ts"
 import type { Side, Sides } from "./controls/sides-writes.ts"
 import type { FontSize, FontValue, LetterSpacing, LineHeight, Opacity, WeightValue } from "./controls/text-writes.ts"
@@ -357,4 +359,49 @@ export function trackingOf(
   const em = "em" in value ? value.em : value.px / fontPx
 
   return named(nearestName(tokens, (token) => token.em, em))
+}
+
+/** The rows a typography preset sets, as `NodeStyle`'s keys. */
+export type PresetStyle = Pick<NodeStyle, "fontFamily" | "fontSize" | "fontWeight" | "lineHeight" | "letterSpacing">
+
+/**
+ * A typography preset's parts as the style holds them, exactly as the preset gives them: a part it names by a token is
+ * that token, and any other is written out, a family's stack, pixels or a multiple, never moved to a nearby token.
+ */
+export function presetStyle(values: {
+  font?: FontValue
+  size?: FontSize
+  weight?: WeightValue
+  lineHeight?: LineHeight
+  letterSpacing?: LetterSpacing
+}): PresetStyle {
+  const { font, size, weight, lineHeight, letterSpacing } = values
+
+  return {
+    fontFamily: font && ("token" in font ? { token: font.token } : { value: font.stack }),
+    fontSize: size && ("token" in size ? { token: size.token } : { value: `${formatNumber(size.px)}px` }),
+    fontWeight: weightOf(weight),
+    lineHeight: lineHeight && presetLineHeight(lineHeight),
+    letterSpacing: letterSpacing && presetLetterSpacing(letterSpacing)
+  }
+}
+
+function presetLineHeight(lineHeight: LineHeight): StoredLineHeight {
+  if ("token" in lineHeight) {
+    return { token: lineHeight.token }
+  }
+
+  if ("keyword" in lineHeight) {
+    return { keyword: lineHeight.keyword }
+  }
+
+  return { value: "multiple" in lineHeight ? formatNumber(lineHeight.multiple) : `${formatNumber(lineHeight.px)}px` }
+}
+
+function presetLetterSpacing(spacing: LetterSpacing): Named {
+  if ("token" in spacing) {
+    return { token: spacing.token }
+  }
+
+  return { value: "em" in spacing ? `${formatNumber(spacing.em)}em` : `${formatNumber(spacing.px)}px` }
 }

@@ -10,6 +10,7 @@ import { gradientCss, isPlainColor, mixColor, shadowCss } from "./css-values.ts"
 import { isLengthToken, type Length } from "./data.ts"
 import type { GradientPaint, ShadowLayer } from "./lists-data.ts"
 import { type Spring, springLinear } from "./motion-data.ts"
+import type { TypePreset } from "./preset-data.ts"
 
 /** A token as a field offers it: drawn by its kind's preview from its value, with what it comes to in words. */
 export interface FieldToken {
@@ -326,6 +327,8 @@ export interface TokenSets {
   opacity: OpacityToken[]
   cursor: FieldToken[]
   font: FontToken[]
+  /** Typography presets: tokens that set a font, size and weight together. */
+  typeStyle: TypePreset[]
 }
 
 export type TokenSetName = keyof TokenSets

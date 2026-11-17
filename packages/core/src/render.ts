@@ -860,7 +860,7 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
 }
 
 /** Text tags drawn inline, which take a width or alignment only once drawn as a block. */
-const inlineTags: ReadonlySet<string> = new Set(["span", "strong"])
+const inlineTags: ReadonlySet<string> = new Set(["span", "label", "strong"])
 
 /** A layer's style as the CSS declarations its element is drawn from. */
 function cssOf(

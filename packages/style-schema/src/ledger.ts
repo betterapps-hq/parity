@@ -169,6 +169,8 @@ export const owned: Readonly<Record<StyleKey, readonly string[]>> = {
   transform: ["transform"],
   transformOrigin: ["transform-origin"],
   transition: ["transition"],
+  // A preset's parts are the type keys', so it owns nothing itself.
+  typePreset: [],
   fontFamily: ["font-family"],
   fontSize: ["font-size"],
   fontWeight: ["font-weight"],
@@ -180,6 +182,7 @@ export const owned: Readonly<Record<StyleKey, readonly string[]>> = {
   fontStyle: ["font-style"],
   lineClamp: ["-webkit-line-clamp", "-webkit-box-orient", "text-overflow", "white-space"],
   overflowWrap: ["overflow-wrap"],
+  textWrap: ["text-wrap", "text-wrap-mode", "text-wrap-style"],
   // The CSS map holds what no key owns, so it owns nothing itself.
   css: []
 }

@@ -280,6 +280,7 @@ export function styleOfElement(element: Pick<ElementSnapshot, "style">, type: El
     set("lineHeight", pixels(css["line-height"]))
     set("letterSpacing", pixels(css["letter-spacing"]))
     set("textAlign", textAlignOf(css["text-align"]))
+    set("textWrap", textWrapOf(css["text-wrap-mode"], css["text-wrap-style"]))
   }
 
   return style
@@ -314,5 +315,16 @@ export const readStyles = [
   "font-weight",
   "line-height",
   "letter-spacing",
-  "text-align"
+  "text-align",
+  "text-wrap-mode",
+  "text-wrap-style"
 ] as const
+
+/** How text breaks into lines, from its computed mode and style; wrapping as it does unset is left out. */
+function textWrapOf(mode: string | undefined, style: string | undefined): NodeStyle["textWrap"] {
+  if (mode === "nowrap") {
+    return "nowrap"
+  }
+
+  return style === "balance" || style === "pretty" ? style : undefined
+}

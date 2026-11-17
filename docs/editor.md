@@ -4579,8 +4579,11 @@ section with the group's own title leads it without a title of its own, and its 
   its default shown faintly, and choosing the default, or clearing the field, unsets it again.
 - **Content** (text layers only): the words, which wrap and grow in their field, with a handle to drag it taller. Enter
   or leaving makes the edit, Shift+Enter starts a line, and Escape puts the words back. In a component design, the
-  button beside it uses one of the component's props for the text. Then Tag. Not saved: Tag. A component whose only
-  content is text has no Label field: its text is edited in place on the canvas.
+  button beside it uses one of the component's props for the text. Then Tag, Paragraph unset, then Heading 1 to 6,
+  Label, Inline text and Strong, the text node's own `tag`, the same in every state (`setTag` in
+  `chrome/LayerPanel.tsx`, through `setOwnFields`; the tags in core's `textTags`). Text inside an instance has no Tag,
+  since it's the component's. A component whose only content is text has no Label field: its text is edited in place on
+  the canvas.
 - **Position:** Placement, in its layout or absolute, beside Layer order, always shown and Auto while unset, and an
   absolutely placed layer's inset box. Insets are measured in whole pixels from the layer's containing block, inside its
   border, as nudging measures them. Then Transform, which + adds. A design's root has no Position, so no Transform. Not
@@ -4614,8 +4617,17 @@ section with the group's own title leads it without a title of its own, and its 
   tokens and the families its stylesheets declare with `@font-face`, then the fonts installed on this computer, from
   Local Font Access, each set in its own face; Weight offers the faces the font has, and a variable font's whole axis
   (`inspector/controls/fonts.ts`, tested in `fonts.test.ts`; the project's faces from `declaredFaces` in `guest.ts`).
-  Storybook lists them as the app does, the computer's fonts included. The presets listed are still the stand-in
-  project's, measured with the project's type tokens. Not saved: Preset, and the color's opacity.
+  Storybook lists them as the app does, the computer's fonts included. The presets are the project's typography tokens
+  (PAR-930), each a `font` shorthand that sets a font, size and weight together, as a library's text styles do
+  (`--mui-font-h1`); a token named as a font that is one is a preset, not a family (`projectTokenSets` in
+  `inspector/token-sets.ts`, tested in `token-sets.test.ts`; the shorthand read by `typeStyleParts` in
+  `@parity-app/tokens`, tested in `type-style.test.ts`). Picking one writes `typePreset` and its parts as one change,
+  exactly as the preset gives them, a part it names by a token as that token and any other written out (`presetStyle` in
+  `inspector/style-values.ts`, tested in `style-values.test.ts`); never `font`. A row still holding its part follows the
+  preset, and one that differs overrides it; picking it again takes back every override, and Detach keeps the values and
+  drops the link. Wrap, after Color, sets `textWrap`: Wrap, Balance, Pretty or No wrap; a text layer that hugs its width
+  has none, since it never wraps. Storybook's stories still list the stand-in project's presets. Not saved: the color's
+  opacity.
 - **Appearance:** Opacity beside Blend mode, Radius from the project's radius tokens, and Clip content, a menu of
   Visible, Clip, Scroll and Scroll when needed. Not saved: Blend mode, Corner shape, Each corner and Scroll always.
 - **Stroke:** + adds the project's usual stroke and − removes it; then its color and one width. Not saved: the color's
@@ -5798,11 +5810,11 @@ Resizing out of the panel).
 
 ### Inline text, alignment and long words (PAR-898)
 
-A text layer whose tag is drawn inline, `span` or `strong`, has no box of its own outside a flex or grid layout, as in a
-component's slot or a table cell, so a width, height, minimum or maximum, `textAlign` or `lineClamp: 1` would do nothing
-there. Given any of these, it's drawn `display: block`, so a `span` with a maximum width is cut off at it and a number
-in a table cell lines up at its end. Without them it stays inline, in the line of text around it. More than one line
-already draws its own box, which clamps it. A `p` or a heading is a block anyway.
+A text layer whose tag is drawn inline, `span`, `label` or `strong`, has no box of its own outside a flex or grid
+layout, as in a component's slot or a table cell, so a width, height, minimum or maximum, `textAlign` or `lineClamp: 1`
+would do nothing there. Given any of these, it's drawn `display: block`, so a `span` with a maximum width is cut off at
+it and a number in a table cell lines up at its end. Without them it stays inline, in the line of text around it. More
+than one line already draws its own box, which clamps it. A `p` or a heading is a block anyway.
 
 `overflowWrap` says where a word too long for its line breaks, such as a web address in a narrow column: `anywhere`,
 which also lets a table cell or a hugging layout narrow to fit, or `break-word`, which breaks it only once it can't fit
@@ -10197,7 +10209,9 @@ taken for the size or the keyword.
   `{ value: "#2563eb" }`), a keyword (`{ keyword: "currentColor" }`) or an expression.
 - **A value that names a token of its kind** (`borderRadius`, `fontFamily`, `fontSize`, `letterSpacing`) is a token, a
   value, a keyword or an expression: `{ token: "radius-lg" }`. `lineHeight` takes steps as well, and `zIndex` is
-  `{ step: 10 }` or a token.
+  `{ step: 10 }` or a token. `typePreset` is only a token, the typography preset the type follows: it writes nothing
+  itself, since its parts are the type keys beside it.
+- **A keyword set** is its word: `textWrap: "balance"` (`wrap`, `nowrap`, `balance` or `pretty`), as `textAlign` is.
 - **Opacity, a border's width and a font weight** each take a number in their own form, or a token of their kind:
   `opacity: { step: 50 }` (a percentage; `{ value: 0.5 }` is the same from 0 to 1), `borderWidth: { step: 2 }` (whole
   pixels) and `fontWeight: { value: 600 }`.
