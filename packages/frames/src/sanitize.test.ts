@@ -309,6 +309,12 @@ describe("sanitizeSheet", () => {
     expect(sanitizeSheet(`@IMPORT 'x.css' screen;b{}`, policy)).toBe("b{}")
   })
 
+  it("leaves strings that only say @import or an escaped name as they are", () => {
+    const css = String.raw`a::before{content:"@import";color:red} b::after{content:"u\72l(x)"}`
+
+    expect(sanitizeSheet(css, policy)).toBe(css)
+  })
+
   it("keeps url()s on the page's origin, https: hosts, data: images and fonts, and fragments", () => {
     const css = [
       `a { background: url(${policy.pageOrigin}/bg.png) }`,

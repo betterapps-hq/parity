@@ -254,14 +254,89 @@ export function sanitizeRoot(root: PageRoot, policy: SanitizePolicy): SanitizedR
 
 /** A sheet's text with every `url()` outside the policy taken out; `@import` is refused, as the page inlined them. */
 export function sanitizeSheet(text: string, policy: SanitizePolicy): string {
-  const css = withoutComments(readLoadNames(cssNewlines(text))).replace(
-    /@import\b(?:[^;"']|"(?:[^"\\]|\\[\s\S])*"|'(?:[^'\\]|\\[\s\S])*')*;?/gi,
-    ""
-  )
+  const css = rewriteImports(withoutComments(readLoadNames(cssNewlines(text))), () => "")
 
   // Taking a rule out can join the text around it into another (`@im@import "";port …`). Any such one is renamed, in one
   // pass, to an at-rule CSS doesn't know and skips; a name that starts "@-" can't join into another.
-  return sanitizeCss(css.replace(/@import/gi, "@-parity-removed-import"), policy)
+  return sanitizeCss(
+    rewriteImports(css, (rule) => `@-parity-removed-import${rule.slice("@import".length)}`),
+    policy
+  )
+}
+
+/**
+ * CSS with each `@import` rule outside a string, from its name to its `;`, its block's end or the text's end, as
+ * `rewrite` gives it back. Strings are skipped whole, so text that only says `@import` stays as it is.
+ */
+function rewriteImports(css: string, rewrite: (rule: string) => string): string {
+  const name = /@import(?![\w-])/iy
+  let out = ""
+  let from = 0
+
+  for (let at = 0; at < css.length; at += 1) {
+    const char = css.charAt(at)
+
+    if (char === "\\") {
+      at += 1
+    } else if (char === '"' || char === "'") {
+      at = stringEnd(css, at)
+    } else if (char === "@") {
+      name.lastIndex = at
+      const end = name.test(css) ? ruleEnd(css, at) : undefined
+
+      if (end !== undefined) {
+        out += `${css.slice(from, at)}${rewrite(css.slice(at, end))}`
+        from = end
+        at = end - 1
+      }
+    }
+  }
+
+  return out + css.slice(from)
+}
+
+/** Where an at-rule that starts at `start` ends: after its `;`, after its block's `}`, or at the text's end. */
+function ruleEnd(css: string, start: number): number {
+  for (let at = start; at < css.length; at += 1) {
+    const char = css.charAt(at)
+
+    if (char === "\\") {
+      at += 1
+    } else if (char === '"' || char === "'") {
+      at = stringEnd(css, at)
+    } else if (char === ";") {
+      return at + 1
+    } else if (char === "{") {
+      return Math.min(closingBrace(css, at + 1) + 1, css.length)
+    }
+  }
+
+  return css.length
+}
+
+/** Where the brace opened just before `start` closes, skipping strings and escapes, or the text's end. */
+function closingBrace(css: string, start: number): number {
+  let depth = 1
+
+  for (let at = start; at < css.length; at += 1) {
+    const char = css.charAt(at)
+
+    if (char === "\\") {
+      at += 1
+    } else if (char === '"' || char === "'") {
+      at = stringEnd(css, at)
+    } else if (char === "{") {
+      depth += 1
+    } else if (char === "}") {
+      depth -= 1
+
+      if (depth === 0) {
+        return at
+      }
+    }
+  }
+
+  return css.length
 }
 
 function sanitizeNode(node: FrozenNode, policy: SanitizePolicy, count: { removed: number }): FrozenNode {
@@ -705,8 +780,17 @@ const loadFunctions = new Set(["url", "image-set", "-webkit-image-set", "src"])
  * `@\69mport`), as a browser reads them, so the checks after see every load. Every other name keeps its escapes.
  */
 function readLoadNames(css: string): string {
+  const strings = stringRanges(css)
+  let next = 0
+
   return css.replace(cssName, (whole, at: string, name: string, offset: number) => {
-    if (!name.includes("\\") || !afterName.test(css.charAt(offset + whole.length))) {
+    while (next < strings.length && (strings[next]?.[1] ?? 0) < offset) {
+      next += 1
+    }
+
+    const inString = (strings[next]?.[0] ?? Infinity) <= offset
+
+    if (inString || !name.includes("\\") || !afterName.test(css.charAt(offset + whole.length))) {
       return whole
     }
 
@@ -715,6 +799,25 @@ function readLoadNames(css: string): string {
 
     return loads ? `${at}${read}` : whole
   })
+}
+
+/** Where each string in some CSS starts and ends, its quotes included, in order. */
+function stringRanges(css: string): [start: number, end: number][] {
+  const ranges: [number, number][] = []
+
+  for (let at = 0; at < css.length; at += 1) {
+    const char = css.charAt(at)
+
+    if (char === "\\") {
+      at += 1
+    } else if (char === '"' || char === "'") {
+      const end = stringEnd(css, at)
+      ranges.push([at, end])
+      at = end
+    }
+  }
+
+  return ranges
 }
 
 /** A CSS string's text with its escapes read, so `\6a avascript:` is checked as what it says. */
