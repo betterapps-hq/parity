@@ -1,5 +1,5 @@
 import type { NodeRef } from "@parity-app/extension"
-import type { Gesture, Palette, Point, Rect, Viewing } from "@parity-app/extension/internal"
+import type { CaretAt, Gesture, Palette, Point, Rect, Viewing } from "@parity-app/extension/internal"
 import type { PersonPresence } from "./protocol.ts"
 
 /*
@@ -178,7 +178,36 @@ export class People {
   }
 }
 
-/** The rect someone's marquee covers now, from where it started to their pointer, on the page. */
+/** How much of the letters' box a caret leaves out, at the top and at the bottom, so it's as tall as a text field's. */
+const caretTrim = 0.1
+
+/** How wide a caret is on screen, in pixels. */
+const caretWidth = 1.5
+
+/** Where a caret's line is drawn on the page, as CSS places it. */
+export interface CaretMark {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+/**
+ * Where someone's caret is drawn on the page, as a text field draws one: centred on where it stands, a little shorter
+ * than the line, and the same width on screen at any zoom.
+ */
+export function caretMark(caret: CaretAt, zoom: number): CaretMark {
+  const line = caret.bottom - caret.top
+  const width = caretWidth / zoom
+
+  return {
+    left: caret.x - width / 2,
+    top: caret.top + line * caretTrim,
+    width,
+    height: line * (1 - 2 * caretTrim)
+  }
+}
+
 /** The rectangle a marquee covers on the page. */
 export interface Marquee {
   x: number

@@ -12,12 +12,12 @@ import {
 } from "@parity-app/presence-ui"
 import { type ReactNode, useSyncExternalStore } from "react"
 import type { Follow } from "./follow.ts"
-import { marqueeRect, type People, type RoomPerson, selectionsByNode } from "./people.ts"
+import { caretMark, marqueeRect, type People, type RoomPerson, selectionsByNode } from "./people.ts"
 
 /*
  * What the room draws on the canvas (docs/proposals/extensions-in-the-window.md, "The multiplayer extension"), from
  * presence-ui's components, each person in the palette the room assigned them: their pointers with first-name badges,
- * what they've selected or are typing in outlined in their color, their marquees, the avatar stack with each person's
+ * what they've selected or are typing in outlined in their color with their caret, their marquees, the avatar stack with each person's
  * card, and following's frame and banner. Page layers keep what they draw the same size on screen by scaling it by
  * `1 / zoom`.
  */
@@ -88,6 +88,7 @@ interface Placing {
   in: "board" | "node"
   state?: string
   mode?: string
+  caret?: number
 }
 
 /** What everyone has selected, and where they're typing, outlined in their colors, in the `overDesigns` layer. */
@@ -97,7 +98,9 @@ export function Selections({ people }: { people: People }) {
   const selected = selectionsByNode(everyone)
 
   const typing = everyone.flatMap((person) =>
-    person.gesture?.kind === "text" ? [{ person, ref: person.gesture.ref, frame: person.gesture.frame }] : []
+    person.gesture?.kind === "text"
+      ? [{ person, ref: person.gesture.ref, frame: person.gesture.frame, caret: person.gesture.caret }]
+      : []
   )
 
   return (
@@ -111,7 +114,7 @@ export function Selections({ people }: { people: People }) {
           zoom={zoom}
         />
       ))}
-      {typing.map(({ person, ref, frame }) => (
+      {typing.map(({ person, ref, frame, caret }) => (
         <SelectionOutline
           key={`typing:${person.peer}`}
           nodeRef={ref}
@@ -120,6 +123,7 @@ export function Selections({ people }: { people: People }) {
           zoom={zoom}
           state={frame?.state}
           mode={frame?.mode}
+          caret={caret}
         />
       ))}
     </>
@@ -132,7 +136,8 @@ function SelectionOutline({
   members,
   zoom,
   state,
-  mode
+  mode,
+  caret
 }: {
   nodeRef: NodeRef
   by: RoomPerson[]
@@ -140,6 +145,8 @@ function SelectionOutline({
   zoom: number
   state?: string | undefined
   mode?: string | undefined
+  /** Where they're typing: their caret is drawn at `focus`. */
+  caret?: { anchor: number; focus: number } | undefined
 }) {
   const board = nodeRef.type === "design"
   // A layer's outline is drawn in the frame the first of them sees it in.
@@ -158,18 +165,41 @@ function SelectionOutline({
     options.mode = inMode
   }
 
+  if (caret) {
+    options.caret = caret.focus
+  }
+
   const box = useBox(nodeRef, options)
 
   if (box.kind !== "drawn") {
     return null
   }
 
+  const mark = box.caret && caretMark(box.caret, zoom)
+
   return (
-    <AtScreenSize rect={box.box} zoom={zoom}>
-      <Outlined by={members} radius={box.radius * zoom} className="size-full">
-        <span className="block size-full" />
-      </Outlined>
-    </AtScreenSize>
+    <>
+      <AtScreenSize rect={box.box} zoom={zoom}>
+        <Outlined by={members} radius={box.radius * zoom} className="size-full">
+          <span className="block size-full" />
+        </Outlined>
+      </AtScreenSize>
+      {mark && caret && (
+        // A caret as a text field draws one: thin, a little shorter than the letters' box, blinking once it rests.
+        // Keyed by where it is, so it shows steadily again each time it moves. People's colors are soft, so it has
+        // the outline's hairline of ink round it, a screen pixel wide, to read on light text.
+        <span
+          key={`${caret.anchor}:${caret.focus}`}
+          aria-hidden
+          className="absolute animate-[room-caret-blink_1.06s_step-end_0.5s_infinite] motion-reduce:animate-none"
+          style={{
+            ...mark,
+            background: members[0]?.palette.color,
+            boxShadow: `0 0 0 ${1 / zoom}px color-mix(in oklch, ${members[0]?.palette.ink} 35%, transparent)`
+          }}
+        />
+      )}
+    </>
   )
 }
 

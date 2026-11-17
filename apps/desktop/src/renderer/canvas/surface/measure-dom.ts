@@ -2,6 +2,7 @@ import type { DrawnAt, MeasuredFrame, MeasurePort, PageRect, Point } from "@pari
 import type { Editor } from "tldraw"
 import { findFrames, findNodeElement, nodesAt } from "../../frame.ts"
 import { frameGeometry } from "../frame-geometry.ts"
+import { caretLine, drawnText } from "../text-caret.ts"
 import { createCanvasId } from "../tldraw-names.ts"
 
 /** A box the browser gives, as `getBoundingClientRect` does. */
@@ -69,6 +70,19 @@ export function domMeasurePort(editor: Editor): MeasurePort {
         const node = frameGeometry(host).node(id)
 
         return node && drawnAt(node.box, node.scale, node.hasElement ? findNodeElement(host, id) : undefined)
+      },
+      // Only where the text drawn is as long as the place it's at, since another state or mode can draw other text.
+      caret: (id, offset) => {
+        const element = findNodeElement(host, id)
+        const line = element && offset <= drawnText(element).length ? caretLine(element, offset) : undefined
+
+        if (!line) {
+          return undefined
+        }
+
+        const top = editor.screenToPage({ x: line.x, y: line.top })
+
+        return { x: top.x, top: top.y, bottom: editor.screenToPage({ x: line.x, y: line.bottom }).y }
       },
       contains: (at) => holds(shown, at),
       nodesAt: (at) => nodesAt(host, toClient(at))

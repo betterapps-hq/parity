@@ -181,11 +181,23 @@ export interface BoxOptions {
   /** Which frame. When none matches both, a frame in `mode` is used, then the primary frame. */
   state?: string
   mode?: string
+  /** With a node, also where a caret before character `caret` of the text it draws stands, as `caret` in the result. */
+  caret?: number
+}
+
+/** A caret as it's drawn on the page: where it stands along the line, and the line's top and bottom. */
+export interface CaretAt {
+  x: number
+  top: number
+  bottom: number
 }
 
 export type BoxResult =
-  /** Drawn: its box on the page, its corner radius in page units, and its laid-out size in design pixels. */
-  | { kind: "drawn"; box: Rect; radius: number; size: { width: number; height: number } }
+  /**
+   * Drawn: its box on the page, its corner radius in page units, and its laid-out size in design pixels. With `caret`
+   * asked for, where that caret stands, when the text drawn reaches it.
+   */
+  | { kind: "drawn"; box: Rect; radius: number; size: { width: number; height: number }; caret?: CaretAt }
   /** Its frame is asleep (scrolled far away or culled): the frame's box, so something can still point at it. */
   | { kind: "asleep"; frame: Rect }
   /** Not on the canvas. */

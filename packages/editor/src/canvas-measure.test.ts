@@ -124,6 +124,34 @@ describe("boxes", () => {
     expect(sameBox({ kind: "drawn", ...at(0, 0) }, { kind: "drawn", ...at(0.001, 0) })).toBe(true)
     expect(sameBox({ kind: "missing" }, { kind: "asleep", frame: at(0, 0).box })).toBe(false)
   })
+
+  it("says where a caret in a node's text stands, only when asked and when the text reaches it", () => {
+    const { port, frames, tick } = fakePort()
+    let x = 34
+    const text = "Pricing"
+    frames.home = [
+      {
+        ...frame({ box: at(20, 40), primary: true, nodes: { title: at(30, 50, 40, 10) } }),
+        caret: (id, offset) => (id === "title" && offset <= text.length ? { x, top: 50, bottom: 60 } : undefined)
+      }
+    ]
+    const measure = createMeasure(port)
+    const title = { design: "home", node: "title" }
+    expect(measure.box(title, { caret: 3 })).toEqual({
+      kind: "drawn",
+      ...at(30, 50, 40, 10),
+      caret: { x: 34, top: 50, bottom: 60 }
+    })
+    expect(measure.box(title)).toEqual({ kind: "drawn", ...at(30, 50, 40, 10) })
+    expect(measure.box(title, { caret: 12 })).toEqual({ kind: "drawn", ...at(30, 50, 40, 10) })
+
+    // The caret moving is a change, though the box stays.
+    const told: unknown[] = []
+    measure.onBoxChange(title, (box) => told.push(box), { caret: 4 })
+    x = 38
+    tick()
+    expect(told).toEqual([{ kind: "drawn", ...at(30, 50, 40, 10), caret: { x: 38, top: 50, bottom: 60 } }])
+  })
 })
 
 describe("hits", () => {

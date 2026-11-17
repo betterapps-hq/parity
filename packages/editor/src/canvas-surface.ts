@@ -54,6 +54,15 @@ export interface BoxOptions {
   /** Which frame. When none matches both, a frame in `mode` is used, then the primary frame. */
   state?: string
   mode?: string
+  /** With a node, also where a caret before character `caret` of the text it draws stands, as `caret` in the result. */
+  caret?: number
+}
+
+/** A caret as it's drawn on the page: where it stands along the line, and the line's top and bottom. */
+export interface CaretAt {
+  x: number
+  top: number
+  bottom: number
 }
 
 /** Something drawn: its box on the page, its corner radius in page units, and its laid-out size in design pixels. */
@@ -61,6 +70,8 @@ export interface DrawnAt {
   box: PageRect
   radius: number
   size: { width: number; height: number }
+  /** Where the caret asked for with `caret` stands, when the text drawn reaches it. */
+  caret?: CaretAt
 }
 
 export type BoxResult =
