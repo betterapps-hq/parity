@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Hold one project per window, with Home when none is open: the title bar shows the open project's name and its menu, in place of project tabs",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
