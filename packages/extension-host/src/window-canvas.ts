@@ -431,12 +431,10 @@ function colorsFor(port: WindowCanvasPort, context: SurfaceContext): WindowColor
 
     return {
       claim(key) {
-        // Claimed after it stopped, as an activation that resumes late can: the palette, given back at once.
+        // Claimed after it stopped, as an activation that resumes late can: the palette, under an owner of its own, so
+        // a run started since keeps its claims.
         if (ended) {
-          const palette = core.claim(key, owner)
-          core.release(key, owner)
-
-          return palette
+          return peek(core, key)
         }
 
         counts.set(key, (counts.get(key) ?? 0) + 1)

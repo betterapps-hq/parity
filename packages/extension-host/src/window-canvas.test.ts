@@ -253,6 +253,21 @@ describe("parity.colors", () => {
     expect(agents.owners("peer-2:claude#1")).toEqual([])
   })
 
+  it("leaves a run started since holding its claims when an old run claims late", async () => {
+    const { parity, people, runtime, stop } = await tab()
+    const old = parity().colors
+    await stop()
+    runtime.update([extension()])
+    await settle()
+    parity().colors.claim("peer-3")
+    old.claim("peer-3")
+
+    expect(people.owners("peer-3")).toEqual([
+      `${surfaceTestId}
+tab-1`
+    ])
+  })
+
   it("lets the room assign numbers, and gives palettes and the hand-tuned count of each list", async () => {
     const { parity, layers } = await tab()
     const { colors } = parity()
