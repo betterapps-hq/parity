@@ -216,6 +216,12 @@ function rootOnHost(host: HTMLElement, root: PageRoot, mode: PageMode): () => vo
     }
   }
 
+  // The scheme the runtime put on `<html>` for the mode, which native controls draw in.
+  if (mode.scheme && !properties.includes("color-scheme")) {
+    host.style.setProperty("color-scheme", mode.scheme)
+    properties.push("color-scheme")
+  }
+
   return () => {
     host.classList.remove(...classes)
 

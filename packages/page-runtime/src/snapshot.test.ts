@@ -118,18 +118,23 @@ describe("takeSnapshot", () => {
     expect(area).toMatchObject({ tag: "textarea", children: ["Hello"] })
   })
 
-  it("takes `<html>`'s classes and attributes without the mode's, or the runtime's style", async () => {
+  it("takes `<html>`'s classes and attributes without the mode's, or the runtime's style, its url()s absolute", async () => {
     const root = document.documentElement
     root.className = "font-sans dark"
     root.setAttribute("data-theme", "dark")
     root.setAttribute("lang", "en")
     root.style.setProperty("--brand", "red")
+    root.style.setProperty("--hero", "url(/hero.png)")
     root.style.setProperty("scrollbar-width", "none")
     const mode = { classes: ["dark"], attributes: { "data-theme": "dark" } }
 
     const { root: taken } = await takeSnapshot(window, { mode, viewport: desktop, location: landed, sheets: new Map() })
 
-    expect(taken).toEqual({ classes: ["font-sans"], attributes: [["lang", "en"]], style: "--brand: red" })
+    expect(taken).toEqual({
+      classes: ["font-sans"],
+      attributes: [["lang", "en"]],
+      style: `--brand: red; --hero: url("${window.location.origin}/hero.png")`
+    })
   })
 
   it("lists the page's sheets by content hash, keeping their text for sheets.get", async () => {

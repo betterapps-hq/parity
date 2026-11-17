@@ -8626,16 +8626,16 @@ app's passed over; `route.go` moving the app and saying where it ended, a redire
 `route.go` refused without a router; where the page moved told, by its router or its address; `page.used` at most once a
 second), `packages/page-runtime/src/snapshot.test.ts` (14, PAR-1262: the body's tree as plain data without scripts or
 styles; every URL made absolute; svg's namespace and case; a form's state as attributes, never a password; `<html>`
-without the mode or the runtime's style; sheets by content hash for `sheets.get`, one it can't read by address with its
-media, an unreadable import where it stands inside every condition around it, and an anonymous imported layer kept one
-named layer inside its `supports()`; the same markup hash for the same tree; `url()`s made absolute; a snapshot and its
-sheets over the channel; a wait or too many ids refused; the snapshot's deadline), `packages/frames/src/freezer.test.ts`
-(5: nearest route first, each once; nothing with no boards; restarting after 1 s and 5 s, stopping after three failures
-in two minutes, and forgetting older ones), `element-layers.test.ts` ("gives a copy's elements their path from the body
-as ids"), `route-boards.test.ts` ("puts what the copy drew inside the innermost route"),
-`apps/desktop/src/main/page-sheets.test.ts` (6: its `@import`s inlined in their layer and media, and `supports()` kept
-apart from the media after it; another host's sheet over https, its `url()`s absolute against where it came from;
-anything else refused unasked; nothing for a failed answer, one that isn't CSS, or a request that fails),
+without the mode or the runtime's style, its `url()`s absolute; sheets by content hash for `sheets.get`, one it can't
+read by address with its media, an unreadable import where it stands inside every condition around it, and an anonymous
+imported layer kept one named layer inside its `supports()`; the same markup hash for the same tree; `url()`s made
+absolute; a snapshot and its sheets over the channel; a wait or too many ids refused; the snapshot's deadline),
+`packages/frames/src/freezer.test.ts` (5: nearest route first, each once; nothing with no boards; restarting after 1 s
+and 5 s, stopping after three failures in two minutes, and forgetting older ones), `element-layers.test.ts` ("gives a
+copy's elements their path from the body as ids"), `route-boards.test.ts` ("puts what the copy drew inside the innermost
+route"), `apps/desktop/src/main/page-sheets.test.ts` (6: its `@import`s inlined in their layer and media, and
+`supports()` kept apart from the media after it; another host's sheet over https, its `url()`s absolute against where it
+came from; anything else refused unasked; nothing for a failed answer, one that isn't CSS, or a request that fails),
 `packages/extension-tanstack-router/src/page.test.ts` (6: the router found on the page's window or not; where it
 resolved, with search and hash; its not-found route and an error; a navigation resolved once the router has resolved,
 not when it's first idle; one given up when aborted; the watcher told until it stops),

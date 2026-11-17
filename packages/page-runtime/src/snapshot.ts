@@ -52,7 +52,7 @@ export async function takeSnapshot(page: Window, context: SnapshotContext): Prom
     location: context.location,
     viewport: context.viewport,
     pageHeight: Math.ceil(Math.max(root.scrollHeight, document.body?.scrollHeight ?? 0)),
-    root: rootOf(root, context.mode),
+    root: rootOf(root, context.mode, document.baseURI),
     body,
     sheets: pageSheets(document, context.sheets),
     markup: hashText(JSON.stringify(body))
@@ -90,8 +90,8 @@ async function eagerImages(page: Window): Promise<void> {
   ])
 }
 
-/** `<html>`'s classes, attributes and inline style, less the mode's and what the runtime set itself. */
-function rootOf(root: Element, mode: PageMode): PageRoot {
+/** `<html>`'s classes, attributes and inline style, less the mode's and what the runtime set itself, its `url()`s absolute. */
+function rootOf(root: Element, mode: PageMode, base: string): PageRoot {
   const classes = [...root.classList].filter((name) => !mode.classes.includes(name))
 
   const attributes = [...root.attributes].flatMap((attribute): [string, string][] =>
@@ -100,7 +100,7 @@ function rootOf(root: Element, mode: PageMode): PageRoot {
       : [[attribute.name, attribute.value]]
   )
 
-  const style = root instanceof HTMLElement ? ownStyle(root.style) : ""
+  const style = root instanceof HTMLElement ? absoluteCss(ownStyle(root.style), base) : ""
 
   return { classes, attributes, style }
 }
