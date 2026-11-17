@@ -171,7 +171,7 @@ interface Frame {
   channel: Channel<ParityMethods, PageMethods>
   origin: string
   state: "loading" | "ready"
-  /** The route it's on or loading at, its path and query. */
+  /** The route it was loaded at or sent to, its path and query; where it landed, after a redirect, is `location`. */
   route: string
   /** The page router that can move it, once it has said; none without one. */
   router: string | null | undefined
@@ -217,7 +217,9 @@ export class Pool {
   private movable = true
   private warming: { frame: Frame; board: string } | undefined
   private live: { frame: Frame; board: string; engaged: boolean; top: number; outSince?: number } | undefined
-  private going: string | undefined
+  /** The press on its way to going live: its board, and a token of its own, so a later press on the same board wins. */
+  private going: { board: string; token: number } | undefined
+  private presses = 0
   private hoverTimer = 0
   private refillTimer = 0
   private planTimer = 0
@@ -293,7 +295,7 @@ export class Pool {
   /** A board now draws another URL: its live page ends and its board shows its copy at the new URL. */
   retarget(id: string): void {
     // A press on its way to going live at the old URL stops there.
-    if (this.going === id) {
+    if (this.going?.board === id) {
       this.going = undefined
     }
 
@@ -351,7 +353,7 @@ export class Pool {
     window.clearTimeout(this.hoverTimer)
     const board = this.boards.get(id)?.()
 
-    if (!board || !this.layer || this.going === id) {
+    if (!board || !this.layer || this.going?.board === id) {
       return
     }
 
@@ -361,7 +363,8 @@ export class Pool {
       return
     }
 
-    this.going = id
+    const token = ++this.presses
+    this.going = { board: id, token }
     const started = performance.now()
     const route = routeOf(board.url)
 
@@ -415,7 +418,7 @@ export class Pool {
       await withDeadline(frame.channel.request("role.set", { role: "live" }), pageDeadlines["role.set"])
 
       // Another board was pressed, the board went, or Interact was put down, while this one was on its way.
-      if (this.going !== id || !this.boards.has(id) || !this.interacting) {
+      if (this.going?.token !== token || !this.boards.has(id) || !this.interacting) {
         this.close(frame)
 
         return
@@ -448,7 +451,7 @@ export class Pool {
         this.pendingFrames.delete(frame.id)
       }
 
-      if (this.going === id) {
+      if (this.going?.token === token) {
         this.going = undefined
       }
 
@@ -583,7 +586,6 @@ export class Pool {
     const moving = withDeadline(frame.channel.request("route.go", { to: route }), pageDeadlines["route.go"]).then(
       (location) => {
         frame.location = location
-        frame.route = location.path + location.search
       }
     )
 
@@ -655,7 +657,6 @@ export class Pool {
           it.state = "ready"
           it.router = router
           it.location = location
-          it.route = location.path + location.search
 
           if (router === null) {
             this.movable = false
@@ -670,7 +671,6 @@ export class Pool {
         "page.moved": ({ location }) => {
           const it = frame()
           it.location = location
-          it.route = location.path + location.search
           this.moved(it, location)
 
           return null
