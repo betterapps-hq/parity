@@ -54,7 +54,7 @@ describe("copyLayers (PAR-1262)", () => {
     const shop = createProjectDoc(open().a, { undoLimit: 10, main: "app.par" })
     const blog = createProjectDoc(open().a, { undoLimit: 10, main: "app.par" })
     const design = "pricing"
-    const layers = [{ id: "0", type: "frame" as const, name: "main", children: [] }]
+    const layers = [{ id: "0", type: "layout" as const, name: "main", children: [] }]
 
     setCopyLayers(shop, design, layers)
 
