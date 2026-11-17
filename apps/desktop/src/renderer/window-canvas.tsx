@@ -128,6 +128,7 @@ export function windowCanvasPort(session: ProjectSession, tab: string): WindowCa
         },
         settleOnWrite: () => shown.settleOnWrite(),
         cancel: () => shown.cancel(),
+        onEnd: (listener) => ({ dispose: shown.onEnd(listener) }),
         [Symbol.dispose]: () => shown[Symbol.dispose]()
       }
     },

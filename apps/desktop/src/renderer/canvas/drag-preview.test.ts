@@ -103,12 +103,17 @@ describe("preview of a board", () => {
     ])
   })
 
-  it("puts the board back where the document has it when no write comes within 2 s", () => {
+  it("puts the board back where the document has it when no write comes within 2 s, saying it has ended", () => {
     const shown = preview(surface, [{ target: { design: "pricing" }, at: { x: 330, y: 40 } }], jonas)
+    const ended: string[] = []
+    shown.onEnd(() => ended.push("ended"))
     shown.settleOnWrite()
     timers.tick(1999)
     expect(placedBoards.at("tab", "pricing")).toEqual({ x: 330, y: 40 })
+    expect(ended).toEqual([])
     timers.tick(1)
+    shown[Symbol.dispose]()
+    expect(ended).toEqual(["ended"])
     expect(placedBoards.at("tab", "pricing")).toBeUndefined()
     expect(sink.named("dragPreview.settled").map((event) => event.attributes.how)).toEqual(["timeout"])
   })
