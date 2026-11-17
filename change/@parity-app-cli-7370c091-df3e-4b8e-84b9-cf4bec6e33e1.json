@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Multiplayer is an internal extension: turn on Live room to open projects through parity.sync, with other people's pointers, selections, drags and Follow drawn on the canvas",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
