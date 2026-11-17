@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Core keeps no Tailwind motion knowledge: easing keywords are CSS's own, drawn as the project's token of the same name, unset motion falls back to CSS's ease and 150ms, and the Colors transition set lists CSS properties without Tailwind's gradient variables",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

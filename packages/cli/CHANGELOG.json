@@ -2,6 +2,53 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 09:28:56 GMT",
+      "version": "0.80.0",
+      "tag": "@parity-app/cli_v0.80.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "558281551868346799e5d781a435ceef236fc3c5",
+            "comment": "Live room: others' carets, a Joining the live room step while opening, agents the same color in every copy, file writes set from the host once a joining copy opens, and people who left while disconnected cleared"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "0d762358e28bb45a4392ab4f2d66afc6195ad41b",
+            "comment": "Agent presence can be turned off in Settings (Show agents on canvas), and a moved board stays held only while its agent's pointer can still drag it."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "85957e4340b3789a4ba5ef8b4997ca4932185046",
+            "comment": "Route frames move React Router (framework and library mode) and Next.js pages with the app's own router, through new page routers and a wrapped react-router in library mode."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "777b694e10a4108d2172a8247a1e564c57a15408",
+            "comment": "Errors from the editor window carry extensions.json and are titled by the extension; window modules' main-thread time is recorded as extension.slow and extension.mainThread, with a warning in development; a Node half's refused calls record extension.halfUnavailable"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a5431da7a7fcc7eb8a318291cf8dc6927f842ef2",
+            "comment": "Typography presets come from the project's typography tokens, and text wrap and a text layer's tag are set in the Design panel"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "8cb8fc7f995c45f0a32ee638b6f255b782671461",
+            "comment": "Core keeps no Tailwind motion knowledge: easing keywords are CSS's own, drawn as the project's token of the same name, unset motion falls back to CSS's ease and 150ms, and the Colors transition set lists CSS properties without Tailwind's gradient variables"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 07:35:37 GMT",
       "version": "0.79.0",
       "tag": "@parity-app/cli_v0.79.0",

@@ -1,8 +1,33 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 17 Nov 2026 07:35:37 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 09:28:56 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.80.0
+
+Tue, 17 Nov 2026 09:28:56 GMT
+
+### Minor changes
+
+- Live room: others' carets, a Joining the live room step while opening, agents the same color in every copy, file
+  writes set from the host once a joining copy opens, and people who left while disconnected cleared
+  (ajcraswell@gmail.com)
+- Agent presence can be turned off in Settings (Show agents on canvas), and a moved board stays held only while its
+  agent's pointer can still drag it. (ajcraswell@gmail.com)
+- Route frames move React Router (framework and library mode) and Next.js pages with the app's own router, through new
+  page routers and a wrapped react-router in library mode. (ajcraswell@gmail.com)
+- Errors from the editor window carry extensions.json and are titled by the extension; window modules' main-thread time
+  is recorded as extension.slow and extension.mainThread, with a warning in development; a Node half's refused calls
+  record extension.halfUnavailable (ajcraswell@gmail.com)
+- Typography presets come from the project's typography tokens, and text wrap and a text layer's tag are set in the
+  Design panel (ajcraswell@gmail.com)
+
+### Patches
+
+- Core keeps no Tailwind motion knowledge: easing keywords are CSS's own, drawn as the project's token of the same name,
+  unset motion falls back to CSS's ease and 150ms, and the Colors transition set lists CSS properties without Tailwind's
+  gradient variables (ajcraswell@gmail.com)
 
 ## 0.79.0
 
