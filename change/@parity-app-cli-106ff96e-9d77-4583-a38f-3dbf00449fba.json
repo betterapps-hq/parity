@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Show routes opens the app's routes in the Pages lens, through the new routes tab id.",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,8 +1,24 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 17 Nov 2026 12:03:28 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 13:39:43 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.82.0
+
+Tue, 17 Nov 2026 13:39:43 GMT
+
+### Minor changes
+
+- Route boards go live with the Interact tool, from a pool of spare frames of the app's own page (ajcraswell@gmail.com)
+- Route copies are frozen again when the app's code changes, a route frozen again takes one snapshot per markup group,
+  and token edits show in copies and in the page drawn with the Interact tool. (ajcraswell@gmail.com)
+
+### Patches
+
+- Show routes opens the app's routes in the Pages lens, through the new routes tab id. (ajcraswell@gmail.com)
+- Following reaches someone whose view changes every frame, and Esc ends following before it steps out of the selection.
+  (ajcraswell@gmail.com)
 
 ## 0.81.1
 

@@ -2,6 +2,41 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 13:39:43 GMT",
+      "version": "0.82.0",
+      "tag": "@parity-app/cli_v0.82.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "394953f2b47d98a2073675a747e92ba0faa1e1af",
+            "comment": "Show routes opens the app's routes in the Pages lens, through the new routes tab id."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "edb60f9eeea2c63a61cd944e3c6b02fb719249c5",
+            "comment": "Following reaches someone whose view changes every frame, and Esc ends following before it steps out of the selection."
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "370835029e1ce72f9eedfd0562ac5836d40ffa2a",
+            "comment": "Route boards go live with the Interact tool, from a pool of spare frames of the app's own page"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "59358cdf6749f3000d5d0b985a24f6c7d07cad11",
+            "comment": "Route copies are frozen again when the app's code changes, a route frozen again takes one snapshot per markup group, and token edits show in copies and in the page drawn with the Interact tool."
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 12:03:28 GMT",
       "version": "0.81.1",
       "tag": "@parity-app/cli_v0.81.1",
