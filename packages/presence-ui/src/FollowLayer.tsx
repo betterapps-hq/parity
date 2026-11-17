@@ -3,7 +3,11 @@ import { useEffect, useState } from "react"
 import { FollowEnded } from "./FollowEnded.tsx"
 import { FollowFrame } from "./FollowFrame.tsx"
 import { type Member, shortName } from "./member.ts"
-import type { FollowState } from "./useFollow.ts"
+
+/**
+ * Where following someone stands: on, ended by you, ended because they left, or over once the note saying so has gone.
+ */
+export type FollowState = "following" | "stopped" | "left" | "done"
 
 /** How long the frame and banner take to fade once following ends. */
 const fadeMs = 300
@@ -42,15 +46,13 @@ export function FollowLayer({ leader, state, onStop }: FollowLayerProps) {
     <>
       <div
         inert={!following}
-        className={`pointer-events-none absolute inset-0 rounded-[inherit] transition-opacity ${following ? "opacity-100" : "opacity-0"}`}
+        className={`pointer-events-none absolute inset-0 rounded-[inherit] transition-opacity motion-reduce:transition-none ${following ? "opacity-100" : "opacity-0"}`}
         style={{ transitionDuration: `${fadeMs}ms` }}
       >
         {(following || fading) && <FollowFrame leader={leader} onStop={onStop} />}
       </div>
       {state === "stopped" && <FollowEnded icon={EyeOff} title={`Stopped following ${shortName(leader)}`} />}
-      {state === "left" && (
-        <FollowEnded icon={LogOut} title={`${shortName(leader)} left the project`} hint="Following stopped" />
-      )}
+      {state === "left" && <FollowEnded icon={LogOut} title={`${shortName(leader)} left, so following stopped`} />}
     </>
   )
 }

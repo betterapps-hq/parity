@@ -1,4 +1,5 @@
 import { Button } from "@buildkitgg/shadcn"
+import { FaceStack, FollowLayer, type FollowState, RemotePointer } from "@parity-app/presence-ui"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type Theme, scrolls } from "../stories/canvas-kit.tsx"
 import { CanvasBoard } from "../stories/CanvasBoard.tsx"
@@ -7,11 +8,8 @@ import { DashboardDesign } from "../stories/DashboardDesign.tsx"
 import { Themes } from "../stories/Themes.tsx"
 import { useClock } from "../stories/useClock.ts"
 import { useResolvedTheme } from "../theme.ts"
-import { FaceStack } from "./FaceStack.tsx"
-import { FollowLayer } from "./FollowLayer.tsx"
-import { RemotePointer } from "./RemotePointer.tsx"
 import { members, presences } from "./story-kit.tsx"
-import { type FollowState, useFollow } from "./useFollow.ts"
+import { useFollow } from "./useFollow.ts"
 
 /**
  * Following someone: your canvas goes where theirs goes. It's framed in their color with a banner along the top saying

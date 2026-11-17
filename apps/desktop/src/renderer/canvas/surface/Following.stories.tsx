@@ -1,11 +1,10 @@
 import { Button } from "@buildkitgg/shadcn"
 import { type Camera, type CameraView, createCamera, type FollowEnd, type Following } from "@parity-app/editor"
+import { FollowLayer, type FollowState } from "@parity-app/presence-ui"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useRef, useState } from "react"
 import { type Editor, Tldraw, toRichText } from "tldraw"
-import { FollowLayer } from "../../multiplayer/FollowLayer.tsx"
 import { members } from "../../multiplayer/story-kit.tsx"
-import type { FollowState } from "../../multiplayer/useFollow.ts"
 import { createCanvasId } from "../tldraw-names.ts"
 import { tldrawCameraPort } from "./camera-tldraw.ts"
 

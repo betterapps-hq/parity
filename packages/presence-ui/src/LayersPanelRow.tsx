@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react"
 import { Face } from "./Face.tsx"
-import type { Member } from "./member.ts"
+import { keyOf, listed, type Member } from "./member.ts"
 
 interface LayersPanelRowProps {
   name: string
@@ -11,6 +11,8 @@ interface LayersPanelRowProps {
   /** Whether you have it selected yourself. */
   selected?: boolean
 }
+
+const nameOf = (member: Member) => member.name
 
 /*
  * A row's fill, which its faces are cut out of so they can overlap closely: the panel's background, the muted step
@@ -40,16 +42,18 @@ export function LayersPanelRow({ name, icon: Icon, depth = 0, selectedBy = [], s
       <Icon className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate">{name}</span>
       {selectedBy.length > 0 && (
-        <span
-          className="flex shrink-0 items-center"
-          title={`Selected by ${selectedBy.map((member) => member.name).join(", ")}`}
-        >
+        <span className="flex shrink-0 items-center" title={`Selected by ${listed(selectedBy.map(nameOf))}`}>
+          <span className="sr-only">Selected by {listed(selectedBy.map(nameOf))}</span>
           {shown.map((member, index) => (
-            <span key={member.name} className={`flex ${index > 0 ? "-ml-1.5" : ""}`}>
+            <span key={keyOf(member)} aria-hidden className={`flex ${index > 0 ? "-ml-1.5" : ""}`}>
               <Face member={member} size={16} />
             </span>
           ))}
-          {more > 0 && <span className="ml-1 text-2xs text-muted-foreground tabular-nums">+{more}</span>}
+          {more > 0 && (
+            <span aria-hidden className="ml-1 text-2xs text-muted-foreground tabular-nums">
+              +{more}
+            </span>
+          )}
         </span>
       )}
     </li>

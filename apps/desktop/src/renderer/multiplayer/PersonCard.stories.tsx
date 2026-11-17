@@ -1,3 +1,4 @@
+import { FaceStack, PersonCard, YouCard } from "@parity-app/presence-ui"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
 import { expect, userEvent, waitFor, within } from "storybook/test"
@@ -7,10 +8,7 @@ import { CanvasPane } from "../stories/CanvasPane.tsx"
 import { DashboardDesign } from "../stories/DashboardDesign.tsx"
 import { Themes } from "../stories/Themes.tsx"
 import { useResolvedTheme } from "../theme.ts"
-import { FaceStack } from "./FaceStack.tsx"
-import { PersonCard } from "./PersonCard.tsx"
 import { members, presences } from "./story-kit.tsx"
-import { YouCard } from "./YouCard.tsx"
 
 /**
  * Someone's card, opened from their face in the avatar stack: their name over a wash of their color, and buttons to

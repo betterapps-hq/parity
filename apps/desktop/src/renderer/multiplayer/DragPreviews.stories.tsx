@@ -1,3 +1,4 @@
+import { Outlined, RemotePointer } from "@parity-app/presence-ui"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type ReactNode, useState } from "react"
 import { LandingSpot } from "../canvas/LandingSpot.tsx"
@@ -10,8 +11,6 @@ import { StatCard } from "../stories/StatCard.tsx"
 import { Themes } from "../stories/Themes.tsx"
 import { useClock } from "../stories/useClock.ts"
 import { DragGhost } from "./DragGhost.tsx"
-import { Outlined } from "./Outlined.tsx"
-import { RemotePointer } from "./RemotePointer.tsx"
 import { members } from "./story-kit.tsx"
 
 /**
