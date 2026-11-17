@@ -11,7 +11,7 @@ import { buildCopy, type PageMode, type PageRoot } from "@parity-app/frames"
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import { findFrames, findNodeElements, prepareFrame, registerFrame, setDrawnNodes, setInnerNodes } from "../frame.ts"
 import { useProject } from "./context.ts"
-import { copySheets, type FrozenCopy, useFrozenCopy } from "./freezer.ts"
+import { copyShadowStyle, copySheets, type FrozenCopy, useFrozenCopy } from "./freezer.ts"
 import { routePagesFile, setCopyLayers, setPageLanding } from "./route-pages.ts"
 
 /** Attributes on a copy's host that are Parity's own, which neither the page's root nor its mode may set. */
@@ -146,7 +146,7 @@ function showCopy(
   registry: CustomElementRegistry
 ): () => void {
   const target = prepareFrame(host, copySheets(copy), { classNames: [], attributes: {}, viewport, registry })
-  const built = buildCopy(document, copy.body, registry)
+  const built = buildCopy(document, copy.body, registry, (css) => copyShadowStyle(copy, css))
   const body = built.fragment.firstElementChild
 
   if (body) {

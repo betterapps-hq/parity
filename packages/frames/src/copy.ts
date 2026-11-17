@@ -22,10 +22,16 @@ export interface BuiltCopy {
  * root's own, so none is upgraded by a definition in Parity's window. Each element's id is its path from the body,
  * counting elements only (`0.3.1`). What's inside an `<svg>` has no id: its layer is the picture (`elementLayers`), so
  * selecting a shape in it finds the `<svg>`. An element's open shadow root is attached again, in the same registry,
- * with its own styles; what's in it has no id either, as the page's DOM has none for it, so it selects its host. `body`
+ * with its own styles, each through `prepareStyle` (the board's media queries and viewport units, as the page's sheets
+ * get); what's in it has no id either, as the page's DOM has none for it, so it selects its host. `body`
  * has been through `sanitizePage`.
  */
-export function buildCopy(document: Document, body: FrozenElement, registry: CustomElementRegistry): BuiltCopy {
+export function buildCopy(
+  document: Document,
+  body: FrozenElement,
+  registry: CustomElementRegistry,
+  prepareStyle: (css: string) => string = (css) => css
+): BuiltCopy {
   const ids: string[] = []
   const elements = new Map<string, Element>()
   const parents = new Map<string, string>()
@@ -60,7 +66,7 @@ export function buildCopy(document: Document, body: FrozenElement, registry: Cus
 
     for (const text of shadow.styles) {
       const style = create({ tag: "style", attributes: [], children: [] })
-      style.textContent = text
+      style.textContent = prepareStyle(text)
       root.append(style)
     }
 

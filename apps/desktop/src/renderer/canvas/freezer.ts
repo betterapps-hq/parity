@@ -187,6 +187,17 @@ export function copySheets(copy: Pick<FrozenCopy, "sheets" | "origin">): CSSStyl
   })
 }
 
+/**
+ * A web component's shadow-root styles in a copy, prepared as the copy's sheets are, so their media queries and viewport
+ * units measure the copy's mode too. They've been through `sanitizePage`.
+ */
+export function copyShadowStyle(copy: Pick<FrozenCopy, "origin">, css: string): string {
+  const prepared = prepareCanvasCss(css, { baseUrl: copy.origin })
+  addGlobals(`${copy.origin}\nshadow:${css}`, prepared.global)
+
+  return prepared.scoped
+}
+
 function addGlobals(key: string, css: string): void {
   if (!css.trim() || copyGlobals.texts.has(key)) {
     return

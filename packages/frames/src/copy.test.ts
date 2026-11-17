@@ -117,6 +117,23 @@ describe("buildCopy", () => {
     expect(built.drawn.nodeOf(shadow.querySelector("span")!)).toBeUndefined()
   })
 
+  it("passes each shadow style through the board's preparation", () => {
+    const host: FrozenElement = {
+      tag: "price-tag",
+      attributes: [],
+      children: [],
+      shadow: { children: [], styles: ["@media (max-width: 600px) { span { color: red } }"] }
+    }
+
+    const built = buildCopy(document, { tag: "body", attributes: [], children: [host] }, registry, (css) =>
+      css.replace("@media", "@container frame")
+    )
+
+    expect(built.fragment.querySelector("price-tag")!.shadowRoot!.querySelector("style")!.textContent).toBe(
+      "@container frame (max-width: 600px) { span { color: red } }"
+    )
+  })
+
   it("finds the node an element belongs to, an svg's shape its svg, and none for the stand-in", () => {
     const { drawn, standIn } = copy()
 
