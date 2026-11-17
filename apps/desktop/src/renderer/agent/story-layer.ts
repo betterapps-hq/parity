@@ -92,6 +92,8 @@ export function storyLayer(id: string): CanvasLayerContextValue {
 
       return palette
     },
+    // The stories assign no numbers, so no palette moves.
+    onColors: () => ({ dispose: () => undefined }),
     frame: (frame) => frames.add(frame, (error) => console.error(error))
   }
 }

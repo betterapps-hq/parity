@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Story stand-in follows the canvas layer's color listeners",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}
