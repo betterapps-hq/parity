@@ -18,6 +18,7 @@ import {
   sanitizeSheet,
   type SheetEntry
 } from "@parity-app/frames"
+import { withConditions } from "@parity-app/page-runtime"
 import {
   frameName,
   type PageMethods,
@@ -153,7 +154,7 @@ function sheetId(entry: SheetEntry): string {
     return entry.hash
   }
 
-  return `href:${JSON.stringify([entry.href, entry.media ?? "", entry.layer ?? null])}`
+  return `href:${JSON.stringify([entry.href, entry.conditions ?? []])}`
 }
 
 /**
@@ -478,16 +479,6 @@ class Freezer {
   }
 }
 
-/**
- * Another host's sheet as its page applied it: inside the media it was linked for, and inside the cascade layer its
- * `@import` put it in, as the page runtime wraps a readable import.
- */
-function linkedText(text: string, entry: { media?: string; layer?: string }): string {
-  const inMedia = entry.media ? `@media ${entry.media} {\n${text}\n}` : text
-
-  return entry.layer === undefined ? inMedia : `@layer${entry.layer ? ` ${entry.layer}` : ""} {\n${inMedia}\n}`
-}
-
 /** Sizes the freezer's frame to a mode's window, which the page lays out in. */
 function sizeFrame(frame: HTMLIFrameElement, viewport: PageViewport): void {
   frame.style.width = `${viewport.width}px`
@@ -521,8 +512,8 @@ async function getSheets(channel: Channel<ParityMethods, PageMethods>, entries: 
         Promise.resolve()
           .then(() => window.canvasHost.pages.sheet(entry.href))
           .catch(() => null)
-          // A sheet linked for some media only, such as print, applies only there in the copy too.
-          .then((text) => sheetTexts.set(sheetId(entry), text ? linkedText(text, entry) : ""))
+          // Inside the conditions the page applied it in, so a print sheet or a layered import stays one.
+          .then((text) => sheetTexts.set(sheetId(entry), text ? withConditions(text, entry.conditions ?? []) : ""))
       ]
     })
   )

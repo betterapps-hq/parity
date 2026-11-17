@@ -32,10 +32,11 @@ export interface PageRoot {
 }
 
 /**
- * One of a snapshot's stylesheets: the page's own by content hash, or another origin's by address, with the media it's
- * linked for when that isn't all, and the cascade layer an `@import` put it in (`""` for an anonymous one).
+ * One of a snapshot's stylesheets: the page's own by content hash, or another origin's by address, with the at-rule
+ * conditions around it, outermost first, from its own `media` and every sheet and `@import` it's in (`@media print`,
+ * `@layer base`).
  */
-export type SheetEntry = { hash: string } | { href: string; media?: string; layer?: string }
+export type SheetEntry = { hash: string } | { href: string; conditions?: string[] }
 
 export type FrozenNode = FrozenElement | string
 
@@ -190,6 +191,9 @@ function textOf(element: FrozenElement): number {
   return element.attributes.reduce((sum, [name, value]) => sum + name.length + value.length, element.tag.length)
 }
 
+/** An at-rule's prelude a sheet sits inside, with no block or statement of its own. */
+const sheetCondition = z.string().regex(/^@(?:media|layer|supports)\b[^{};]*$/)
+
 export const pageSnapshotSchema = z.strictObject({
   location: pageLocationSchema,
   viewport: z.strictObject({ width: z.number().positive(), height: z.number().positive() }),
@@ -199,7 +203,7 @@ export const pageSnapshotSchema = z.strictObject({
   sheets: z.array(
     z.union([
       z.strictObject({ hash: z.string().min(1) }),
-      z.strictObject({ href: z.url(), media: z.string().min(1).optional(), layer: z.string().optional() })
+      z.strictObject({ href: z.url(), conditions: z.array(sheetCondition).max(32).optional() })
     ])
   ),
   markup: z.string().min(1)

@@ -169,8 +169,50 @@ describe("takeSnapshot", () => {
       })
 
       expect(sheets).toEqual([
-        { href: "https://cdn.test/print.css", media: "print" },
+        { href: "https://cdn.test/print.css", conditions: ["@media print"] },
         { href: "https://cdn.test/all.css" }
+      ])
+    } finally {
+      Reflect.deleteProperty(document, "styleSheets")
+    }
+  })
+
+  it("keeps an unreadable import where it stands, inside every condition around it", async () => {
+    const unreadable = {
+      href: "https://cdn.test/theme.css",
+      get cssRules(): never {
+        throw new DOMException("Cross-origin", "SecurityError")
+      }
+    }
+
+    const reset = {
+      href: "http://localhost/reset.css",
+      media: { mediaText: "" },
+      cssRules: [{ cssText: "* { margin: 0 }" }]
+    }
+
+    const page = {
+      href: null,
+      disabled: false,
+      media: { mediaText: "print" },
+      cssRules: [
+        { href: "reset.css", styleSheet: reset, media: { mediaText: "" }, layerName: null },
+        { href: "https://cdn.test/theme.css", styleSheet: unreadable, media: { mediaText: "" }, layerName: "base" },
+        { cssText: "main { color: red }" }
+      ]
+    }
+
+    Object.defineProperty(document, "styleSheets", { configurable: true, value: [page] })
+
+    try {
+      const kept = new Map<string, string>()
+      const { sheets } = await takeSnapshot(window, { mode: plain, viewport: desktop, location: landed, sheets: kept })
+      const texts = sheets.map((entry) => ("hash" in entry ? kept.get(entry.hash) : entry))
+
+      expect(texts).toEqual([
+        "@media print {\n* { margin: 0 }\n}",
+        { href: "https://cdn.test/theme.css", conditions: ["@media print", "@layer base"] },
+        "@media print {\nmain { color: red }\n}"
       ])
     } finally {
       Reflect.deleteProperty(document, "styleSheets")

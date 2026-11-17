@@ -256,51 +256,65 @@ export function absoluteCss(css: string, base: string): string {
   )
 }
 
+/** A run of a sheet's readable rules, or a sheet it can't read by address, each inside the conditions around it. */
+type SheetPiece = { text: string; conditions: string[] } | { href: string; conditions: string[] }
+
 /**
- * The page's stylesheets in document order, then its adopted ones: each one the page can read as its text by hash,
- * kept in `kept` for `sheets.get`, with its `@import`s inlined, and each it can't by its address.
+ * The page's stylesheets in document order, then its adopted ones: each run of rules the page can read as its text by
+ * hash, kept in `kept` for `sheets.get`, with its readable `@import`s inlined, and each sheet it can't by its address,
+ * in the order the cascade has them, with the conditions of every sheet and import around it.
  */
 function pageSheets(document: Document, kept: Map<string, string>): SheetEntry[] {
-  const entries: SheetEntry[] = []
-  const sheets = [...document.styleSheets, ...document.adoptedStyleSheets]
-
-  for (const sheet of sheets) {
+  // Each sheet's pieces apart, so a sheet every route links is one entry they share.
+  const sheets = [...document.styleSheets, ...document.adoptedStyleSheets].map((sheet): SheetPiece[] => {
     if (sheet.disabled) {
-      continue
+      return []
     }
 
-    const base = sheet.href ?? document.baseURI
-    const read = sheetText(sheet, base, entries)
+    const conditions = mediaCondition(sheet.media.mediaText)
 
-    if (read === undefined) {
-      if (sheet.href) {
-        entries.push(linked(sheet.href, sheet.media.mediaText))
+    return (
+      sheetPieces(sheet, sheet.href ?? document.baseURI, conditions) ??
+      (sheet.href ? [{ href: sheet.href, conditions }] : [])
+    )
+  })
+
+  const entries: SheetEntry[] = []
+  let run: string[] = []
+
+  const flush = () => {
+    const text = run.join("\n")
+    run = []
+
+    if (text.trim() !== "") {
+      const hash = hashText(text)
+      kept.set(hash, text)
+      entries.push({ hash })
+    }
+  }
+
+  for (const pieces of sheets) {
+    for (const piece of pieces) {
+      if ("text" in piece) {
+        run.push(withConditions(piece.text, piece.conditions))
+      } else {
+        flush()
+        entries.push(piece.conditions.length > 0 ? piece : { href: piece.href })
       }
-
-      continue
     }
 
-    const media = sheet.media.mediaText
-    const text = media && media !== "all" ? `@media ${media} {\n${read}\n}` : read
-
-    if (text.trim() === "") {
-      continue
-    }
-
-    const hash = hashText(text)
-    kept.set(hash, text)
-    entries.push({ hash })
+    flush()
   }
 
   return entries
 }
 
 /**
- * A sheet's rules as text, `url()`s absolute against `base` and readable `@import`s inlined; an import the page can't
- * read goes into `entries` by its address, before the sheet that imports it. Undefined when the sheet itself can't be
- * read.
+ * A sheet's rules as pieces in order, `url()`s absolute against `base` and readable `@import`s inlined inside their
+ * conditions; an import the page can't read is a piece by its address where it stands. Undefined when the sheet itself
+ * can't be read.
  */
-function sheetText(sheet: CSSStyleSheet, base: string, entries: SheetEntry[]): string | undefined {
+function sheetPieces(sheet: CSSStyleSheet, base: string, conditions: readonly string[]): SheetPiece[] | undefined {
   let rules: CSSRuleList
 
   try {
@@ -309,49 +323,34 @@ function sheetText(sheet: CSSStyleSheet, base: string, entries: SheetEntry[]): s
     return undefined
   }
 
-  const parts: string[] = []
+  const pieces: SheetPiece[] = []
 
   for (const rule of rules) {
-    if (isImportRule(rule)) {
-      const imported = rule.styleSheet
-      const importBase = imported?.href ?? new URL(rule.href, base).href
-      const inner = imported ? sheetText(imported, importBase, entries) : undefined
-
-      if (inner === undefined) {
-        entries.push(linked(importBase, rule.media.mediaText, rule.layerName))
-        continue
-      }
-
-      const media = rule.media.mediaText
-      let text = media && media !== "all" ? `@media ${media} {\n${inner}\n}` : inner
-
-      if (rule.layerName !== null) {
-        text = `@layer${rule.layerName ? ` ${rule.layerName}` : ""} {\n${text}\n}`
-      }
-
-      parts.push(text)
+    if (!isImportRule(rule)) {
+      pieces.push({ text: absoluteCss(rule.cssText, base), conditions: [...conditions] })
       continue
     }
 
-    parts.push(absoluteCss(rule.cssText, base))
+    const imported = rule.styleSheet
+    const importBase = imported?.href ?? new URL(rule.href, base).href
+    const layer = rule.layerName === null ? [] : [`@layer${rule.layerName ? ` ${rule.layerName}` : ""}`]
+    const inside = [...conditions, ...layer, ...mediaCondition(rule.media.mediaText)]
+    const inner = imported ? sheetPieces(imported, importBase, inside) : undefined
+
+    pieces.push(...(inner ?? [{ href: importBase, conditions: inside }]))
   }
 
-  return parts.join("\n")
+  return pieces
 }
 
-/** Another origin's sheet by its address, with the media it applies to when that isn't all, and its import's layer. */
-function linked(href: string, media: string, layer: string | null = null): SheetEntry {
-  const entry: SheetEntry = { href }
+/** A media list as a condition, or none when it's all media. */
+function mediaCondition(media: string): string[] {
+  return media && media !== "all" ? [`@media ${media}`] : []
+}
 
-  if (media && media !== "all") {
-    entry.media = media
-  }
-
-  if (layer !== null) {
-    entry.layer = layer
-  }
-
-  return entry
+/** Rules inside at-rule conditions, the first outermost. */
+export function withConditions(css: string, conditions: readonly string[]): string {
+  return conditions.reduceRight((inner, condition) => `${condition} {\n${inner}\n}`, css)
 }
 
 /** Whether a rule is an `@import`, read by its shape, since not every window names `CSSImportRule`. */
