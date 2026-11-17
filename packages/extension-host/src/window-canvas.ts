@@ -421,14 +421,24 @@ function colorsFor(port: WindowCanvasPort, context: SurfaceContext): WindowColor
     // The window's colors are shared by its tabs, so an extension's claims are its own in each tab.
     const owner = `${context.extension}\n${context.tab}`
     const counts = new Map<ColorKey, number>()
+    let ended = false
 
     context.onEnd(() => {
+      ended = true
       counts.clear()
       core.releaseAll(owner)
     })
 
     return {
       claim(key) {
+        // Claimed after it stopped, as an activation that resumes late can: the palette, given back at once.
+        if (ended) {
+          const palette = core.claim(key, owner)
+          core.release(key, owner)
+
+          return palette
+        }
+
         counts.set(key, (counts.get(key) ?? 0) + 1)
 
         return core.claim(key, owner)
@@ -527,8 +537,8 @@ function previewFor(
     extension: context.extension
   })
 
-  /** What the extension stopping in the tab closes, until it ends by itself. */
-  const kept = keep(() => preview.dispose())
+  /** What the extension stopping in the tab closes, until it ends by itself: kept once `preview` is made. */
+  const kept: Disposable[] = []
 
   /** Ends it: what it does is done, and its color is given back. */
   const end = (how: () => void) => {
@@ -539,7 +549,10 @@ function previewFor(
     open = false
     how()
     colors.release(color)
-    kept.dispose()
+
+    for (const each of kept) {
+      each.dispose()
+    }
   }
 
   const preview: Preview = {
@@ -565,6 +578,9 @@ function previewFor(
     cancel: () => end(() => core.cancel()),
     dispose: () => end(() => core[Symbol.dispose]())
   }
+
+  // Kept only now, since a module that has stopped already has it closed at once.
+  kept.push(keep(() => preview.dispose()))
 
   return preview
 }
