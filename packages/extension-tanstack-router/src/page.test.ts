@@ -122,6 +122,19 @@ describe("tanstackRouterPage", () => {
     expect(router.listeners.size).toBe(0)
   })
 
+  it("gives up a navigation when it's aborted while the router's own navigation is still pending", async () => {
+    const router = fakeRouter("/")
+    // A loader that never finishes.
+    router.navigate = () => new Promise(() => undefined)
+
+    const abort = new AbortController()
+    const going = tanstackRouterPage.navigate("/stalled", abort.signal)
+    abort.abort(new Error("Too slow"))
+
+    await expect(going).rejects.toThrow("Too slow")
+    expect(router.listeners.size).toBe(0)
+  })
+
   it("tells the watcher each time the router resolves, until it stops watching", () => {
     const router = fakeRouter("/")
     const moves: string[] = []

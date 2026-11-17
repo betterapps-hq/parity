@@ -121,7 +121,8 @@ export const tanstackRouterPage: PageRouter = {
     resolved.catch(() => undefined)
 
     try {
-      await router.navigate({ href: to })
+      // A loader that stalls keeps the router's own promise pending, so an abort mustn't wait for it.
+      await Promise.race([router.navigate({ href: to }), resolved])
 
       if (!settled(router)) {
         await resolved
