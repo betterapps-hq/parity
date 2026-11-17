@@ -281,10 +281,18 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     options.log(entry.extension.id, "error", text, error.stack)
   }
 
-  /** Counts a failure in a call core made into the module, and stops the module at the limit. */
-  const fail = (entry: Entry, api: string, error: Error) => {
-    entry.failures += 1
-    const stopping = entry.failures >= limit && entry.state !== "inactive" && !entry.stopped
+  /**
+   * Counts a failure in a call core made into the module, and stops the module at the limit. One from a run that's
+   * been overtaken is logged and reported, but counts against no run after it.
+   */
+  const fail = (entry: Entry, run: Run | undefined, api: string, error: Error) => {
+    const current = run !== undefined && run === entry.current
+
+    if (current) {
+      entry.failures += 1
+    }
+
+    const stopping = current && entry.failures >= limit && entry.state !== "inactive" && !entry.stopped
     const { message } = error
     logError(entry, `${api} failed: ${message}`, error)
     options.report?.(error, { extension: entry.extension.id, extension_half: "window", tab })
@@ -306,24 +314,29 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
   }
 
   /** Calls into the module for core, as a listener: a failure is counted and goes no further. */
-  const guarded = (entry: Entry, api: string, call: () => void | Promise<void>) => {
+  const guarded = (entry: Entry, run: Run | undefined, api: string, call: () => void | Promise<void>) => {
     try {
       const result = call()
 
       if (result instanceof Promise) {
-        result.catch((error) => fail(entry, api, errorOf(error)))
+        result.catch((error) => fail(entry, run, api, errorOf(error)))
       }
     } catch (error) {
-      fail(entry, api, errorOf(error))
+      fail(entry, run, api, errorOf(error))
     }
   }
 
   /** Calls into the module for someone waiting on the answer: a failure is counted, then given to them. */
-  const answered = async <T>(entry: Entry, api: string, call: () => T | Promise<T>): Promise<T> => {
+  const answered = async <T>(
+    entry: Entry,
+    run: Run | undefined,
+    api: string,
+    call: () => T | Promise<T>
+  ): Promise<T> => {
     try {
       return await call()
     } catch (error) {
-      fail(entry, api, errorOf(error))
+      fail(entry, run, api, errorOf(error))
       throw error
     }
   }
@@ -463,7 +476,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
           const registered = liveCommand(command)
 
           if (registered && registered.entry === entry) {
-            await answered(registered.entry, `command:${command}`, () => registered.handler(target))
+            await answered(registered.entry, registered.run, `command:${command}`, () => registered.handler(target))
 
             return
           }
@@ -479,7 +492,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
           return once(
             options.editor.selection.onChange((refs) => {
               if (!run.ended) {
-                guarded(entry, "selection.onChange", () => listener(refs))
+                guarded(entry, run, "selection.onChange", () => listener(refs))
               }
             })
           )
@@ -640,7 +653,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     if (api !== undefined) {
       for (const watcher of entries.values()) {
         for (const listener of watcher.current?.watching.get(extension.id)?.available ?? []) {
-          guarded(watcher, "extensions.onAvailable", () => listener(api))
+          guarded(watcher, watcher.current, "extensions.onAvailable", () => listener(api))
         }
       }
     }
@@ -729,7 +742,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     if (run.activated?.window !== undefined) {
       for (const watcher of entries.values()) {
         for (const listener of watcher.current?.watching.get(entry.extension.id)?.gone ?? []) {
-          guarded(watcher, "extensions.onGone", () => listener())
+          guarded(watcher, watcher.current, "extensions.onGone", () => listener())
         }
       }
     }
@@ -772,7 +785,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
       for (const [key, value] of Object.entries(extension.settings)) {
         if (before.settings[key] !== value) {
           for (const listener of entry.current?.settingListeners.get(key) ?? []) {
-            guarded(entry, `settings.onChange:${key}`, () => listener(value))
+            guarded(entry, entry.current, `settings.onChange:${key}`, () => listener(value))
           }
         }
       }
@@ -786,7 +799,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
         void deactivate(entry, "crashed")
       } else if (listening) {
         for (const listener of entry.current?.hostListeners ?? []) {
-          guarded(entry, "host.onStateChange", () => listener(half))
+          guarded(entry, entry.current, "host.onStateChange", () => listener(half))
         }
       }
     }
@@ -853,7 +866,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
       let value: Awaited<ReturnType<CommandHandler>>
 
       try {
-        value = await answered(registered.entry, `command:${command}`, () => registered.handler(target))
+        value = await answered(registered.entry, registered.run, `command:${command}`, () => registered.handler(target))
       } finally {
         if (call !== undefined) {
           run.call = before
@@ -886,7 +899,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
 
       // SAFETY: an API's functions take JSON, as `ExtensionApi` says; `never` only lets each name the types it takes.
       const call = found as (...given: JsonValue[]) => void | JsonValue | Promise<void | JsonValue>
-      const value = await answered(entry, `node.${method}`, () => call.apply(api, args))
+      const value = await answered(entry, entry.current, `node.${method}`, () => call.apply(api, args))
 
       // It's the module's own code, so what it gave is checked as JSON before it crosses to the Node half.
       return value === undefined ? undefined : json.parse(value)

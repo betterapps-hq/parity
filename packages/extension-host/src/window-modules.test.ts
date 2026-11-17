@@ -240,6 +240,44 @@ describe("window modules in a project tab", () => {
     expect(Object.values(runtime.states())).toEqual(["inactive"])
   })
 
+  it("logs failures from a run that's been replaced without stopping the run after it", async () => {
+    const { promise: gate, resolve: release } = Promise.withResolvers<void>()
+
+    const slow = defineWindowModule({
+      activateWindow(parity) {
+        parity.subscriptions.push(
+          parity.commands.register("wtest.fail", async () => {
+            await gate
+            throw new Error("Failing late")
+          })
+        )
+
+        return {}
+      }
+    })
+
+    const { runtime, named } = tab({ "@parity-app/extension-window-test": slow })
+
+    runtime.update([extension()])
+    await settle()
+    const pending = Array.from({ length: 5 }, async () => runtime.run("wtest.fail"))
+    runtime.update([extension({ settings: { "wtest.on": false } })])
+    await settle()
+    runtime.update([extension()])
+    await settle()
+    release()
+
+    for (const command of pending) {
+      await expect(command).rejects.toThrow("Failing late")
+    }
+
+    await settle()
+
+    expect(Object.values(runtime.states())).toEqual(["active"])
+    expect(named("extension.callFailed").map((event) => event.stopped)).toEqual([false, false, false, false, false])
+    expect(named("extension.stoppedInTab")).toEqual([])
+  })
+
   it("counts a listener that throws without stopping what told it", async () => {
     const throwing = defineWindowModule({
       activateWindow(parity) {
