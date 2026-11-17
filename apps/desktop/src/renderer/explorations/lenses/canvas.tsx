@@ -187,7 +187,7 @@ function screenScale(element: HTMLElement): number {
 export function LensCanvas(props: LensCanvasProps) {
   const info = lenses[props.lens]
 
-  return info.missing ? <MissingLens info={info} /> : <DrawnCanvas {...props} />
+  return info.unavailable ? <MissingLens info={info} /> : <DrawnCanvas {...props} />
 }
 
 /**
@@ -342,7 +342,7 @@ function DrawnCanvas({ lens, selected, peek, onSelect, camera, onCamera }: LensC
     <div
       ref={view}
       role="application"
-      aria-label={`${info.label} canvas`}
+      aria-label={`${info.name} canvas`}
       aria-roledescription="canvas"
       tabIndex={0}
       className={`relative isolate min-h-0 flex-1 overflow-hidden bg-[rgb(249,250,251)] outline-none dark:bg-[rgb(16,16,17)] ${
@@ -935,11 +935,11 @@ function MissingLens({ info }: { info: LensInfo }) {
           <EmptyMedia variant="icon">
             <Icon />
           </EmptyMedia>
-          <EmptyTitle>{info.missing!.title}</EmptyTitle>
-          <EmptyDescription>{info.missing!.description}</EmptyDescription>
+          <EmptyTitle>{info.unavailable!.title}</EmptyTitle>
+          <EmptyDescription>{info.unavailable!.description}</EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Button variant="outline">{info.missing!.action}</Button>
+          <Button variant="outline">{info.unavailable!.action}</Button>
         </EmptyContent>
       </Empty>
     </div>
