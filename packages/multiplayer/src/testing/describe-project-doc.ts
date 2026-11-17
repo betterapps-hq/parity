@@ -12,13 +12,14 @@ import {
   nodeIds,
   type ReferenceSpec
 } from "@parity-app/core"
-import type { TokenEdit } from "@parity-app/editor"
+import { rebaseText, spliceAt, type TokenEdit, withEditedText } from "@parity-app/editor"
 import { describe, expect, it } from "vite-plus/test"
 import {
   applyAgentChanges,
   changeTokens,
   restoreCopy,
   setModes,
+  typeInContainer,
   updateContainer,
   updateNote,
   updateView
@@ -830,6 +831,158 @@ export function describeProjectDoc(provider: DocProvider, options: { replicas?: 
         apply(b, [splice(0, "Oh, ")])
         exchange()
         expect(layer(a, "app.par#home", "title")).toMatchObject({ text: "Oh, Hello world" })
+      })
+
+      it("keeps every letter when both people type in one text at once (PAR-1238)", () => {
+        /** Someone typing in the title, a key at a time, as `LiveText` writes it: the change at the caret. */
+        const typist = (doc: ProjectDoc) => {
+          const read = () => {
+            const title = layer(doc, "app.par#home", "title")
+
+            return title?.type === "text" ? title.text : ""
+          }
+
+          let text = read()
+          let caret = text.length
+
+          // Others' typing moves the caret with the characters around it.
+          doc.subscribe(() => {
+            const now = read()
+
+            if (now !== text) {
+              caret = rebaseText(text, text, now, { start: caret, end: caret }).selection.start
+              text = now
+            }
+          })
+
+          return {
+            moveTo: (at: number) => {
+              caret = Math.min(at, text.length)
+            },
+            type: (key: string) => {
+              const typed = text.slice(0, caret) + key + text.slice(caret)
+              const splice = spliceAt(text, typed, caret + key.length)
+              text = typed
+              caret += key.length
+
+              typeInContainer(
+                doc,
+                "app.par#home",
+                "Edit text",
+                (container) => withEditedText(container, undefined, "title", typed, new Map()),
+                { node: "title", splice }
+              )
+            }
+          }
+        }
+
+        // Each run types the same keys in an order of its own, with the carets moving and the copies exchanging at
+        // times of their own.
+        for (let run = 1; run <= 40; run++) {
+          const { a, b, exchange } = together()
+
+          const people = [
+            { typist: typist(a), keys: ": a b " },
+            { typist: typist(b), keys: "x y z " }
+          ]
+
+          let seed = run
+          const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648
+
+          while (people.some(({ keys }) => keys.length > 0)) {
+            const roll = next()
+            const person = people[roll < 0.5 ? 0 : 1]!
+
+            if (roll % 0.5 < 0.3 && person.keys.length > 0) {
+              person.typist.type(person.keys[0]!)
+              person.keys = person.keys.slice(1)
+            } else if (roll % 0.5 < 0.35) {
+              person.typist.moveTo(Math.floor(next() * 10))
+            } else if (roll % 0.5 < 0.42) {
+              exchange()
+            }
+          }
+
+          exchange()
+          const title = layer(a, "app.par#home", "title")
+          const text = title?.type === "text" ? title.text : ""
+          expect(text.split("").toSorted().join("")).toBe("Hello: a b x y z ".split("").toSorted().join(""))
+        }
+      })
+
+      it("undoes only this person's typing, keeping what the other typed in the text since", () => {
+        const { a, b, exchange } = together()
+
+        const splice = (at: number, insert: string): DocOp => ({
+          op: "editText",
+          design: "app.par#home",
+          node: "title",
+          edit: { kind: "splice", at, remove: 0, insert }
+        })
+
+        apply(a, [splice(5, " world")])
+        exchange()
+        apply(b, [splice(0, "Oh, ")])
+        exchange()
+
+        expect(a.undo()).toMatchObject({ kind: "undo", kept: 0 })
+        exchange()
+        expect(layer(b, "app.par#home", "title")).toMatchObject({ text: "Oh, Hello" })
+      })
+
+      it("undoes typing and a deletion apart from what the other wrote on both sides of it", () => {
+        const { a, b, exchange } = together()
+
+        const splice = (at: number, remove: number, insert: string): DocOp => ({
+          op: "editText",
+          design: "app.par#home",
+          node: "title",
+          edit: { kind: "splice", at, remove, insert }
+        })
+
+        apply(a, [splice(2, 0, "X")])
+        exchange()
+        apply(b, [splice(6, 0, "Y")])
+        apply(b, [splice(0, 0, "Z")])
+        exchange()
+
+        expect(a.undo()).toMatchObject({ kind: "undo", kept: 0 })
+        exchange()
+        expect(layer(b, "app.par#home", "title")).toMatchObject({ text: "ZHelloY" })
+
+        apply(a, [splice(3, 2, "")])
+        exchange()
+        apply(b, [splice(5, 0, "!")])
+        apply(b, [splice(0, 0, "Oh ")])
+        exchange()
+
+        expect(a.undo()).toMatchObject({ kind: "undo", kept: 0 })
+        exchange()
+        expect(layer(b, "app.par#home", "title")).toMatchObject({ text: "Oh ZHelloY!" })
+      })
+
+      it("undoes typing in a long text the other edited at both ends, without matching all of it", () => {
+        const { a, b, exchange } = together()
+        const long = "word ".repeat(4000)
+
+        const edit = (doc: ProjectDoc, at: number, insert: string) =>
+          apply(doc, [
+            { op: "editText", design: "app.par#home", node: "title", edit: { kind: "splice", at, remove: 0, insert } }
+          ])
+
+        apply(a, [{ op: "editText", design: "app.par#home", node: "title", edit: { kind: "replace", text: long } }])
+        exchange()
+        edit(a, 10_000, "X")
+        exchange()
+        edit(b, long.length + 1, "Y")
+        edit(b, 0, "Z")
+        exchange()
+
+        const started = performance.now()
+        a.undo()
+        expect(performance.now() - started).toBeLessThan(1000)
+        exchange()
+        expect(layer(b, "app.par#home", "title")).toMatchObject({ text: `Z${long}Y` })
       })
 
       it("lands two layers inserted before the same sibling, in the same order on both", () => {

@@ -1,35 +1,46 @@
-import { type ContainerSpec, findNode } from "@parity-app/core"
-import { textToEdit, withEditedText } from "@parity-app/editor"
-import { type TransactResult, updateContainer } from "@parity-app/multiplayer"
+import { type ContainerSpec, defaultModeSettings, findNode } from "@parity-app/core"
+import { type TextSplice, textToEdit, withEditedText } from "@parity-app/editor"
+import {
+  createProjectDoc,
+  type ProjectDoc,
+  type TransactResult,
+  typeInContainer,
+  updateContainer
+} from "@parity-app/multiplayer"
+import { loroReplicas } from "@parity-app/multiplayer-loro"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { openTestSession } from "../doc-fixtures.ts"
-import { LiveText, typingBatch, typingPause } from "./live-text.ts"
+import { LiveText, typingPause } from "./live-text.ts"
 
 const key = "app.par#home"
 
-/** A design holding the text "Sign in", and an editor's `LiveText` writing to it as `TextEditor` does. */
-function setup() {
-  const home: ContainerSpec = {
-    id: "home",
-    name: "home",
-    position: { x: 0, y: 0 },
-    root: { type: "layout", id: "root", children: [{ type: "text", id: "title", text: "Sign in" }] }
-  }
+/** A design holding the text "Sign in". */
+const home: ContainerSpec = {
+  id: "home",
+  name: "home",
+  position: { x: 0, y: 0 },
+  root: { type: "layout", id: "root", children: [{ type: "text", id: "title", text: "Sign in" }] }
+}
 
-  const { doc } = openTestSession([{ path: "app.par", document: { version: 4, containers: [home] } }])
-  const read = () => textToEdit(doc.design(key)!, undefined, "title", new Map())?.text
-
-  const write = vi.fn<(text: string, gesture: string) => TransactResult>((text, gesture) =>
-    updateContainer(
+/** Writes typing to the title, as `TextEditor` does. */
+function typer(doc: ProjectDoc) {
+  return (text: string, splice: TextSplice, gesture: string) =>
+    typeInContainer(
       doc,
       key,
       "Edit text",
       (container) => withEditedText(container, undefined, "title", text, new Map()),
-      {
-        gesture
-      }
+      { node: "title", splice },
+      { gesture }
     )
-  )
+}
+
+/** A document holding `home`, and an editor's `LiveText` writing to it as `TextEditor` does. */
+function setup() {
+  const { doc } = openTestSession([{ path: "app.par", document: { version: 4, containers: [home] } }])
+  const read = () => textToEdit(doc.design(key)!, undefined, "title", new Map())?.text
+
+  const write = vi.fn<(text: string, splice: TextSplice, gesture: string) => TransactResult>(typer(doc))
 
   const live = new LiveText("Sign in", { doc, read, write })
 
@@ -65,13 +76,16 @@ afterEach(() => {
 })
 
 describe("text written as it's typed", () => {
-  it("writes a few times a second while typing, not on every key", () => {
+  it("writes each key as it's typed, as the change at the caret", () => {
     const { live, read, write, type } = setup()
     type("Sign i", "Sign ", "Sign u", "Sign up")
-    vi.advanceTimersByTime(typingBatch)
     expect(read()).toBe("Sign up")
-    // Four keys 50 ms apart are two writes.
-    expect(write.mock.calls.map(([text]) => text)).toEqual(["Sign u", "Sign up"])
+    expect(write.mock.calls.map(([, splice]) => splice)).toEqual([
+      { start: 6, end: 7, insert: "" },
+      { start: 5, end: 6, insert: "" },
+      { start: 5, end: 5, insert: "u" },
+      { start: 6, end: 6, insert: "p" }
+    ])
     live.close()
   })
 
@@ -108,9 +122,9 @@ describe("text written as it's typed", () => {
 
   it("takes in someone else's change, keeping the typing and the caret among its characters", () => {
     const { doc, live, read, type, remote } = setup()
-    // Typed and not yet written, with the caret at the end, when someone writes "Please " before it and lowercases the S.
+    // With the caret at the end, someone writes "Please " before the typing and lowercases the S.
     type("Sign in ", "Sign in n")
-    remote("Please sign in")
+    remote("Please sign in n")
     expect(live.received("Sign in n", { start: 9, end: 9 })).toEqual({
       text: "Please sign in n",
       selection: { start: 16, end: 16 }
@@ -124,11 +138,68 @@ describe("text written as it's typed", () => {
     expect(findNode(doc.design(key)!.root, "title")).toMatchObject({ text: "Please sign in" })
   })
 
+  it("writes typing an input method held back where the text is now", () => {
+    const { live, read, remote } = setup()
+    // Composed while someone wrote "Please " before it: the editor holds the text as it opened, plus what's composed.
+    remote("Please sign in")
+    expect(live.received("Sign in!", { start: 8, end: 8 })).toEqual({
+      text: "Please sign in!",
+      selection: { start: 15, end: 15 }
+    })
+    expect(read()).toBe("Please sign in!")
+    live.close()
+  })
+
   it("doesn't take in its own writes", () => {
     const { live, type } = setup()
     type("Sign up")
-    vi.advanceTimersByTime(typingBatch)
     expect(live.received("Sign up", { start: 7, end: 7 })).toBeUndefined()
     live.close()
+  })
+
+  it("keeps every letter two people type in one text at once, in a live room (PAR-1238)", () => {
+    const pair = loroReplicas.open({
+      files: [{ path: "app.par", document: { version: 4, containers: [home] } }],
+      main: "app.par",
+      modes: defaultModeSettings
+    })
+
+    // An editor as `TextEditor` runs it: each key goes in at the caret, and others' typing is taken in.
+    const editor = (doc: ProjectDoc) => {
+      const read = () => textToEdit(doc.design(key)!, undefined, "title", new Map())?.text
+      let shown = { text: "Sign in", caret: 7 }
+      const live = new LiveText(shown.text, { doc, read, write: typer(doc) })
+
+      doc.subscribe(() => {
+        const rebased = live.received(shown.text, { start: shown.caret, end: shown.caret })
+        shown = rebased ? { text: rebased.text, caret: rebased.selection.end } : shown
+      })
+
+      return (letter: string) => {
+        const text = shown.text.slice(0, shown.caret) + letter + shown.text.slice(shown.caret)
+        shown = { text, caret: shown.caret + letter.length }
+        live.input(text, shown.caret)
+      }
+    }
+
+    const a = createProjectDoc(pair.a, { undoLimit: 200, main: "app.par" })
+    const b = createProjectDoc(pair.b, { undoLimit: 200, main: "app.par" })
+    const typeA = editor(a)
+    const typeB = editor(b)
+
+    // Both type at the end, a key each in turn, and the room passes the keys on every other turn.
+    for (const [index, letter] of ": now ".split("").entries()) {
+      typeA(letter)
+      typeB(letter.toUpperCase())
+
+      if (index % 2 === 1) {
+        pair.exchange()
+      }
+    }
+
+    pair.exchange()
+    const text = textToEdit(a.design(key)!, undefined, "title", new Map())?.text ?? ""
+    expect(textToEdit(b.design(key)!, undefined, "title", new Map())?.text).toBe(text)
+    expect(text.split("").toSorted().join("")).toBe("Sign in: now : NOW ".split("").toSorted().join(""))
   })
 })

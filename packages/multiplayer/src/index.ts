@@ -19,6 +19,7 @@ export {
   setPosition,
   snapshotOf,
   snapshotOps,
+  typeInContainer,
   updateContainer,
   updateContainers,
   updateNote,

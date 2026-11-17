@@ -1,13 +1,14 @@
-import type {
-  CanvasDocument,
-  ChangeConflict,
-  ContainerSpec,
-  ContainerViewSettings,
-  DesignChange,
-  ModeSettings,
-  ModesChange,
-  NoteSpec,
-  ReferenceSpec
+import {
+  type CanvasDocument,
+  type ChangeConflict,
+  type ContainerSpec,
+  type ContainerViewSettings,
+  type DesignChange,
+  findNode,
+  type ModeSettings,
+  type ModesChange,
+  type NoteSpec,
+  type ReferenceSpec
 } from "@parity-app/core"
 import {
   addDesign,
@@ -24,6 +25,7 @@ import {
   type ReferenceAdded,
   reorderDesign,
   restoreLabel,
+  type TextSplice,
   type TokenEdit,
   withTidyView,
   withTokenEdits
@@ -60,6 +62,44 @@ export function updateContainer(
   }
 
   return transact(doc, label, containerOps(key, container, update(container)), options)
+}
+
+/**
+ * Typing in a text layer (docs/editor.md, Typing written as it's typed): `update` sets the text to what's typed, as
+ * `updateContainer` does, and where that writes the layer's own text, it's written as `splice`, the change typed, rather
+ * than as the whole text, so it merges with others typing in the same text at once (PAR-1238). Text written elsewhere,
+ * as a state's or an instance's, is written whole.
+ */
+export function typeInContainer(
+  doc: ProjectDoc,
+  key: DesignKey,
+  label: string,
+  update: (container: ContainerSpec) => ContainerSpec,
+  typed: { node: string; splice: TextSplice },
+  options?: Options
+): TransactResult {
+  const container = doc.design(key)
+
+  if (!container) {
+    return { ok: false, problem: { kind: "unknownDesign", op: 0, design: key } }
+  }
+
+  const before = findNode(container.root, typed.node)
+  const { start, end, insert } = typed.splice
+
+  const ops = containerOps(key, container, update(container)).map((op): DocOp => {
+    const spliced =
+      op.op === "editText" &&
+      op.node === typed.node &&
+      op.edit.kind === "replace" &&
+      before?.type === "text" &&
+      end <= before.text.length &&
+      before.text.slice(0, start) + insert + before.text.slice(end) === op.edit.text
+
+    return spliced ? { ...op, edit: { kind: "splice", at: start, remove: end - start, insert } } : op
+  })
+
+  return transact(doc, label, ops, options)
 }
 
 /** Several designs as one step: `update` gets them in the order of `keys` and returns them changed, in that order. */
