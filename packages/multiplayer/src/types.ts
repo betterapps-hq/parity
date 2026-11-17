@@ -7,7 +7,7 @@ import type {
   NoteSpec,
   ReferenceSpec
 } from "@parity-app/core"
-import type { TokenEdits } from "@parity-app/editor"
+import type { TextSplice, TokenEdits } from "@parity-app/editor"
 
 /*
  * The project document's types (docs/proposals/multiplayer.md): what a caller reads and sends, what a transaction
@@ -312,7 +312,19 @@ export type BackendChange = Pick<
   | "modes"
   | "tokens"
   | "version"
->
+> & {
+  /**
+   * Others' changes to texts, as the changes that made them, in order, where the backend knows them. Undo follows this
+   * person's typing through them, so it never takes another's character for theirs (PAR-1258).
+   */
+  texts?: readonly TextChanges[]
+}
+
+/** The changes, in order, that someone else made to one text layer's text. */
+export interface TextChanges {
+  address: LayerAddress
+  splices: readonly TextSplice[]
+}
 
 export interface DocProvider {
   /** As telemetry records it: `loro`, `local`. */

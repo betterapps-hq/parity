@@ -1,13 +1,13 @@
 # Proposal: one project per window, its lenses down the left
 
 Status: draft for discussion, 2026-11-16, with a clickable exploration in Storybook, Parity/Explorations/Lenses, laid
-out by Dockview (PAR-1237). One project per window is built (PAR-1241); the rest isn't, and
-[Building it into the app](#building-it-into-the-app) plans it as PAR-1239, PAR-1240, PAR-1242 to PAR-1248 and PAR-1251.
-Andrew asked for routes, components and stories to have canvases and panels of their own, as the database's ERD, the API
-and the other lenses of [app-lenses.md](app-lenses.md) arrive, listed down the left as VS Code lists its views, and for
-a lens to move into a window on another monitor. He also asked that Parity have one project open at a time, so the
-window's project tabs go. This changes app-lenses.md's third decision, "each lens as its own canvas page, with links
-jumping between pages and the design canvas staying the main view".
+out by Dockview (PAR-1237). One project per window is built (PAR-1241), and the layout's decisions are in
+`@parity-app/lenses` (PAR-1239); the rest isn't, and [Building it into the app](#building-it-into-the-app) plans it as
+PAR-1240, PAR-1242 to PAR-1248 and PAR-1251. Andrew asked for routes, components and stories to have canvases and panels
+of their own, as the database's ERD, the API and the other lenses of [app-lenses.md](app-lenses.md) arrive, listed down
+the left as VS Code lists its views, and for a lens to move into a window on another monitor. He also asked that Parity
+have one project open at a time, so the window's project tabs go. This changes app-lenses.md's third decision, "each
+lens as its own canvas page, with links jumping between pages and the design canvas staying the main view".
 
 ## In one line
 
@@ -140,6 +140,10 @@ apps/desktop/src/renderer/lenses/  the shell, and the only place that imports Do
   registry.ts        each lens's canvas, left panel and inspector
 ```
 
+The package is built (PAR-1239). The exploration lays itself out through it, reading Dockview into a layout and making
+the operations it returns with `layoutOf` and `apply` in its `workspace.tsx`, until PAR-1240 moves them into
+`dock-adapter.ts`.
+
 **The lens registry is where the two meet.** A lens is its data from the package and three components: a canvas, a left
 panel and an inspector. The exploration's lenses become test lenses for the same `LensWorkspace` the app renders, so its
 story shows the real shell. Extensions can add lenses the same way later, as they add panel tabs and pages today.
@@ -149,7 +153,7 @@ The steps go in this order, each after the one before:
 | Step                                                             | Issue    |
 | ---------------------------------------------------------------- | -------- |
 | One project per window, with Home when none is open (built)      | PAR-1241 |
-| The decisions as data, with tests                                | PAR-1239 |
+| The decisions as data, with tests (built)                        | PAR-1239 |
 | The shell in the app, behind a Dockview adapter and the registry | PAR-1240 |
 | The open project in the shell, with today's canvas as one lens   | PAR-1243 |
 | Pages as a lens of its own                                       | PAR-1244 |

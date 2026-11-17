@@ -5595,7 +5595,10 @@ as it's typed, and layers after it move with it (docs/proposals/extensions-in-th
   as it does any change, after its own 300 ms, so the file isn't rewritten per key.
 - **One undo step per pause.** Typing goes in a gesture that ends once it stops for a second, or when the editor closes,
   so Undo takes back a pause's worth of typing, not each key. Typing that ends where it began leaves no step. Undo takes
-  out only this person's typing: what someone else typed in the text since stays (PAR-1238).
+  out only this person's typing: what someone else typed in the text since stays (PAR-1238), in the pause's typing too.
+  Their characters are told apart by where they went, not by what they are: each step's characters are followed through
+  the changes others make as they come in, so undoing an "X" beside an "X" someone else wrote takes out this person's
+  (PAR-1258). It used to match the text, and could take out theirs.
 - **Others' changes are taken in.** When the text changes under the editor, as someone in a live room types in it too,
   the editor shows it as it is and the caret moves with the characters around it, so it stays where the person is
   typing. Their change isn't in this person's undo. While an input method is composing, the change waits until it's
@@ -5622,10 +5625,11 @@ as it's typed, and layers after it move with it (docs/proposals/extensions-in-th
 Code: `LiveText` in `apps/desktop/src/renderer/canvas/live-text.ts` (writing each key, the gesture per pause and taking
 in others' changes), `spliceAt` and `rebaseText` in `packages/editor/src/text-editing.ts` (the change typed, and merging
 two changes and moving the selection), `typeInContainer` in `packages/multiplayer/src/callers.ts` (writing the change
-rather than the whole text), `textBack` in `packages/multiplayer/src/project-doc.ts` (undo keeping others' typing), and
-`TextEditor.tsx`, which feeds it the textarea's input and the document's changes and tells the room where the caret is.
-In a room: the text gesture `TextEditor.tsx` tells `parity.presence`, which the Multiplayer extension's `Selections`
-layer (`packages/extension-multiplayer/src/layers.tsx`) outlines with the typist's name, and `caretLine` in
+rather than the whole text), `textBack` and `follow` in `packages/multiplayer/src/project-doc.ts` (undo keeping others'
+typing, following this person's characters through the changes Loro reports as `texts`), and `TextEditor.tsx`, which
+feeds it the textarea's input and the document's changes and tells the room where the caret is. In a room: the text
+gesture `TextEditor.tsx` tells `parity.presence`, which the Multiplayer extension's `Selections` layer
+(`packages/extension-multiplayer/src/layers.tsx`) outlines with the typist's name, and `caretLine` in
 `canvas/text-caret.ts`.
 
 Tests:
@@ -5636,13 +5640,19 @@ Tests:
   Undo taking back only the typing; what an input method composed while someone else typed written where the text is
   now; its own writes not taken in again; and, on Loro, two editors typing at the end of one text at once, a key each in
   turn with the room passing keys on every other turn, ending with the same text holding every letter.
-- `packages/editor/src/text-editing.test.ts`, "the change typed in a text" (2): a letter typed beside the same letter
-  placed by the caret, and the first place without one, with a replaced selection and a deletion.
+- `packages/editor/src/text-editing.test.ts`, "the change typed in a text" (3): a letter typed beside the same letter
+  placed by the caret, and the first place without one, with a replaced selection and a deletion; an emoji changed
+  whole, both people replacing one keeping whole characters (PAR-1252).
 - `packages/multiplayer/src/type-in-container.test.ts` (2): a layer's own text written as the change typed; a state's
   text, and a change that doesn't make the text typed, written whole.
 - `packages/multiplayer/src/testing/describe-project-doc.ts`, "concurrent", on Loro: two people typing the same keys in
-  40 orders of their own, carets moving and copies exchanging at times of their own, keeping every letter; and Undo
-  taking out only this person's typing, keeping what the other typed since.
+  40 orders of their own, carets moving and copies exchanging at times of their own, keeping every letter; Undo taking
+  out only this person's typing, keeping what the other typed since; a pause's typing undone whole with the other's
+  typing taken in between its keys (PAR-1252); and an "X" undone beside the same letter the other wrote, a deletion put
+  back after the other wrote the same letters there, and typing deleted and put back again by this person's own undo
+  before the other typed (PAR-1258).
+- `packages/editor/src/text-editing.test.ts`, "following characters through changes" (1): characters moved and dropped
+  by changes in order.
 - `packages/editor/src/text-editing.test.ts`, "taking someone else's change into text being typed" (8): a change before
   the typing moving the caret, one after it leaving the caret, both writing at one place, both changing the same
   characters, what the other wrote where a deletion starts kept (PAR-1230), a selection moved by a deletion before it,
