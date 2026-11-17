@@ -15,7 +15,7 @@ import { ZoomControls } from "../chrome/ZoomControls.tsx"
 import { useTool } from "../selection.ts"
 import { CanvasShown, WindowLayers } from "../window-canvas.tsx"
 import { workspace } from "../workspace.ts"
-import { onLensRequest } from "./lens-requests.ts"
+import { lensOf, onLensRequest } from "./lens-requests.ts"
 import { useLensWorkspace } from "./shell.ts"
 
 /** What the open project's lenses read from the window: which project, whether it shows, and how to reopen it. */
@@ -28,7 +28,6 @@ export interface OpenProjectParts {
 }
 
 /** The lens whose canvas draws each kind of design. */
-const lensDrawing: Record<CanvasDraws, string> = { pages: "pages", designs: "screens" }
 
 export const OpenProjectContext = createContext<OpenProjectParts | undefined>(undefined)
 
@@ -92,10 +91,9 @@ export function ProjectCanvas({
       }
 
       last = key
-      const other = key === undefined ? undefined : lensDrawing[canvasOf(key)]
 
-      if (key && other && canvasOf(key) !== draws) {
-        lenses.followLink(other, false)
+      if (key && canvasOf(key) !== draws) {
+        lenses.followLink(lensOf(key), false)
         revealOnceShown(key)
       }
     }

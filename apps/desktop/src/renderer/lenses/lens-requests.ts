@@ -1,3 +1,12 @@
+import { type CanvasDraws, canvasOf } from "../canvas/CanvasEditor.tsx"
+
+const lensDrawing: Record<CanvasDraws, string> = { pages: "pages", designs: "screens" }
+
+/** The lens whose canvas draws a design, by its key. */
+export function lensOf(key: string): string {
+  return lensDrawing[canvasOf(key)]
+}
+
 /** Who hears of a lens asked for from outside the lens shell. */
 const listeners = new Set<(lens: string) => void>()
 

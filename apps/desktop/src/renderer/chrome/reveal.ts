@@ -33,6 +33,57 @@ export function revealSelection(session: Session): void {
   revealBounds(session.editor, layer ?? designBounds(session, key))
 }
 
+/** Whether the canvas in focus draws a node, so `revealRef` and `zoomToRef` reach it. */
+export function drawsRef(session: Session, ref: NodeRef): boolean {
+  return refBounds(session, ref) !== undefined
+}
+
+/**
+ * The design a node is drawn in, whose lens's canvas draws it: a route's page, a layer's design, or the design itself.
+ * A route without a page is drawn among the pages, so it gives the first page in its group. Nothing for a node no
+ * canvas draws.
+ */
+export function refDesign(session: Session, ref: NodeRef): string | undefined {
+  if (ref.type === "route") {
+    return session.id === undefined ? undefined : firstPage(session.id, ref.key)
+  }
+
+  if (ref.owner !== designOwner) {
+    return undefined
+  }
+
+  if (ref.type === "design") {
+    return ref.key
+  }
+
+  for (let at = ref.key.indexOf("/"); at !== -1; at = ref.key.indexOf("/", at + 1)) {
+    if (session.doc.design(ref.key.slice(0, at))) {
+      return ref.key.slice(0, at)
+    }
+  }
+
+  return undefined
+}
+
+/** A route's page, or the first page in the group drawn for it when it has none. */
+function firstPage(project: string, route: string): string | undefined {
+  const page = routePageDesign(project, route)
+
+  if (page !== undefined) {
+    return page
+  }
+
+  const pageIn = (key: string): string | undefined => {
+    const group = routePageGroups(project).find((each) => each.key === key)
+
+    return group ? group.members.map(pageIn).find((each) => each !== undefined) : key
+  }
+
+  const group = routePageGroup(project, route)
+
+  return group && pageIn(group.key)
+}
+
 /** Brings a node into view, changing the zoom only when it has to (PAR-1092). */
 export function revealRef(session: Session, ref: NodeRef): void {
   revealBounds(session.editor, refBounds(session, ref))

@@ -8458,9 +8458,10 @@ The app's routes and their pages have a lens of their own, Pages, as
   leave it on Move and select, and files dropped on it make nothing.
 - **Selecting stays on its canvas.** Select all, Select inverse and Select matching select only pages, and N steps
   through them; layers kept selected from another lens's canvas count as nothing selected. A router's Show routes, and
-  its route count in the status bar, show Pages with its Layers. A page selected while another lens shows, from Search,
-  shows Pages in that lens's place with the page in view; a design selected while Pages shows, or made from its menu,
-  shows Screens the same way. A canvas showing part of what's selected never narrows it for the others.
+  its route count in the status bar, show Pages with its Layers, and an extension's `navigate.reveal` and `zoomTo` show
+  the lens whose canvas draws the node first. A page selected while another lens shows, from Search, shows Pages in that
+  lens's place with the page in view; a design selected while Pages shows, or made from its menu, shows Screens the same
+  way. A canvas showing part of what's selected never narrows it for the others.
 - **Its Layers** lists the routes and their pages' layers, as Layers' Routes group did; Screens' Layers no longer has
   that group. Selecting a page there or on its canvas shows it in the inspector. Layers is its panel's only tab, so
   asking for another from Pages, such as Show Components (Alt+2), the status bar's tokens, or an extension's tab, shows
@@ -8474,9 +8475,10 @@ The app's routes and their pages have a lens of their own, Pages, as
 Code: `lenses/pages.tsx` (`pagesLens`); `RouteLayerTree` in `chrome/LayerTree.tsx`, which lists `part` `pages`;
 `chrome/PageLinks.tsx`, under a page in `DesignPanel`; `canvasOf` in `canvas/CanvasEditor.tsx` and the selection
 following its lens in `ProjectCanvas`, with `revealOnceShown` in `chrome/reveal.ts`; `drawnInFocus` in
-`chrome/actions.ts` for the commands that select designs; `onOtherTab` on `SidePanel`, heard through `onTabAsked` in
-`chrome/layout.ts`, for a tab Pages' panel lacks; `useLensActions` in `lenses/shell.ts` for views that may be shown
-outside the shell.
+`chrome/actions.ts` for the commands that select designs; `drawing` in `extension-editor.ts`, with `refDesign` in
+`chrome/reveal.ts` and `lensOf` in `lenses/lens-requests.ts`, for an extension's reveal and zoom; `onOtherTab` on
+`SidePanel`, heard through `onTabAsked` in `chrome/layout.ts`, for a tab Pages' panel lacks; `useLensActions` in
+`lenses/shell.ts` for views that may be shown outside the shell.
 
 Tests: `e2e/window.e2e.ts` (Screens drawing none of the pages, Ctrl+1 showing Pages in Screens' tab with every page and
 nothing else, Layers there without Screens, and its camera kept through Ctrl+2 and back; a page selected with Screens in
