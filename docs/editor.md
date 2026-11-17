@@ -1330,9 +1330,10 @@ A project's own providers, such as a styled-components theme built from the app'
 from `.parity/preview.tsx`, a file with Storybook's preview exports that Parity runs without Storybook.
 
 - **Storybook's exports.** `decorators`, `loaders`, `parameters`, `globalTypes` and `initialGlobals`, named or as the
-  default export's properties, as Storybook takes them. Moving to Storybook later means moving the file to
-  `.storybook/preview.tsx`. A project its loaders compile as JavaScript names it `preview.jsx` or `preview.js`; with
-  several, `preview.tsx` is the one used.
+  default export's properties, as Storybook takes them, or the input of a `definePreview` default export, whose `addons`
+  Parity's runtime leaves out (PAR-97). Moving to Storybook later means moving the file to `.storybook/preview.tsx`. A
+  project its loaders compile as JavaScript names it `preview.jsx` or `preview.js`; with several, `preview.tsx` is the
+  one used.
 - **Inside the libraries' decorators,** so a project's provider overrides a library's default. In its list, as in
   Storybook's, the last decorator wraps the ones before.
 - **Storybook's context.** A decorator gets `globals`, the frame's mode values over `globalTypes`' `defaultValue`s and
@@ -1397,6 +1398,10 @@ Storybook's own portable stories API from the project, the one Vitest runs stori
   Storybook's own hooks (`useEffect` from `storybook/preview-api`) run once the frame has drawn, as Storybook runs them
   when a story has rendered, and are cleaned up when the frame goes.
 - **Inside the libraries' decorators,** as Parity's file is. Decorators get `canvasElement`, the frame's stand-in body.
+- **`definePreview` previews too (PAR-97).** A preview written with Storybook's newer `definePreview` default-exports
+  Storybook's preview object rather than its annotations. The guest gives the portable stories API what that object
+  composed: its own annotations, its `addons`' and the renderer's, so an addon's decorators wrap the preview's own, as
+  in Storybook.
 - **Loaders and `beforeEach` run before the frame draws,** and the guest's `loaded()` waits for them. Loaders that fail
   say why and the frame stays empty. Storybook keeps one list of `beforeEach` cleanups for every composed story, so a
   frame mounting runs the cleanups of the frames before it.
@@ -1408,8 +1413,8 @@ Storybook's own portable stories API from the project, the one Vitest runs stori
 - **Only `.storybook`.** A config folder the `storybook dev` script names with `-c`, or the extension's
   `storybook.configDir` setting, isn't followed for the preview, since the manifest is read before the extension runs.
 
-Not yet: `definePreview` previews (PAR-97), a stories file's decorators on its component's designs (PAR-99), and
-add-ons' annotations, such as MSW's (PAR-112).
+Not yet: a stories file's decorators on its component's designs (PAR-99), and add-ons' annotations a preview doesn't
+list in `definePreview`'s `addons`, such as MSW's (PAR-112).
 
 Code: `PreviewContribution` in `packages/extension/src/manifest.ts`, checked in `reader/manifest.ts`;
 `contributes.providers.preview` in `packages/extension-storybook/package.json`; `extensionPreview` in
@@ -1427,8 +1432,9 @@ preview Storybook's extension names" in `apps/desktop/src/utility/projects.test.
 `packages/project/src/guest-module.test.ts`; "the project's Storybook preview, composed with its portable stories API"
 in `packages/extension-react/src/guest-storybook-preview.test.ts`, against Storybook's own `@storybook/react`: the
 nesting, the context's globals, parameters and frame, loaders, hooks and state kept from one draw to the next,
-Storybook's own hooks' effects, each frame composed with its own project's preview, and what didn't load.
-`examples/shadcn-vite` has a Storybook preview, so the editor's end-to-end tests in CI open frames through it.
+Storybook's own hooks' effects, each frame composed with its own project's preview, a `definePreview` preview with an
+addon (PAR-97), and what didn't load. `examples/shadcn-vite` has a Storybook preview, so the editor's end-to-end tests
+in CI open frames through it.
 
 ### A preview file offered from the app's providers (PAR-104)
 

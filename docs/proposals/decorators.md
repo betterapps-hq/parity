@@ -156,8 +156,9 @@ For a project's decorators to work in Parity:
 - They don't depend on Storybook's interface. Add-ons that only add panels are ignored. Add-ons that contribute
   decorators or loaders, such as MSW's, run when they work outside Storybook, as they do in Vitest.
 - Their changes to the page stay within the list above, or the frame falls back to an iframe.
-- Copacker's preview uses Storybook's newer `definePreview` format. Composing that outside Storybook still needs
-  checking against Storybook's API.
+- Copacker's preview uses Storybook's newer `definePreview` format. That composes outside Storybook: its default export
+  is Storybook's preview object, whose `composed` annotations, its addons' included, go to the portable stories API
+  (PAR-97).
 
 ## Decisions needed from you
 
