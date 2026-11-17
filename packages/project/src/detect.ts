@@ -363,6 +363,30 @@ export function addCommand(agent: string, packages: string[]): { command: string
   return resolved
 }
 
+/** The command that uninstalls `packages` with `agent`, removing them from package.json too. */
+export function removeCommand(agent: string, packages: string[]): { command: string; args: string[] } {
+  const known = AGENTS.find((candidate) => candidate === agent)
+  const resolved = known && resolveCommand(known, "uninstall", packages)
+
+  if (!resolved) {
+    throw new Error(`Parity doesn't know how to remove packages with ${agent}`)
+  }
+
+  return resolved
+}
+
+/** The command that installs a project's dependencies with `agent`, running their install scripts and its own. */
+export function installCommand(agent: string): { command: string; args: string[] } {
+  const known = AGENTS.find((candidate) => candidate === agent)
+  const resolved = known && resolveCommand(known, "install", [])
+
+  if (!resolved) {
+    throw new Error(`Parity doesn't know how to install packages with ${agent}`)
+  }
+
+  return resolved
+}
+
 function toPosix(path: string): string {
   return path.replaceAll("\\", "/")
 }

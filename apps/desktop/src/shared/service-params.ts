@@ -146,7 +146,13 @@ export const serviceParams = {
   "project.components": project,
   "project.correctComponents": project.extend({ corrections: detectionCorrections.optional() }),
   "library.catalog": project,
-  "library.add": project.extend({ library: z.string() }),
+  "library.add": project.extend({
+    library: z.string(),
+    settings: z.record(z.string(), z.string()).optional(),
+    companions: z.array(z.string()).max(20).optional()
+  }),
+  "library.preview": z.object({ library: z.string(), settings: z.record(z.string(), z.string()).optional() }),
+  "library.remove": project.extend({ library: z.string() }),
   "library.importStyles": project.extend({ library: z.string() }),
   "document.save": project.extend({ path: z.string(), document: canvasDocument }),
   "entities.save": project.extend({ document: canvasDocument }),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 import { diffFile, EditConflict, type FileContent, planEdit, reverseEdit } from "./edits.ts"
-import { withStylesImport } from "./libraries.ts"
+import { withoutStylesImport, withStylesImport } from "./libraries.ts"
 
 const files = (entries: Record<string, FileContent>) => new Map(Object.entries(entries))
 
@@ -226,5 +226,31 @@ describe("withStylesImport", () => {
 
   it("imports them first when the stylesheet doesn't import Tailwind", () => {
     expect(withStylesImport(":root {}\n", "lib/styles.css")).toBe('@import "lib/styles.css";\n:root {}\n')
+  })
+})
+
+describe("withoutStylesImport", () => {
+  it("drops a library's import, in either quotes, and leaves a stylesheet without one alone", () => {
+    const source = `@import "tailwindcss";\n@import '@mantine/core/styles.css';\n\n:root {}\n`
+
+    expect(withoutStylesImport(source, "@mantine/core/styles.css")).toBe(`@import "tailwindcss";\n\n:root {}\n`)
+    expect(withoutStylesImport(source, "@chakra-ui/react/styles.css")).toBeUndefined()
+  })
+
+  it("drops a library's import written with url(), quoted or not", () => {
+    const quoted = `@import "tailwindcss";\n@import url("@buildkitgg/shadcn/tailwind.css") layer(components);\n`
+    const bare = `@import url(@buildkitgg/shadcn/tailwind.css);\n:root {}\n`
+
+    expect(withoutStylesImport(quoted, "@buildkitgg/shadcn/tailwind.css")).toBe(`@import "tailwindcss";\n`)
+    expect(withoutStylesImport(bare, "@buildkitgg/shadcn/tailwind.css")).toBe(`:root {}\n`)
+  })
+
+  it("drops only the import rule when others share its line", () => {
+    const mantine = "@mantine/core/styles.css"
+
+    expect(withoutStylesImport(`@import "${mantine}"; body { color: red; }\n`, mantine)).toBe("body { color: red; }\n")
+    expect(withoutStylesImport(`@import "tailwindcss"; @import "${mantine}";\n:root {}\n`, mantine)).toBe(
+      `@import "tailwindcss";\n:root {}\n`
+    )
   })
 })

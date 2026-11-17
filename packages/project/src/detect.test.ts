@@ -5,7 +5,15 @@ import { type Adapter, type AdapterDetection, declares, type PackageManifest } f
 import type { JsonValue } from "@parity-app/core/schema"
 import { isText } from "@parity-app/core/values/evaluate"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
-import { type AdapterFound, addCommand, cutoff, detectPackageManager, detectProject } from "./detect.ts"
+import {
+  type AdapterFound,
+  addCommand,
+  cutoff,
+  detectPackageManager,
+  detectProject,
+  installCommand,
+  removeCommand
+} from "./detect.ts"
 import { findLockfiles } from "./lockfile.ts"
 
 let root: string
@@ -196,6 +204,21 @@ describe("addCommand", () => {
     expect(addCommand("yarn@berry", ["lucide-react"])).toEqual({ command: "yarn", args: ["add", "lucide-react"] })
     expect(addCommand("npm", ["lucide-react"])).toEqual({ command: "npm", args: ["i", "lucide-react"] })
     expect(addCommand("deno", ["lucide-react"])).toEqual({ command: "deno", args: ["add", "npm:lucide-react"] })
+  })
+})
+
+describe("removeCommand", () => {
+  it("builds each package manager's uninstall command from its table", () => {
+    expect(removeCommand("pnpm", ["@mantine/core"])).toEqual({ command: "pnpm", args: ["remove", "@mantine/core"] })
+    expect(removeCommand("npm", ["@mantine/core"])).toEqual({ command: "npm", args: ["uninstall", "@mantine/core"] })
+  })
+})
+
+describe("installCommand", () => {
+  it("builds each package manager's command that installs what package.json declares", () => {
+    expect(installCommand("pnpm")).toEqual({ command: "pnpm", args: ["i"] })
+    expect(installCommand("npm")).toEqual({ command: "npm", args: ["i"] })
+    expect(() => installCommand("make")).toThrow("Parity doesn't know how to install packages with make")
   })
 })
 

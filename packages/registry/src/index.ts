@@ -273,6 +273,72 @@ export async function readLibraryEdits(
   return parseLibraryEdits(isText(edits) ? parseJsonc(await readFile(resolve(from, edits), "utf8")) : edits)
 }
 
+const tokenName = z.string().min(1).max(200)
+const link = z.url({ protocol: /^https?$/ })
+const hex = z.string().regex(/^#[\da-f]{6}$/i)
+
+/** A library the Components panel offers, with what its registry file doesn't say. */
+const catalogEntry = z.strictObject({
+  /** Its id in the registry, or in the catalog of the extension that sets it up. */
+  id: z.string().min(1),
+  /**
+   * The package whose registry file shows it before it's added, when that isn't its own, with each `{setting}` filled
+   * from its settings, as `@buildkitgg/shadcn-baseui-{style}`.
+   */
+  preview: z.string().min(1).optional(),
+  logo: z
+    .strictObject({
+      viewBox: z.string().min(1),
+      path: z.string().min(1),
+      fillRule: z.enum(["nonzero", "evenodd"]).optional(),
+      color: z.strictObject({ light: hex, dark: hex }).optional()
+    })
+    .optional(),
+  links: z.strictObject({
+    website: link.optional(),
+    docs: link.optional(),
+    storybook: link.optional(),
+    source: link.optional()
+  }),
+  /** Which of its tokens plays each part in the look the panel draws it with. */
+  look: z.strictObject({
+    primary: tokenName,
+    onPrimary: tokenName,
+    surface: tokenName,
+    text: tokenName,
+    muted: tokenName,
+    border: tokenName,
+    radius: tokenName,
+    font: tokenName.optional(),
+    shadow: tokenName.optional()
+  }),
+  /** The registry id of an icon set offered alongside it, as Fluent icons beside Fluent UI. */
+  companion: z.string().min(1).optional()
+})
+
+export type CatalogEntry = z.infer<typeof catalogEntry>
+
+let catalog: Promise<CatalogEntry[]> | undefined
+
+/**
+ * The component libraries the Components panel offers, in the order it lists them, from the registry's
+ * `catalog.json`: each one's pages, logo and look, which its registry file doesn't hold. Read once.
+ */
+export function registryCatalog(dir = registryDir()): Promise<CatalogEntry[]> {
+  const read = async () =>
+    z
+      .strictObject({ $comment: z.string().optional(), libraries: z.array(catalogEntry) })
+      .parse(JSON.parse(await readFile(join(dir, "catalog.json"), "utf8"))).libraries
+
+  if (dir !== registryDir()) {
+    return read()
+  }
+
+  catalog ??= read()
+
+  return catalog
+}
+
 function errorText(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
 }

@@ -129,7 +129,12 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
   `discovery` provider offers servers Parity didn't start to `processes.find`. The handle's `changed()` makes Parity ask
   those two again. Each of their calls has 2 seconds (addresses) or 5 (discovery); an answer that's late, throws or
   doesn't fit is left out, as is an address that isn't on this machine, with `processes.providerFailed`. The processes
-  list opens a server at a name, then a proxy, then a container's address, else its endpoint.
+  list opens a server at a name, then a proxy, then a container's address, else its endpoint. A `libraries` provider
+  (PAR-1226) knows libraries the project's dependencies' names don't identify: `detect()` names the registry file that
+  describes each, the dependency its components come from, if any, and an icon package they draw with; `catalog()`
+  offers libraries to add, each with settings to choose; `add({ library, settings })` answers with what setting one up
+  changes in package.json, which Parity writes before installing; and `remove({ library })` answers with the packages to
+  uninstall, the scripts to change or drop and the stylesheet import to remove, which Parity writes before uninstalling.
 - **`ui`:** a toast (`notify`), progress with Cancel (`progress`), a choice from a list (`pick`), a field (`input`), a
   confirmation (`confirm`), and opening a page (`open`), in the person's browser or, with `where: "parity"`, in a window
   of Parity's own.
@@ -305,6 +310,13 @@ provider names each server Portless routes to, which the processes list then ope
 those servers to `find`, so Storybook adopts one running behind a Portless name. Routes whose process has ended are left
 out, as Portless does.
 
+## shadcn/ui
+
+[packages/extension-shadcn](../packages/extension-shadcn) is shadcn/ui as an extension, built in. It starts for any
+React project, by its peer dependency, so the Components panel offers Shadcn before the project has it. Its libraries
+provider reads `package.json`, `components.json` and the `manifest.json` shadcn-sync writes, which its `read` permission
+names, and sets Shadcn up through shadcn-sync (PAR-1226, PAR-1227).
+
 ## Tests
 
 - [manifest.test.ts](../packages/extension/src/reader/manifest.test.ts): ids outside the prefix, undeclared commands,
@@ -347,6 +359,8 @@ out, as Portless does.
   routes it reads from App Router, Pages Router and mixed fixture trees, and from the Turbopack example app.
 - [extension.test.ts](../packages/extension-tailwind/src/extension.test.ts): Tailwind CSS's manifest, with its styles
   provider and status item, and the stylesheets it handles.
+- [shadcn.test.ts](../packages/extension-shadcn/src/shadcn.test.ts): shadcn/ui's manifest, with its libraries provider
+  and peer dependency, what it detects, offers and plans.
 - [extension.test.ts](../packages/extension-react/src/extension.test.ts): React's manifest, with its renderer's guest
   and runtime, and a batch of files read in order; [batch.test.ts](../packages/extension-host/src/batch.test.ts):
   requests gathered into batches.

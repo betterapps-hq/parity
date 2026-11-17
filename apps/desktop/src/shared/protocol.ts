@@ -11,6 +11,7 @@ import type { CopyReport } from "@parity-app/agent/routing"
 import type { FrameChange } from "@parity-app/change-detection"
 import type { RecentSearch, SearchAnswer } from "@parity-app/connectors"
 import type {
+  AdapterIcon,
   CanvasDocument,
   ChangeConflict,
   CodeChange,
@@ -38,7 +39,7 @@ import type {
   WindowAsk
 } from "@parity-app/extension-host"
 import type { UpdateState } from "@parity-app/processes"
-import type { PreviewOffer, ProjectInfo } from "@parity-app/project"
+import type { LibraryPreview, PreviewOffer, ProjectInfo } from "@parity-app/project"
 import type {
   AppState,
   JsonValue,
@@ -97,21 +98,25 @@ export interface ServiceMethods {
    * list follows them, though they're saved only when the file is.
    */
   "project.correctComponents": { params: ServiceParams["project.correctComponents"]; result: undefined }
-  /** Libraries that can be added, and the ones the project has. */
-  "library.catalog": {
-    params: ServiceParams["library.catalog"]
-    result: {
-      id: string
-      name: string
-      description: string
-      package: string
-      kind: "components" | "icons"
-      installed: boolean
-    }[]
-  }
   /**
-   * Installs a library with the project's package manager and imports its styles. The tab then reopens to pick up its
-   * components.
+   * The component libraries the Components panel offers, in order, with the ones the project has marked, then the icon
+   * sets that can be added.
+   */
+  "library.catalog": { params: ServiceParams["library.catalog"]; result: CatalogLibrary[] }
+  /**
+   * What a library's file in Parity's registry holds, to show before it's added: shadcn's for the style in `settings`.
+   * Nothing when the registry has no file for it.
+   */
+  "library.preview": { params: ServiceParams["library.preview"]; result: LibraryPreview | undefined }
+  /**
+   * Takes a library out of the project: what its extension or its registry entry says to change in package.json and
+   * the stylesheet, then its packages uninstalled with the project's package manager. The tab then reopens.
+   */
+  "library.remove": { params: ServiceParams["library.remove"]; result: { log?: string; edit?: ProjectEditResult } }
+  /**
+   * Installs a library with the project's package manager and imports its styles, set up with `settings` when its
+   * catalog entry asks for them, with the icon sets `companions` names in the same install. The tab then reopens to pick
+   * up its components.
    */
   "library.add": { params: ServiceParams["library.add"]; result: { log: string; edit?: ProjectEditResult } }
   /** Imports an installed library's styles into the project's stylesheet; nothing to do when it imports them already. */
@@ -808,4 +813,53 @@ export interface RenderedFrame {
   errorStack?: string
   issues?: AccessibilityIssue[]
   contrast?: FrameContrast
+}
+
+export type { LibraryPreview } from "@parity-app/project"
+
+/** A library the Components panel offers, or an icon set the Icons tab does. */
+export interface CatalogLibrary {
+  id: string
+  name: string
+  description: string
+  package: string
+  kind: "components" | "icons"
+  installed: boolean
+  /** What its extension asks before adding it, each set to what the project uses now or a default. */
+  settings?: LibrarySetting[]
+  /** Its website, docs, Storybook and source. */
+  links?: { website?: string; docs?: string; storybook?: string; source?: string }
+  /** The version its registry file was made for, or the one its extension sets up. */
+  version?: string
+  logo?: AdapterIcon
+  /** Which of its tokens plays each part in the look the panel draws it with. */
+  look?: LibraryLook
+  /** The catalog id of the icon set offered alongside it, as Fluent icons beside Fluent UI. */
+  companion?: string
+}
+
+/**
+ * The tokens a library's look is drawn with, by the part each plays: its main color and the text on it, its surface,
+ * text, quieter text and borders, its corners, its font and a shadow. Each names one of its tokens.
+ */
+export interface LibraryLook {
+  primary: string
+  onPrimary: string
+  surface: string
+  text: string
+  muted: string
+  border: string
+  radius: string
+  /** A font family, or a `font` shorthand such as Material UI's `400 1rem/1.5 "Roboto"`. */
+  font?: string
+  shadow?: string
+}
+
+/** A choice a catalog library's extension asks for before it's added, such as shadcn's style. */
+export interface LibrarySetting {
+  id: string
+  label: string
+  options: { value: string; label: string }[]
+  /** What the project uses now, or the extension's default. */
+  value: string
 }

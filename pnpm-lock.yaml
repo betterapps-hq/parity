@@ -388,6 +388,9 @@ importers:
       '@parity-app/extension-rspack':
         specifier: workspace:*
         version: link:../../packages/extension-rspack
+      '@parity-app/extension-shadcn':
+        specifier: workspace:*
+        version: link:../../packages/extension-shadcn
       '@parity-app/extension-storybook':
         specifier: workspace:*
         version: link:../../packages/extension-storybook
@@ -965,6 +968,18 @@ importers:
         specifier: ^1.4.0 || ^2.0.0
         version: 2.3.2(@swc/helpers@0.5.24)
 
+  packages/extension-shadcn:
+    dependencies:
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
+      react:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.3.1
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+
   packages/extension-storybook:
     dependencies:
       '@parity-app/core':
@@ -1119,6 +1134,9 @@ importers:
       '@parity-app/extension-rspack':
         specifier: workspace:*
         version: link:../extension-rspack
+      '@parity-app/extension-shadcn':
+        specifier: workspace:*
+        version: link:../extension-shadcn
       '@parity-app/extension-storybook':
         specifier: workspace:*
         version: link:../extension-storybook

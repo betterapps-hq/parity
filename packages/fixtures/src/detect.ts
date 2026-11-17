@@ -13,6 +13,7 @@ import {
   type ThemeVariable
 } from "@parity-app/core"
 import { isText } from "@parity-app/core/values/evaluate"
+import { detectLibraries, readProjectFiles } from "@parity-app/extension-shadcn/shadcn"
 import { handles, readTheme } from "@parity-app/extension-tailwind"
 import {
   type Detection,
@@ -136,7 +137,13 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
   // The stylesheets the app loads, as the builder says, as the desktop app asks its builder's extension.
   const appStyles = builderAdapter ? stylesOf(builderAdapter, project, problems) : undefined
 
-  const config = renderer ? await discoverProject(root, renderer, pkg, { styles: appStyles }) : undefined
+  // The libraries shadcn's extension recognizes, as the desktop app asks it.
+  const detected = detectLibraries(await readProjectFiles((path) => readFile(join(root, path), "utf8")))
+
+  const config = renderer
+    ? await discoverProject(root, renderer, pkg, { styles: appStyles, libraries: detected })
+    : undefined
+
   const stylesheets = config?.styles ?? []
 
   const sources = await Promise.all(
