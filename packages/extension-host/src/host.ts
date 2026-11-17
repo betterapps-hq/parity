@@ -205,7 +205,8 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
         throw new Error("The extension hasn't activated")
       }
 
-      const { router, styles, renderer, builder, entities, addresses, discovery } = (await activated).providers
+      const { router, styles, renderer, builder, entities, addresses, discovery, libraries } = (await activated)
+        .providers
 
       const missing = (): never => {
         throw new Error(`No ${call.kind} is registered. Its extension registers one with parity.providers.register.`)
@@ -226,6 +227,8 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
           return await (addresses ?? missing()).addresses(call.params)
         case "discovery":
           return await (discovery ?? missing()).discover(call.params)
+        case "libraries":
+          return await callLibraries(libraries ?? missing(), call)
       }
     },
     async "view.changed"({ view, key, value }) {
@@ -707,6 +710,23 @@ async function callEntities(
   return call.method === "import"
     ? ((await entities.import(call.params)) as ProviderAnswer)
     : entities.export(call.params)
+}
+
+/** Asks the libraries provider the extension registered what a call names. */
+async function callLibraries(
+  libraries: ProviderKinds["libraries"],
+  call: Extract<ProviderCall, { kind: "libraries" }>
+): Promise<ProviderAnswer> {
+  switch (call.method) {
+    case "detect":
+      return libraries.detect()
+    case "catalog":
+      return libraries.catalog()
+    case "add":
+      return libraries.add(call.params)
+    case "remove":
+      return libraries.remove(call.params)
+  }
 }
 
 /** Calls the method a styles provider call names on the styling framework the extension registered. */

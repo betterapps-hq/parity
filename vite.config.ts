@@ -19,6 +19,7 @@ const edge = [
   "agent",
   "builder-webpack-compatible",
   "cli",
+  "extension-node",
   "extension-react",
   "extension-rsbuild",
   "extension-rspack",

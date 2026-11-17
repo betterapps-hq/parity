@@ -1,5 +1,5 @@
-import type { ThemeVariable } from "@parity-app/core"
-import { type SetPropertyOptions, type TokenWrite, writeCustomProperty, writeTokenChanges } from "@parity-app/tokens"
+import type { ThemeVariable, TokenWrite } from "@parity-app/extension"
+import { type SetPropertyOptions, writeCustomProperty, writeTokenChanges } from "@parity-app/extension/styles"
 
 /** Tailwind's theme: an `@theme` block, or the root where the stylesheet already declares the variable there. */
 const themeBlocks: SetPropertyOptions = {

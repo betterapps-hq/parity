@@ -59,6 +59,7 @@ import type {
 import { receiveAccount, resetAccountView } from "../account/account.ts"
 import { preloadAnswers } from "../service.ts"
 import { resetWithWindow } from "../store.ts"
+import { storyCatalog, storyPreview } from "./libraries.ts"
 
 /**
  * What the service's `project.open` and `project.components` answer for the example. Its guest URL is the module
@@ -770,72 +771,16 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
 
       return undefined
     case "library.catalog":
-      return [
-        {
-          id: "nova",
-          name: "Shadcn Nova",
-          description: "shadcn/ui's components on Base UI",
-          package: "@buildkitgg/shadcn-baseui-nova",
-          kind: "components",
-          installed: true
-        },
-        {
-          id: "lucide",
-          name: "Lucide",
-          description: "Clean, consistent icons",
-          package: "lucide-react",
-          kind: "icons",
-          installed: true
-        },
-        {
-          id: "radix",
-          name: "Radix Themes",
-          description: "An open-source component library for fast development",
-          package: "@radix-ui/themes",
-          kind: "components",
-          installed: false
-        },
-        {
-          id: "tabler",
-          name: "Tabler Icons",
-          description: "Over 5,000 outline and filled icons on a 24px grid.",
-          package: "@tabler/icons-react",
-          kind: "icons",
-          installed: false
-        },
-        {
-          id: "phosphor",
-          name: "Phosphor",
-          description: "A flexible icon family with six weights, picked with the weight prop.",
-          package: "@phosphor-icons/react",
-          kind: "icons",
-          installed: false
-        },
-        {
-          id: "hugeicons",
-          name: "Hugeicons",
-          description: "Thousands of free icons as data, drawn by Hugeicons' React component.",
-          package: "@hugeicons/core-free-icons",
-          kind: "icons",
-          installed: false
-        },
-        {
-          id: "heroicons",
-          name: "Heroicons",
-          description: "Hand-crafted SVG icons from the makers of Tailwind CSS, in the 24px outline style.",
-          package: "@heroicons/react",
-          kind: "icons",
-          installed: false
-        },
-        {
-          id: "fluent-icons",
-          name: "Fluent icons",
-          description: "Microsoft's Fluent System Icons, in Regular and Filled styles, some with a size in the name.",
-          package: "@fluentui/react-icons",
-          kind: "icons",
-          installed: false
-        }
-      ]
+      return storyCatalog()
+    case "library.preview":
+      return storyPreview(
+        String(request.params.library),
+        z.record(z.string(), z.string()).optional().parse(request.params.settings)
+      )
+    case "library.remove":
+      await delay(1200)
+
+      return { log: `- ${String(request.params.library)}\nDone in 1.2s` }
     case "library.add":
       await delay(1200)
 

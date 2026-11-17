@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { pathToFileURL } from "node:url"
-import { findPackage, packageEntry } from "@parity-app/project"
+import { findPackage, packageEntry } from "@parity-app/extension-node"
 
 // The parts of Tailwind v4's design system that Parity uses. Tailwind marks the loader unstable
 // (`__unstable__loadDesignSystem`), so design-system.test.ts pins each of these against the installed Tailwind.

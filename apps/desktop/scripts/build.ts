@@ -63,6 +63,7 @@ await build({
     "extensions/storybook": require.resolve("@parity-app/extension-storybook"),
     "extensions/storybook-a11y": require.resolve("@parity-app/extension-storybook-a11y"),
     "extensions/tailwind": require.resolve("@parity-app/extension-tailwind"),
+    "extensions/shadcn": require.resolve("@parity-app/extension-shadcn"),
     "extensions/vite": require.resolve("@parity-app/extension-vite"),
     "extensions/rspack": require.resolve("@parity-app/extension-rspack"),
     "extensions/rsbuild": require.resolve("@parity-app/extension-rsbuild"),

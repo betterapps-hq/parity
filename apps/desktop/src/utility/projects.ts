@@ -669,9 +669,17 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const mainDocument = pickMainDocument(paths, name)
     const main = documents.find((entry) => entry.path === mainDocument)?.document
 
+    // Libraries an extension knows that the dependencies' names alone don't, as shadcn-sync's components (PAR-1226).
+    const libraries = provide({ root, name, pkg }, { kind: "libraries", method: "detect" }).catch((cause: unknown) => {
+      logNote(`[service] couldn't ask which libraries ${name} uses: ${message(cause)}`)
+
+      return undefined
+    })
+
     const config = await discoverProject(root, renderer, pkg, {
       documents: paths,
       styles,
+      libraries,
       previews: adapters.previews
     })
 

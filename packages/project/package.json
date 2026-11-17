@@ -6,7 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./scripts": "./src/scripts.ts"
+    "./scripts": "./src/scripts.ts",
+    "./packages": "./src/packages.ts"
   },
   "dependencies": {
     "@parity-app/code": "workspace:*",

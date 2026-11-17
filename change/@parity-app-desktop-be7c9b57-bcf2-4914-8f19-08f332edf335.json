@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Text being typed keeps what someone else in a live room wrote right where a deletion starts.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

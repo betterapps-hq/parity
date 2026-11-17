@@ -247,11 +247,6 @@ export function rebaseText(base: string, local: string, remote: string, selectio
   const replaced = where.slice(mine.start, mine.end).filter((at) => at >= 0)
   const gone = new Set(replaced)
 
-  // The other changed the characters the typing replaced: removed some, or wrote between them.
-  const overlap =
-    replaced.length < mine.end - mine.start ||
-    replaced.some((at, index) => index > 0 && at !== replaced[index - 1]! + 1)
-
   // Where a place in `base` is in `remote`: just after the last character before it that's still there.
   const after = (at: number) => {
     for (let index = at - 1; index >= 0; index--) {
@@ -273,6 +268,13 @@ export function rebaseText(base: string, local: string, remote: string, selectio
 
     return remote.length
   }
+
+  // The other changed the characters the typing replaced: removed some, wrote between them, or wrote just where the
+  // replacing starts, which counts as the same characters so it's kept and the typing follows it (PAR-1230).
+  const overlap =
+    replaced.length < mine.end - mine.start ||
+    replaced.some((at, index) => index > 0 && at !== replaced[index - 1]! + 1) ||
+    (replaced.length > 0 && replaced[0]! > after(mine.start))
 
   const insertAt = overlap ? before() : after(mine.start)
   let text = ""
@@ -304,7 +306,7 @@ export function rebaseText(base: string, local: string, remote: string, selectio
 
   // Where a place in `local` is in the result: before the typing, in it, or after it.
   const place = (at: number) => {
-    if (at <= mine.start) {
+    if (at < mine.start) {
       return Math.min(shown(after(at)), typing)
     }
 
