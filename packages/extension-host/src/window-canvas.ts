@@ -119,6 +119,8 @@ export interface LayerReads {
   colors: WindowColors
   /** The palette `key` holds now, or would be given, without claiming it. */
   color(key: ColorKey, list: "people" | "agents"): Palette
+  /** Told when a key is assigned a number, which can move what any key holds. */
+  onColors(listener: () => void): Disposable
 }
 
 /** A layer for the window to draw. */
@@ -134,6 +136,8 @@ export interface LayerRequest {
 
 /** The tab's canvas services, as the window gives them. */
 export interface WindowCanvasPort {
+  /** Whether `key` is a design's, to tell a design's key holding a slash from a layer's. */
+  isDesign?: (key: string) => boolean
   /** The tab's canvas, while it's mounted. */
   canvas(): CoreCanvas | undefined
   /** Told each time the tab's canvas mounts or unmounts. Returns what stops it. */
@@ -147,8 +151,11 @@ export interface WindowCanvasPort {
 
 const emptyView: CameraView = { x: 0, y: 0, width: 0, height: 0 }
 
-/** Where a `NodeRef` is on the canvas: a design's board, or a layer in it. */
-export function targetOf(ref: NodeRef): CanvasTarget {
+/**
+ * Where a `NodeRef` is on the canvas: a design's board, or a layer in it. A design's key can hold a slash, so a layer's
+ * `designKey/layerId` is split at the first slash that leaves a design's key, when `isDesign` says which are.
+ */
+export function targetOf(ref: NodeRef, isDesign?: (key: string) => boolean): CanvasTarget {
   if (ref.owner !== "design") {
     throw new Error(`${ref.owner}'s ${ref.type} isn't on the canvas: only designs and their layers are`)
   }
@@ -157,13 +164,19 @@ export function targetOf(ref: NodeRef): CanvasTarget {
     return { design: ref.key }
   }
 
-  const slash = ref.key.indexOf("/")
+  const first = ref.key.indexOf("/")
 
-  if (slash <= 0) {
+  if (first <= 0 || first === ref.key.length - 1) {
     throw new Error(`A layer's key is designKey/layerId, not ${ref.key}`)
   }
 
-  return { design: ref.key.slice(0, slash), node: ref.key.slice(slash + 1) }
+  for (let at = first; isDesign && at !== -1 && at < ref.key.length - 1; at = ref.key.indexOf("/", at + 1)) {
+    if (isDesign(ref.key.slice(0, at))) {
+      return { design: ref.key.slice(0, at), node: ref.key.slice(at + 1) }
+    }
+  }
+
+  return { design: ref.key.slice(0, first), node: ref.key.slice(first + 1) }
 }
 
 /**
@@ -200,8 +213,11 @@ function ownFor(port: WindowCanvasPort, context: SurfaceContext, layers: Set<str
   const { extension } = context
   /** What it has open: layers, listeners, followings, previews and holds, each closed when it stops in the tab. */
   const open = new Set<Disposable>()
+  let ended = false
 
   context.onEnd(() => {
+    ended = true
+
     for (const each of [...open].toReversed()) {
       each.dispose()
     }
@@ -214,7 +230,12 @@ function ownFor(port: WindowCanvasPort, context: SurfaceContext, layers: Set<str
       dispose()
     })
 
-    open.add(handle)
+    // Opened after it stopped, as an activation that resumes late can: closed at once.
+    if (ended) {
+      handle.dispose()
+    } else {
+      open.add(handle)
+    }
 
     return handle
   }
@@ -297,9 +318,9 @@ function ownFor(port: WindowCanvasPort, context: SurfaceContext, layers: Set<str
         (canvas) => canvas.camera.onChange(() => listener()),
         () => listener()
       ),
-    box: (ref, options) => port.canvas()?.measure.box(targetOf(ref), options) ?? { kind: "missing" },
+    box: (ref, options) => port.canvas()?.measure.box(targetOf(ref, port.isDesign), options) ?? { kind: "missing" },
     onBoxChange: (ref, listener, options) => {
-      const target = targetOf(ref)
+      const target = targetOf(ref, port.isDesign)
 
       return whileMounted(
         (canvas) => canvas.measure.onBoxChange(target, listener, options),
@@ -307,7 +328,16 @@ function ownFor(port: WindowCanvasPort, context: SurfaceContext, layers: Set<str
       )
     },
     colors,
-    color: (key, list) => peek(list === "agents" ? port.colors.agents : port.colors.people, key)
+    color: (key, list) => peek(list === "agents" ? port.colors.agents : port.colors.people, key),
+    onColors(listener) {
+      const stopPeople = onAssigned(port.colors.people, listener)
+      const stopAgents = onAssigned(port.colors.agents, listener)
+
+      return keep(() => {
+        stopPeople()
+        stopAgents()
+      })
+    }
   }
 
   const canvas: CanvasSurface = {
@@ -365,6 +395,23 @@ function ownFor(port: WindowCanvasPort, context: SurfaceContext, layers: Set<str
   return { canvas, camera, colors }
 }
 
+/** Who hears of each list's assignments. The window's lists are shared by its tabs, so this is too. */
+const assignedListeners = new WeakMap<CoreColors, Set<() => void>>()
+
+function onAssigned(core: CoreColors, listener: () => void): () => void {
+  const listeners = assignedListeners.get(core) ?? new Set()
+  assignedListeners.set(core, listeners)
+  listeners.add(listener)
+
+  return () => listeners.delete(listener)
+}
+
+function tellAssigned(core: CoreColors): void {
+  for (const listener of Array.from(assignedListeners.get(core) ?? [])) {
+    listener()
+  }
+}
+
 /**
  * An extension's colors in this tab: its claims are counted, so a key it claims twice keeps its color until it has
  * released it twice, and all of them are given back when it stops here.
@@ -400,7 +447,10 @@ function colorsFor(port: WindowCanvasPort, context: SurfaceContext): WindowColor
           core.release(key, owner)
         }
       },
-      assign: (key, n) => core.assign(key, n),
+      assign(key, n) {
+        core.assign(key, n)
+        tellAssigned(core)
+      },
       palette: (n) => core.palette(n),
       get tuned() {
         return core.tuned
@@ -427,7 +477,7 @@ function previewFor(
 
   const itemsOf = (given: PreviewItem[]): CorePreviewItem[] =>
     given.map(({ ref, at, state, mode }) => {
-      const item: CorePreviewItem = { target: targetOf(ref), at }
+      const item: CorePreviewItem = { target: targetOf(ref, port.isDesign), at }
 
       if (state !== undefined) {
         item.state = state
@@ -453,7 +503,7 @@ function previewFor(
 
     if (given.drop !== undefined) {
       const { parent, index, state, mode } = given.drop
-      const drop: NonNullable<CorePreviewOptions["drop"]> = { parent: targetOf(parent), index }
+      const drop: NonNullable<CorePreviewOptions["drop"]> = { parent: targetOf(parent, port.isDesign), index }
 
       if (state !== undefined) {
         drop.state = state
