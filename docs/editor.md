@@ -6506,11 +6506,14 @@ land (PAR-1233). The project's canvas starts its own as it mounts (`surfaceOf(ed
   generated palette rather than sharing one. The first claim to need each generated palette records `colors.generated`.
 - **The camera** says what's in view as a rect on the page, tells listeners at most once a frame, and `show(view)`
   glides there, fitted to the window within the canvas's zoom limits.
-- **Following** keeps showing the views it's given, gliding to each. Its own moves are tagged, so only the person's end
-  it: Esc, a pan (`panned`) or zoom (`zoomed`) of their own, or another page (`navigated`). Another follow or `show`
-  ends it as `replaced`, and its owner as `disposed`. A resized window fits what's followed again. Each ending records
-  `follow.ended`. The frame and banner drawn while following are the Follow mode stories'
-  (`Parity/Multiplayer/Follow mode`), drawn by whoever follows.
+- **Following** keeps showing the views it's given, gliding to each. A view that comes while it glides changes where the
+  glide ends rather than starting it again, and the same view again moves nothing, so a leader whose view comes with
+  every pointer move is still reached. Its own moves are tagged, so only the person's end it: Esc, a pan (`panned`) or
+  zoom (`zoomed`) of their own, or another page (`navigated`). The canvas's shortcuts offer Esc to the camera first
+  (`escapeOnCanvas`), so it ends following and keeps the selection; with nothing followed it steps out of the selection
+  as before. Another follow or `show` ends it as `replaced`, and its owner as `disposed`. A resized window fits what's
+  followed again. Each ending records `follow.ended`. The frame and banner drawn while following are the Follow mode
+  stories' (`Parity/Multiplayer/Follow mode`), drawn by whoever follows.
 - **Boxes** say where a design's board, the frame a state and mode draws in, or a node in that frame is on the page,
   with its corner radius and its laid-out size in design pixels. With no frame in that state and mode, one in the mode
   is used, then the primary frame. A frame asleep, or a board culled out of view, gives the box to point at instead
@@ -6531,9 +6534,10 @@ Tests:
   room's numbers winning; keys the room assigned counted as holding a color; a number that isn't a palette's refused.
 - `apps/desktop/src/renderer/agent/agent-colors.test.ts` (2): an agent keeps its palette; agents at once never share
   one, the hand-tuned ones first, and never run out.
-- `packages/editor/src/canvas-camera.test.ts` (8): fitting a view within the zoom limits; gliding; telling a zoom from a
+- `packages/editor/src/canvas-camera.test.ts` (9): fitting a view within the zoom limits; gliding; telling a zoom from a
   pan; `show` gliding with listeners told once a frame; following through its own moves and ending on the person's pan
-  or zoom; each other ending; fitting again on resize.
+  or zoom; each other ending; arriving while told every frame, after each frame began, the same view or a moving one;
+  fitting again on resize.
 - `packages/editor/src/canvas-measure.test.ts` (7): the frame fallback; boards, frames and nodes; a sleeping frame and a
   culled board; changes told once a frame until disposed; a caret in a node's text only when asked and when the text
   reaches it, its moving told; hits on the deepest node.
@@ -8534,12 +8538,12 @@ A screen is named for the component its route draws, else its path.
 - **Where a route redirects.** The TanStack Router adapter reads where a route always redirects from its route options:
   the first statement of its `beforeLoad`, else its `loader`, when it's `throw redirect({ to: "…" })`. A redirect inside
   an `if` is a sometimes, and doesn't count.
-- **Where a page lands.** A page's frozen copy says where its page landed, from the page runtime's snapshot, and a page
-  drawn live with the Interact tool says it with `page.ready` and `page.moved`. When the path isn't the page's own,
-  ignoring a trailing slash, an amber "Lands on /x" warning shows under the page's board, lined up with its left edge
-  and a few screen pixels below at any zoom, sized as a frame's caption is, so a redirect Parity couldn't read still
-  shows. Its row in Layers shows an amber warning too, whose tooltip says where. The example's Dashboard is behind a
-  sign-in check in its `beforeLoad`, so it lands on `/login` until someone logs in.
+- **Where a page lands.** A page's frozen copy says where its page landed, from the page runtime's snapshot, and a live
+  board's page says where it went with `page.ready` and `page.moved`. When the path isn't the page's own, ignoring a
+  trailing slash, an amber "Lands on /x" warning shows under the page's board, lined up with its left edge and a few
+  screen pixels below at any zoom, sized as a frame's caption is, so a redirect Parity couldn't read still shows. Its
+  row in Layers shows an amber warning too, whose tooltip says where. The example's Dashboard is behind a sign-in check
+  in its `beforeLoad`, so it lands on `/login` until someone logs in.
 
 - **Layers.** Layers lists the app's pages under Routes, before Screens and Frames, in their tree: each page under the
   page above it, App, then Pricing, Projects, Project detail and Settings a level in. A layout group is a folder with
@@ -8570,8 +8574,8 @@ A screen is named for the component its route draws, else its path.
   drawn from where the boards are now, so they follow a page that's moved, and they sit behind every board.
 - **The app draws it.** A page's frames show a frozen copy of the app's own page at the page's URL (below), which ran in
   a document of its own, so the app's router, layouts, loaders and redirects ran as they do in a browser: `/settings`
-  shows Profile, where its index redirects. With the Interact tool, a frame loads the page itself instead. Designs are
-  still drawn by the guest in Parity's window. A frame loads under a name of its project's own,
+  shows Profile, where its index redirects. With the Interact tool, a board goes live: the page itself, over its copy
+  (below). Designs are still drawn by the guest in Parity's window. A frame loads under a name of its project's own,
   `http://p<hash>.localhost:<port>` (`pageFrameUrl`), which Chromium reaches on the loopback address and runs in a
   process of its own, so one project's pages never share a process with another's (PAR-1260). Vite and Next's
   development server accept those names as they come; the webpack-compatible builders' server lets the page's own name
@@ -8601,10 +8605,9 @@ A screen is named for the component its route draws, else its path.
   tried sizes weren't tried in the app, and `code-designs.ts` has no unit test.
 - **Never saved.** Page screens are laid out from the routes each time the project opens, in a design file of their own
   that's never written. They can be selected and moved, but a move isn't kept. A copy takes no pointer, so the canvas
-  pans and selects over it, except with the Interact tool: then the frame loads the page itself, which takes the pointer
-  and keys as a design does, and clicking Pricing in App's frame takes it to `/pricing`. Otherwise it's inert, as a
-  design's frame is, so Tab on the canvas never goes into the page and leaves the canvas's keys there
-  (`keyboard.e2e.ts`, "keys outside Interact").
+  pans and selects over it. With the Interact tool, a press makes the board live (below), and clicking Pricing in App's
+  live page takes it to `/pricing`. Otherwise it's inert, as a design's frame is, so Tab on the canvas never goes into
+  the page and leaves the canvas's keys there (`keyboard.e2e.ts`, "keys outside Interact").
 - **The page runtime (PAR-1260).** The builder serves the page runtime first in the app's page
   (`@parity-app/page-runtime`, as [proposals/route-frames.md](proposals/route-frames.md) sets out): Vite as a module
   script at the top of `<head>`, the webpack-compatible builders as the first module of each of the app's entries, and
@@ -8646,8 +8649,8 @@ A screen is named for the component its route draws, else its path.
   window is the mode's (Desktop 800, Tablet 1024, Mobile 844). The frame grows to it but never shrinks below the window.
   It measures only in the mode's window because a page with a section as tall as the window grows with the frame,
   without end. A mode that changes takes the frame back to its window until the page says how tall it is there. So a
-  page that changes after it first draws, as with the Interact tool, keeps the height it first had. A frame given a
-  height of its own keeps it and scrolls, but page frames have no resize handles yet.
+  page that changes after it first draws, as a live page does, keeps the height it first had. A frame given a height of
+  its own keeps it and scrolls, but page frames have no resize handles yet.
 - **Frozen copies (PAR-1262).** Each route board's frame shows a frozen copy of its page, as
   [proposals/route-frames.md](proposals/route-frames.md) sets out. One frame per project, the freezer, makes them: it's
   parked in Parity's window at 1% of its size, where Chromium still lays it out, and for each route that needs a copy,
@@ -8689,6 +8692,31 @@ A screen is named for the component its route draws, else its path.
   `header` and `main`. Those layers are made again with each freeze and kept in the window (`copyLayers`), never in the
   project's document. They're made without styles; the Design panel reads an element's computed style when it shows it
   (`withCopyStyle`).
+- **Live boards (PAR-1263).** With the Interact tool, a route board can be the app's own page, as
+  [proposals/route-frames.md](proposals/route-frames.md) sets out. Each project keeps two spare frames per window while
+  Interact is on: the app's page in an iframe on its builder's origin, in a layer in the canvas's page space above the
+  boards (`LiveLayer`), parked in the view at its mode's full size, drawn at 1% and taking no pointer, where Chromium
+  still lays it out. They load at the app's root and move with the app's own router to the routes of the boards in view,
+  nearest the middle first (`planPool`), and park again 250 ms after the view stops moving. With no page router they're
+  loaded at the route they're for. Resting the pointer on a board for 80 ms sends a spare to its route and mode. A press
+  on a board takes the quickest frame (`pickLive`): the one warming on it, a spare on its route, any spare sent there,
+  one still loading, or a new frame at the route. The page is put over the board, one mode window tall, scaled with the
+  board, and engaged: it takes the pointer, the wheel scrolls it and keys go to it. That press only does that; the next
+  one lands on the page. The runtime passes back what's Parity's when the page didn't take it: Ctrl or Cmd with the
+  wheel, or a pinch, zooms the canvas at that point (`page.zoom`), and Escape and Ctrl or Cmd shortcuts, except the ones
+  that edit or move through text, reach Parity's document (`page.key`). Escape the page didn't handle, a press anywhere
+  outside the page and leaving Interact disengage it: the frame takes no pointer again, stays live, and focus comes back
+  to Parity's document, since a page with focus keeps getting keys. Hovering a live board never takes the wheel.
+  Disengaged, the live window sits over the part of its board in view, with the page scrolled to match (`page.scroll`,
+  `liveWindowTop`); engaged, the page's own scrolling moves it down its board (`page.scrolled`). While a board is live
+  its copy hides its fixed and sticky elements, so a fixed header shows once. A link to another of the app's routes
+  moves the live page, and the board says where it went, as a redirect does. A navigation off the builder's origin is
+  stopped in main (`pageFrameGuard`, on `will-frame-navigate` and `will-redirect`), and the board says "Tried to open"
+  with the host. Live ends when another board goes live or the board has been out of view for 10 s, and its frame is
+  closed, never reused. The freezer waits while the live page is in use, 2 s after each `page.used`, and while the pool
+  refills, 1.5 s after a board goes live, since a project's frames share one process. A window that isn't focused keeps
+  no spares. `routeFrame.live` says how a board went live and how long it took, and `routeFrame.miss` that no spare was
+  there.
 - **When the page process fails.** A project's pages share one renderer process. When it closes the freezer's channel or
   a request misses its deadline, the freezer starts again after 1 s, then 5 s, then 30 s, and after three failures in
   two minutes it stops for that project; boards keep the copies they have.
@@ -8710,6 +8738,17 @@ its `div`, `header` and `main` inside Pricing, selecting `main` there outlined i
 Region panel, and double-clicking the pricing cards on the canvas selected their `div`, named in its outline, with its
 read styles in the Design panel. Dashboard's row in Layers kept its warning from its copy's landing on `/login`. Mobile
 and dark modes and a failing page process weren't tried in the app.
+
+Live boards were tried in a development build on the example project (PAR-1263). With Interact, two spares parked in the
+view; resting on Pricing marked it ready, and a press made it live and engaged in 94 ms, the page exactly over its copy
+and holding focus. Ctrl and the wheel over it zoomed the canvas from 55% to about 61%. Escape disengaged it, with focus
+back in Parity's document; a press on it engaged it again, and a press in Layers disengaged it. On App, whose page runs
+49px past its window, the wheel scrolled the page by 49px and the live window moved down the board with it. Clicking
+Pricing in App's live page took it to `/pricing`, with "Lands on /pricing" under the board and in Layers, and sending it
+to `https://example.com/` was stopped, with "Tried to open example.com". Pressing Login ended App's live page and made
+Login's live. Panned away, App's live page, live again by then, closed after 10 s out of view; leaving Interact closed
+the spares, and coming back opened two again. A Ctrl shortcut passed back, an unfocused window and a page without a page
+router weren't tried.
 
 Pictures were tried in a development build on the example project (PAR-1200): zoomed out to 8% and 25%, all eight page
 boards showed pictures of their pages, with no page frame left once the freezer was done. Zooming in to 50% turned the
@@ -8733,14 +8772,17 @@ Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pa
 `page-channel.ts`; frozen copies: `RouteBoard` and `withCopyStyle` in `RouteBoard.tsx`, the freezer, `useFrozenCopy` and
 `copySheets` in `freezer.ts`, `copyLayers`, `withCopyEntries` and `shownEntry` in `route-pages.ts`, `takeSnapshot` in
 `packages/page-runtime/src/snapshot.ts`, `freezeOrder` and `restartAfter` in `packages/frames/src/freezer.ts`,
-`frozenSnapshots` in `packages/editor/src/element-layers.ts`, `withCopyLayers` in `route-boards.ts`; pictures:
-`useBoardTier` in `RouteBoard.tsx`, `usePagePicture` in `page-bitmaps.ts`, `mountCopy` in
-`apps/desktop/src/renderer/page-copy.ts` and `copySheets` in `copy-sheets.ts`, both shared with the render window's
-`renderPage` in `render.ts`, the `pageJob` schema in `shared/service-params.ts`, `pageRenderJob` and `pageBitmapName` in
-`shared/render-job.ts`, `capturePage` and `storedPage` in `apps/desktop/src/utility/index.ts`, `pageTraces` in
-`utility/page-traces.ts`, `pageTraceFiles` in `packages/project/src/page-trace.ts`, and `boardTier` in
-`packages/frames/src/tiers.ts`; `fetchPageSheet` in `apps/desktop/src/main/page-sheets.ts`, and the `routeFrame` events
-in `packages/telemetry/src/route-frame-events.ts`; `routeLines` in `apps/desktop/src/renderer/chrome/LayerTree.tsx`;
+`frozenSnapshots` in `packages/editor/src/element-layers.ts`, `withCopyLayers` in `route-boards.ts`, `fetchPageSheet` in
+`apps/desktop/src/main/page-sheets.ts`, live boards: the pool and `useLiveBoard` in `live-frames.ts`, `LiveLayer` in
+`LiveLayer.tsx`, `pickLive` and `liveWindowTop` in `packages/frames/src/live.ts`, `passesBack` and the runtime's
+`page.scrolled`, `page.zoom` and `page.key` in `packages/page-runtime/src/`, `holdFreezer` in `freezer.ts`, and
+`pageFrameGuard` in `apps/desktop/src/main/page-frames.ts`; pictures: `useBoardTier` in `RouteBoard.tsx`,
+`usePagePicture` in `page-bitmaps.ts`, `mountCopy` in `apps/desktop/src/renderer/page-copy.ts` and `copySheets` in
+`copy-sheets.ts`, both shared with the render window's `renderPage` in `render.ts`, the `pageJob` schema in
+`shared/service-params.ts`, `pageRenderJob` and `pageBitmapName` in `shared/render-job.ts`, `capturePage` and
+`storedPage` in `apps/desktop/src/utility/index.ts`, `pageTraces` in `utility/page-traces.ts`, `pageTraceFiles` in
+`packages/project/src/page-trace.ts`, and `boardTier` in `packages/frames/src/tiers.ts`; and the `routeFrame` events in
+`packages/telemetry/src/route-frame-events.ts`; `routeLines` in `apps/desktop/src/renderer/chrome/LayerTree.tsx`;
 `appPage` in `packages/extension-vite/src/builder.ts`. The page runtime: `startPageRuntime` and the protocol in
 `packages/page-runtime/src/`; `PageRouter` and `PageHydration` in `packages/extension/src/page.ts`; `tanstackRouterPage`
 in `packages/extension-tanstack-router/src/page.ts`; `reactRouterPage` in `packages/extension-react-router/src/page.ts`,
@@ -8814,7 +8856,17 @@ aborted; the document and an element in the page as roots; only `#__next` or the
 entries" and "serves a wrapped package to the app's own modules"), `server.test.ts` (`isPageOrigin`),
 `guest-app.test.ts` ("runs the page runtime in the browser before a page's own code"), `hosts.test.ts` ("gives the
 routers' page modules" and "gives the packages a router's page module wraps") and `built-in-extensions.test.ts`
-("bundles the page runtime and the built-in page modules"), and the pictures' (PAR-1200):
+("bundles the page runtime and the built-in page modules"). Hydration and navigation in the fixtures' real apps are left
+to the end-to-end suite. Live boards (PAR-1263): `packages/frames/src/live.test.ts` (9: the frame warming on the board
+first, then a spare on its route, then one sent there only when the app can be moved, then one loading, then a new one;
+the live window at the board's top, following the view down in the page's pixels, and kept within the board; live ending
+after 10 s out of view), `runtime.test.ts` (4 more: `page.scrolled` only once `role.set` makes the page live; the zoom
+wheel the page didn't take passed back, never zooming the page; Escape and a shortcut the page didn't handle passed
+back, and text keys kept; `passesBack`), `apps/desktop/src/main/page-frames.test.ts` (3: a frame stopped leaving its
+page's origin, with where it tried to go; moves on its origin let through; the window, a frame's first load and the
+app's own embeds left alone), and `e2e/route-boards.e2e.ts` (2: going live and engaged on a press with Interact, zooming
+with Ctrl and the wheel, and letting go on Escape; engaging again on a press and letting go on a press outside). The
+pool itself (`live-frames.ts`) has no unit test; it was tried in the app. Pictures (PAR-1200):
 `packages/frames/src/planners.test.ts` (each tier, and the gap between them), `packages/project/src/page-trace.test.ts`
 (6: a route's file and its parents', its own first; none for an unknown route, and a loop stopped; what the builder says
 the files load, with their scan, styles and shared files; every file under the route's folder for routes named by
@@ -8826,15 +8878,14 @@ page's full height with viewport units measuring the window; sanitized again so 
 frame's own height; why when there's no copy), `render-job.test.ts` (3, "a page's picture's name": by path and query,
 not the builder's address; changed by the mode, state and scale; without the copy), `bitmap-store.test.ts` (2, "a page's
 picture in the store": kept while its trace holds and stale after; apart from frames' bitmaps and the page in another
-mode) and `copy-sheets.test.ts`, which moved from `freezer.test.ts`. Hydration and navigation in the fixtures' real apps
-are left to the end-to-end suite. Gaps: reading routes when the project opens, the page frames, the freezer, building
-and selecting copies, a board's tier as the camera moves, `usePagePicture`, drawing the lines, groups, landing warning
-and the titles' backdrop, Layers' route tree, and the bundling have no test of their own; all were tried in the app. The
-lines were checked on the example at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting
-its page's top edge. Each page frame was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the
-rest at 800. Bringing lines forward was checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example
-opened with its own routes and Settings' redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and
-hovering Projects.
+mode) and `copy-sheets.test.ts`, which moved from `freezer.test.ts`. Gaps: reading routes when the project opens, the
+page frames, the freezer, building and selecting copies, a board's tier as the camera moves, `usePagePicture`, drawing
+the lines, groups, landing warning and the titles' backdrop, Layers' route tree, and the bundling have no test of their
+own; all were tried in the app. The lines were checked on the example at 5%, 10% and 22%: every page's name and path
+read clearly, with each line meeting its page's top edge. Each page frame was checked on the example at 1280 wide: App
+at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was checked in Storybook's Page tree stories
+(`PageLines.stories.tsx`, the example opened with its own routes and Settings' redirect) at 5% and 10%, by selecting
+Pricing, Settings' group and Billing and hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 

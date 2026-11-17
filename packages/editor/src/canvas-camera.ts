@@ -26,8 +26,8 @@ export interface CameraPort {
   onCamera(listener: () => void): () => void
   /** Told when the canvas opens another page. */
   onNavigate(listener: () => void): () => void
-  /** Told when the person presses Esc. */
-  onEscape(listener: () => void): () => void
+  /** Told when the person presses Esc on the canvas, before it does anything else. Says whether it took the key. */
+  onEscape(listener: () => boolean): () => void
   /** Calls back on the next animation frame, with its time. Returns what cancels it. */
   frame(callback: (now: number) => void): () => void
   now(): number
@@ -60,6 +60,11 @@ export function sameCamera(a: CameraState, b: CameraState): boolean {
     Math.abs(a.x - b.x) * a.z <= sameWithin.place &&
     Math.abs(a.y - b.y) * a.z <= sameWithin.place
   )
+}
+
+/** Whether two views are the same rect. */
+function sameView(a: CameraView, b: CameraView): boolean {
+  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
 }
 
 /** How someone else's move of the camera ends following: a zoom when the zoom changed, a pan when only the place did. */
@@ -117,7 +122,9 @@ export function createCamera(port: CameraPort, { onFollowEnded }: CameraOptions 
     let cancel: (() => void) | undefined
 
     const step = (now: number) => {
-      const t = Math.min(1, (now - began) / glideMs)
+      // A frame's time is when it began, which can be before a glide that starts as the frame runs, as one told by an
+      // event: before 0 it would ease backwards, and a glide started again each frame would run away.
+      const t = Math.min(1, Math.max(0, (now - began) / glideMs))
       place(fit(between(from, to(), t)))
 
       if (t < 1) {
@@ -158,12 +165,18 @@ export function createCamera(port: CameraPort, { onFollowEnded }: CameraOptions 
     }
 
     update(view: CameraView): void {
-      if (this.ended) {
+      // The same view again, as each of the leader's pointer moves tells it, moves nothing.
+      if (this.ended || sameView(view, this.target)) {
         return
       }
 
       this.target = view
-      glideTo(() => this.target)
+
+      // A glide on its way goes on to the new view, so updates every frame still arrive. Starting it again each time,
+      // it would barely move.
+      if (!glide) {
+        glideTo(() => this.target)
+      }
     }
 
     onEnd(listener: (why: FollowEnd) => void): Disposable {
@@ -241,7 +254,16 @@ export function createCamera(port: CameraPort, { onFollowEnded }: CameraOptions 
       }
     }),
     port.onNavigate(() => following?.end("navigated")),
-    port.onEscape(() => following?.end("escape"))
+    // Esc ends following before it steps back out of the selection; with no one followed, it's the canvas's.
+    port.onEscape(() => {
+      if (!following) {
+        return false
+      }
+
+      following.end("escape")
+
+      return true
+    })
   ]
 
   return {

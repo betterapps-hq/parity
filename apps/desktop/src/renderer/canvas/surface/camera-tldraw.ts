@@ -1,6 +1,23 @@
 import type { CameraPort } from "@parity-app/editor"
 import { type Editor, react } from "tldraw"
 
+/** Each canvas's Esc listeners: the camera's, so following ends. */
+const escapeListeners = new WeakMap<Editor, Set<() => boolean>>()
+
+/**
+ * Esc on the canvas, offered to its camera before the canvas's own shortcuts step back out of the selection, since
+ * they take the key (`useShortcuts`). Says whether the camera took it, as it does when it ended following.
+ */
+export function escapeOnCanvas(editor: Editor): boolean {
+  let taken = false
+
+  for (const listener of escapeListeners.get(editor) ?? []) {
+    taken = listener() || taken
+  }
+
+  return taken
+}
+
 /** The camera service's view of a tldraw editor: its camera, its viewport and the canvas's zoom limits. */
 export function tldrawCameraPort(editor: Editor): CameraPort {
   /** Calls `listener` each time `read` changes, not on the first read. */
@@ -53,15 +70,11 @@ export function tldrawCameraPort(editor: Editor): CameraPort {
         listener
       ),
     onEscape: (listener) => {
-      const onKey = (event: KeyboardEvent) => {
-        if (event.key === "Escape") {
-          listener()
-        }
-      }
+      const listeners = escapeListeners.get(editor) ?? new Set()
+      escapeListeners.set(editor, listeners)
+      listeners.add(listener)
 
-      window.addEventListener("keydown", onKey, true)
-
-      return () => window.removeEventListener("keydown", onKey, true)
+      return () => listeners.delete(listener)
     },
     frame: (callback) => {
       const id = requestAnimationFrame(callback)

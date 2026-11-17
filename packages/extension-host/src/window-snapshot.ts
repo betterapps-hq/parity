@@ -29,7 +29,7 @@ export interface RoomFacts {
   pending: boolean
   /** How big this copy's version vector is, in bytes, while shared. */
   versionBytes?: number
-  /** How many other copies the extension last said were in the room, when it has said. */
+  /** How many copies the extension last said were in the room, this one included, when it has said. */
   peers?: number
 }
 

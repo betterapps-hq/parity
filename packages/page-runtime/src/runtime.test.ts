@@ -2,7 +2,14 @@
 import { createChannel, domPort } from "@parity-app/channel"
 import type { PageHydration, PageLocation, PageRouter } from "@parity-app/extension/page"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
-import { frameName, type PageHello, type PageMethods, type ParityMethods, pageProtocol } from "./protocol.ts"
+import {
+  frameName,
+  type PageHello,
+  type PageMethods,
+  type ParityMethods,
+  pageProtocol,
+  passesBack
+} from "./protocol.ts"
 import { startPageRuntime } from "./runtime.ts"
 
 const parent = "parity://app"
@@ -14,6 +21,9 @@ interface Heard {
   moved: PageLocation[]
   heights: number[]
   used: number
+  scrolled: number[]
+  zooms: ParityMethods["page.zoom"]["params"][]
+  keys: string[]
 }
 
 let stop: (() => void) | undefined
@@ -48,7 +58,7 @@ function framed(
 ) {
   window.name = frameName({ protocol: pageProtocol, frame: "f1", parent, viewport: desktop, ...name })
   stop = startPageRuntime(options)
-  const heard: Heard = { ready: [], moved: [], heights: [], used: 0 }
+  const heard: Heard = { ready: [], moved: [], heights: [], used: 0, scrolled: [], zooms: [], keys: [] }
 
   const parity = createChannel<ParityMethods, PageMethods>({
     handlers: {
@@ -69,6 +79,21 @@ function framed(
       },
       "page.used": () => {
         heard.used++
+
+        return null
+      },
+      "page.scrolled": ({ top }) => {
+        heard.scrolled.push(top)
+
+        return null
+      },
+      "page.zoom": (params) => {
+        heard.zooms.push(params)
+
+        return null
+      },
+      "page.key": ({ key, ctrl }) => {
+        heard.keys.push(ctrl ? `Ctrl+${key}` : key)
 
         return null
       }
@@ -331,5 +356,89 @@ describe("startPageRuntime", () => {
     await new Promise((resolve) => setTimeout(resolve, 20))
 
     expect(heard.used).toBe(1)
+  })
+
+  it("says when the live page scrolls itself, and not while it's a spare", async () => {
+    const { parity, heard } = framed({}, { role: "spare" })
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 300 })
+
+    window.dispatchEvent(new Event("scroll"))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(heard.scrolled).toEqual([])
+
+    await parity.request("role.set", { role: "live" })
+    expect(window.parityFrame).toEqual({ role: "live" })
+    window.dispatchEvent(new Event("scroll"))
+    await until(() => heard.scrolled.length > 0)
+
+    expect(heard.scrolled).toEqual([300])
+    Reflect.deleteProperty(window, "scrollY")
+  })
+
+  it("passes back the zoom wheel the page didn't take, and stops the page zooming", async () => {
+    const { heard } = framed()
+    const taken = (event: WheelEvent) => event.deltaY > 0 && event.preventDefault()
+    document.body.addEventListener("wheel", taken)
+
+    // happy-dom's WheelEvent takes no modifiers or point, which Chromium's does.
+    const wheel = (init: WheelEventInit) =>
+      Object.defineProperties(new WheelEvent("wheel", { ...init, cancelable: true }), {
+        ctrlKey: { value: init.ctrlKey ?? false },
+        clientX: { value: init.clientX ?? 0 },
+        clientY: { value: init.clientY ?? 0 }
+      })
+
+    const zoom = wheel({ ctrlKey: true, deltaY: -40, clientX: 10, clientY: 20 })
+    document.body.dispatchEvent(wheel({ deltaY: -40, bubbles: true }))
+    document.body.dispatchEvent(wheel({ ctrlKey: true, deltaY: 40, bubbles: true }))
+    window.dispatchEvent(zoom)
+    await until(() => heard.zooms.length > 0)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(heard.zooms).toEqual([{ deltaY: -40, x: 10, y: 20 }])
+    expect(zoom.defaultPrevented).toBe(true)
+    document.body.removeEventListener("wheel", taken)
+  })
+
+  it("passes back Escape and shortcuts the page didn't handle, and keeps text keys", async () => {
+    const { heard } = framed()
+    const handled = (event: KeyboardEvent) => event.key === "k" && event.preventDefault()
+    document.body.addEventListener("keydown", handled)
+
+    for (const init of [
+      { key: "Escape" },
+      { key: "k", ctrlKey: true },
+      { key: "c", ctrlKey: true },
+      { key: "d", ctrlKey: true },
+      { key: "d" }
+    ]) {
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { ...init, bubbles: true, cancelable: true }))
+    }
+
+    await until(() => heard.keys.length >= 2)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(heard.keys).toEqual(["Escape", "Ctrl+d"])
+    document.body.removeEventListener("keydown", handled)
+  })
+})
+
+describe("passesBack", () => {
+  const key = (name: string, ctrl = false, meta = false) => ({
+    key: name,
+    code: "",
+    ctrl,
+    meta,
+    shift: false,
+    alt: false
+  })
+
+  it("passes back Escape and Ctrl or Cmd shortcuts, but not keys that edit or move through text", () => {
+    expect(passesBack(key("Escape"))).toBe(true)
+    expect(passesBack(key("k", true))).toBe(true)
+    expect(passesBack(key("K", false, true))).toBe(true)
+    expect(passesBack(key("C", true))).toBe(false)
+    expect(passesBack(key("ArrowLeft", true))).toBe(false)
+    expect(passesBack(key("k"))).toBe(false)
   })
 })
