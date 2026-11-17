@@ -74,7 +74,7 @@ export class AgentQueue {
         }
       }
 
-      const design = boardOf(queued)
+      const design = movedBoard(queued)
 
       // A move lands on the canvas before the pointer gets to it; hold the board back until it does.
       if (queued.kind === "move" && design && queued.from && queued.to) {
@@ -168,28 +168,9 @@ export function agentKey(step: QueuedStep): string {
   return step.copy === undefined ? step.agentId : `${step.copy}:${step.agentId}`
 }
 
-/** The design a step names: the board itself, or the design a layer is in. */
-export function boardOf(step: Pick<AgentStep, "ref">): string | undefined {
+/** The board a move drags: a move names its design itself, never a layer in it. */
+export function movedBoard(step: Pick<AgentStep, "ref">): string | undefined {
   const { ref } = step
 
-  if (!ref || ref.owner !== "design") {
-    return undefined
-  }
-
-  const slash = ref.type === "design" ? -1 : ref.key.indexOf("/")
-
-  return slash > 0 ? ref.key.slice(0, slash) : ref.key
-}
-
-/** The layer a step names in its design, if it names one. */
-export function layerOf(step: Pick<AgentStep, "ref">): string | undefined {
-  const { ref } = step
-
-  if (!ref || ref.owner !== "design" || ref.type === "design") {
-    return undefined
-  }
-
-  const slash = ref.key.indexOf("/")
-
-  return slash > 0 ? ref.key.slice(slash + 1) : undefined
+  return ref?.owner === "design" && ref.type === "design" ? ref.key : undefined
 }

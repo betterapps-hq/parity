@@ -1,7 +1,7 @@
 import type { NodeRef } from "@parity-app/extension"
 import type { BoxOptions, BoxResult, Rect } from "@parity-app/extension/internal"
 import type { Box } from "./motion.ts"
-import { boardOf, layerOf, type QueuedStep } from "./queue.ts"
+import type { QueuedStep } from "./queue.ts"
 
 /** What a target is measured through: the layer's camera and boxes (`@parity-app/canvas-layer`'s context). */
 export interface TargetReads {
@@ -28,9 +28,35 @@ export function onScreen(rect: Rect, camera: { zoom: number; view: Rect }): Box 
   return { x: (rect.x - view.x) * zoom, y: (rect.y - view.y) * zoom, w: rect.width * zoom, h: rect.height * zoom }
 }
 
+/**
+ * The design a step names: the key itself for a design, or for a layer (`designKey/layerId`) the longest key before a
+ * slash that has a board on the canvas, since design keys can hold slashes. Without one, what's before the first slash.
+ */
+export function designOf(reads: Pick<TargetReads, "box">, ref: NodeRef | undefined): string | undefined {
+  if (!ref || ref.owner !== "design") {
+    return undefined
+  }
+
+  if (ref.type === "design") {
+    return ref.key
+  }
+
+  const first = ref.key.indexOf("/")
+
+  for (let at = first; at > 0 && at < ref.key.length - 1; at = ref.key.indexOf("/", at + 1)) {
+    const key = ref.key.slice(0, at)
+
+    if (reads.box({ owner: "design", type: "design", key }, { in: "board" }).kind !== "missing") {
+      return key
+    }
+  }
+
+  return first > 0 ? ref.key.slice(0, first) : undefined
+}
+
 /** The measured box of what a step looks at: a layer in its frame, the frame itself, or for a move, the board. */
 function measure(reads: TargetReads, step: QueuedStep): BoxResult {
-  const design = boardOf(step)
+  const design = designOf(reads, step.ref)
 
   if (!design) {
     return { kind: "missing" }
@@ -52,7 +78,7 @@ function measure(reads: TargetReads, step: QueuedStep): BoxResult {
     return reads.box(board, { in: "board" })
   }
 
-  if (layerOf(step) !== undefined && step.ref) {
+  if (step.ref && step.ref.type !== "design") {
     const node = reads.box(step.ref, { ...frame, in: "node" })
 
     if (node.kind === "drawn") {

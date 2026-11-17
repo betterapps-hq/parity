@@ -528,12 +528,14 @@ names, and sets Shadcn up through shadcn-sync (PAR-1226, PAR-1227).
 - [window-canvas.test.ts](../packages/extension-host/src/window-canvas.test.ts) (PAR-1257): a second test-only internal
   extension ([fixtures/window-surface-test.ts](../packages/extension-host/src/fixtures/window-surface-test.ts)), with
   only a window module, drawing a page layer and an edge layer and taking them away as it stops, a layer's id unique in
-  the tab, a layer's render failing counted with its id, the layer's camera, boxes and colors read without claiming,
-  boxes and hits by `NodeRef` and points converted, a box listener failing counted, following as the extension and ended
-  as it stops, listening kept across the canvas mounting again and calls refused while it's gone, `parity.camera` being
+  the tab, a layer drawn after the module stopped taken away at once, a layer's render failing counted with its id, the
+  layer's camera, boxes and colors read without claiming, boxes and hits by `NodeRef` and points converted, a design's
+  key holding a slash kept whole, a box listener failing counted, following as the extension and ended as it stops,
+  listening kept across the canvas mounting again and calls refused while it's gone, `parity.camera` being
   `parity.canvas.camera`, missing `camera` and `hold` capabilities refused and recorded once while colors need none,
-  claims counted and given back, assigned numbers and each list's palettes, a preview by `NodeRef` in a claimed color
-  given back as it settles, where layers would land mapped, previews left open disposed of, and holds let go.
+  claims counted and given back, assigned numbers telling the layers' color hooks, each list's palettes, a preview by
+  `NodeRef` in a claimed color given back as it settles, where layers would land mapped, previews left open disposed of,
+  and holds let go.
 - [window-seams.test.ts](../packages/extension-host/src/window-seams.test.ts) (PAR-1257), through the same test-only
   extension: the pointer at most once a frame with its leaving kept, gestures in order with committed changes told
   before a move's drop and end, viewing told only on a change, nothing listened to without a listener, a throwing

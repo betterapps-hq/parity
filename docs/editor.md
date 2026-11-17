@@ -6458,8 +6458,9 @@ through `parity.agents`. The extension does the rest.
 It draws in one `overSelection` page layer. Inside it, a pane covers what's in view at the screen's scale, moved with
 the camera in the same frame as the page, so pointers, badges and scans stay the same size at any zoom. It finds where
 to look with `canvas.box`: a layer in the frame of the step's state and mode, else the design's frame, else its board,
-and the board itself for a move. An asleep frame still gives a place to point at. It holds boards with `canvas.hold` and
-claims colors with `useColor` from agents' palettes.
+and the board itself for a move. A design key can hold a slash, so a layer's design is the longest key before a slash
+that has a board. An asleep frame still gives a place to point at. It holds boards with `canvas.hold` and claims colors
+with `useColor` from agents' palettes.
 
 Code: `packages/extension-agent-presence/src/`: `window.tsx` (the module), `queue.ts` (the queue, holds and keys),
 `AgentPresence.tsx` (the choreography), `targets.ts` (where to look), `motion.ts` (curves, pace and glances) and
@@ -6471,10 +6472,11 @@ Tests:
 - `packages/extension-agent-presence/src/queue.test.ts` (8): each agent's steps in order with a pointer until it
   retires; another copy's agents kept apart under their key; a moved board held while it's played and let go where it
   landed; moves left alone while nothing plays the queue; a long call trimmed, letting go of the boards it skips; every
-  hold let go as it stops; listeners told as agents come and go; what a step names.
-- `packages/extension-agent-presence/src/targets.test.ts` (7): a page box on the screen; a layer in its state and mode's
+  hold let go as it stops; listeners told as agents come and go; the board a move drags.
+- `packages/extension-agent-presence/src/targets.test.ts` (8): a page box on the screen; a layer in its state and mode's
   frame with its radius and size; falling back to the frame, then the board; a move by its board; an asleep frame; out
-  of view, missing or naming no design skipped; staying put when the target goes.
+  of view, missing or naming no design skipped; a layer's design found when its key has a slash; staying put when the
+  target goes.
 - `packages/extension-agent-presence/src/window.test.ts` (2): one layer over the selection, playing this copy's and
   other copies' agents alike; a board held as its step is told, and let go with the layer gone as it stops.
 - `packages/extension-agent-presence/src/motion.test.ts`: easing, travel time, pace, arcs, curves, breathing and

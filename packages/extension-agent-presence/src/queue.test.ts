@@ -1,6 +1,6 @@
 import type { AgentStep, Point } from "@parity-app/extension/internal"
 import { describe, expect, it } from "vite-plus/test"
-import { AgentQueue, agentKey, boardOf, layerOf } from "./queue.ts"
+import { AgentQueue, agentKey, movedBoard } from "./queue.ts"
 
 const board = (key: string) => ({ owner: "design", type: "design", key })
 
@@ -122,12 +122,10 @@ describe("the agent queue", () => {
 })
 
 describe("what a step names", () => {
-  it("finds the board and the layer", () => {
-    expect(boardOf({ ref: board("app.par#card") })).toBe("app.par#card")
-    expect(boardOf({ ref: { owner: "design", type: "frame", key: "app.par#card/row" } })).toBe("app.par#card")
-    expect(layerOf({ ref: { owner: "design", type: "frame", key: "app.par#card/row" } })).toBe("row")
-    expect(layerOf({ ref: board("app.par#card") })).toBeUndefined()
-    expect(boardOf({})).toBeUndefined()
+  it("finds the board a move drags, even with a slash in its key", () => {
+    expect(movedBoard({ ref: board("pages/app.par#card") })).toBe("pages/app.par#card")
+    expect(movedBoard({ ref: { owner: "design", type: "frame", key: "app.par#card/row" } })).toBeUndefined()
+    expect(movedBoard({})).toBeUndefined()
     expect(agentKey({ kind: "read", agentId: "a", copy: "peer" })).toBe("peer:a")
   })
 })

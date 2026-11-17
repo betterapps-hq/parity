@@ -17,6 +17,8 @@ export interface CanvasLayerContextValue {
   colors: WindowColors
   /** The palette `key` holds now, or would be given, without claiming it. */
   color(key: ColorKey, list: "people" | "agents"): Palette
+  /** Told when a key is assigned a number, which can move what any key holds. */
+  onColors(listener: () => void): Disposable
   /** Runs `frame` once an animation frame, while the tab is shown, until the function it gives is called. */
   frame(frame: Frame): () => void
 }
@@ -114,10 +116,15 @@ function colorStore(layer: CanvasLayerContextValue, key: ColorKey, list: "people
 
   return {
     // Claimed while mounted. Once it's claimed, the palette is read again, so a key another layer took first moves on.
-    subscribe() {
+    // An assignment can move it too.
+    subscribe(changed) {
       colors.claim(key)
+      const assigned = layer.onColors(changed)
 
-      return () => colors.release(key)
+      return () => {
+        assigned.dispose()
+        colors.release(key)
+      }
     },
     get() {
       const next = layer.color(key, list)

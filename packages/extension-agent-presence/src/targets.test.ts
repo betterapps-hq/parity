@@ -2,7 +2,7 @@ import type { NodeRef } from "@parity-app/extension"
 import type { BoxOptions, BoxResult } from "@parity-app/extension/internal"
 import { describe, expect, it } from "vite-plus/test"
 import type { QueuedStep } from "./queue.ts"
-import { locate, onScreen, type TargetReads } from "./targets.ts"
+import { designOf, locate, onScreen, type TargetReads } from "./targets.ts"
 
 const drawn = (x: number, y: number, width: number, height: number, radius = 0): BoxResult => ({
   kind: "drawn",
@@ -39,7 +39,7 @@ describe("where an agent looks", () => {
     const step: QueuedStep = { kind: "read", agentId: "a", ref: row, mode: "mobile" }
     const target = locate(reads(new Map([["card/row node mobile", drawn(120, 70, 30, 10, 4)]]), asked), step)
 
-    expect(asked).toEqual(["card/row node mobile"])
+    expect(asked).toEqual(["card board", "card/row node mobile"])
     expect(target?.box()).toEqual({ x: 40, y: 40, w: 60, h: 20 })
     expect(target?.radius()).toBe(8)
     expect(target?.size()).toEqual({ width: 60, height: 20 })
@@ -91,6 +91,21 @@ describe("where an agent looks", () => {
     ).toBe(undefined)
     expect(locate(reads(new Map()), { kind: "read", agentId: "a", ref: card })).toBeUndefined()
     expect(locate(reads(new Map()), { kind: "console", agentId: "a" })).toBeUndefined()
+  })
+
+  it("finds a layer's design when the design's key has a slash in it", () => {
+    const boxes = new Map([["pages/app.par#card board", drawn(150, 100, 50, 50)]])
+    const nested = { owner: "design", type: "frame", key: "pages/app.par#card/row" }
+
+    expect(designOf(reads(boxes), nested)).toBe("pages/app.par#card")
+    expect(designOf(reads(new Map()), nested)).toBe("pages")
+    expect(designOf(reads(new Map()), card)).toBe("card")
+    expect(locate(reads(boxes), { kind: "read", agentId: "a", ref: nested })?.box()).toEqual({
+      x: 100,
+      y: 100,
+      w: 100,
+      h: 100
+    })
   })
 
   it("stays where it was when what it looks at goes missing", () => {

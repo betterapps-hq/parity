@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Tue, 17 Nov 2026 03:17:30 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 03:35:59 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.101.0
+
+Tue, 17 Nov 2026 03:35:59 GMT
+
+### Minor changes
+
+- Add @parity-app/presence-ui: the production components for people's and agents' presence on the canvas, from the
+  approved multiplayer designs (ajcraswell@gmail.com)
 
 ## 0.100.1
 

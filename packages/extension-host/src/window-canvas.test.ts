@@ -2,7 +2,7 @@ import { CapabilityMissingError, defineWindowModule, type FollowEnd } from "@par
 import { readExtension } from "@parity-app/extension/manifest"
 import { describe, expect, it } from "vite-plus/test"
 import { surfaceTestId, surfaceTestModule, surfaceTestPackage } from "./fixtures/window-surface-test.ts"
-import { driven, tab } from "./fixtures/window-tab.ts"
+import { driven, settle, surfaceExtension, tab } from "./fixtures/window-tab.ts"
 import { targetOf } from "./window-canvas.ts"
 
 describe("the surface test extension", () => {
@@ -36,6 +36,38 @@ describe("parity.canvas.layer", () => {
     await stop()
 
     expect(layers).toEqual([])
+  })
+
+  it("closes at once a layer, preview or claim made after the module stopped, as a late activation can", async () => {
+    let resume: (() => void) | undefined
+    let drew = false
+    const resumed = new Promise<void>((resolve) => (resume = resolve))
+
+    const late = defineWindowModule({
+      async activateWindow(parity) {
+        const { canvas, colors } = parity
+        await resumed
+        canvas.layer({ id: "late.layer", space: "page", order: "overDesigns" }, "late")
+        canvas.preview([{ ref: { owner: "design", type: "design", key: "card" }, at: { x: 1, y: 1 } }], {
+          color: "peer-9"
+        })
+        colors.claim("peer-8")
+        drew = true
+
+        return {}
+      }
+    })
+
+    const { layers, previews, people, stop } = await tab(late)
+    await stop()
+    resume?.()
+    await settle()
+
+    expect(drew).toBe(true)
+    expect(layers.map((layer) => layer.id)).not.toContain("late.layer")
+    expect(previews.map((each) => each.how)).toEqual([["dispose"]])
+    expect(people.owners("peer-9")).toEqual([])
+    expect(people.owners("peer-8")).toEqual([])
   })
 
   it("refuses a second layer with an id already drawn in the tab, and frees the id once it's taken away", async () => {
@@ -95,6 +127,19 @@ describe("parity.canvas boxes and points", () => {
     expect(() => targetOf({ owner: "@parity-app/extension-tanstack-router", type: "route", key: "/" })).toThrow(
       "isn't on the canvas"
     )
+  })
+
+  it("keeps a slash in a design's key when it's told which keys are designs'", () => {
+    const isDesign = (key: string) => key === "main/sign-in"
+
+    expect(targetOf({ owner: "design", type: "text", key: "main/sign-in/title" }, isDesign)).toEqual({
+      design: "main/sign-in",
+      node: "title"
+    })
+    expect(targetOf({ owner: "design", type: "text", key: "card/title" }, isDesign)).toEqual({
+      design: "card",
+      node: "title"
+    })
   })
 
   it("counts a box listener that throws as the extension's failure", async () => {
@@ -208,10 +253,62 @@ describe("parity.colors", () => {
     expect(agents.owners("peer-2:claude#1")).toEqual([])
   })
 
+  it("leaves a run started since holding its claims when an old run claims late", async () => {
+    const { parity, people, runtime, stop } = await tab()
+    const old = parity().colors
+    await stop()
+    runtime.update([surfaceExtension()])
+    await settle()
+    parity().colors.claim("peer-3")
+    old.claim("peer-3")
+
+    expect(people.owners("peer-3")).toEqual([
+      `${surfaceTestId}
+tab-1`
+    ])
+  })
+
+  it("leaves a run started since holding its claims when an old run first reads colors late", async () => {
+    let resume: (() => void) | undefined
+    let runs = 0
+    const resumed = new Promise<void>((resolve) => (resume = resolve))
+
+    const late = defineWindowModule({
+      async activateWindow(parity) {
+        runs += 1
+
+        if (runs === 1) {
+          await resumed
+          void parity.colors.tuned
+        } else {
+          parity.colors.claim("peer-4")
+        }
+
+        return {}
+      }
+    })
+
+    const { people, runtime, stop } = await tab(late)
+    await stop()
+    runtime.update([surfaceExtension()])
+    await settle()
+    resume?.()
+    await settle()
+
+    expect(people.owners("peer-4")).toEqual([
+      `${surfaceTestId}
+tab-1`
+    ])
+  })
+
   it("lets the room assign numbers, and gives palettes and the hand-tuned count of each list", async () => {
-    const { parity } = await tab()
+    const { parity, layers } = await tab()
     const { colors } = parity()
+    let told = 0
+    layers[0]!.reads.onColors(() => (told += 1))
     colors.assign("peer-7", 5)
+
+    expect(told).toBe(1)
 
     expect(colors.claim("peer-7").n).toBe(5)
     expect(colors.palette(3).name).toBe("Person 3")
