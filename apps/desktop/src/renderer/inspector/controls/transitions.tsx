@@ -206,40 +206,26 @@ const sets = ["all", "colors", "opacity", "transform", "shadow"] as const
 /** A CSS property this browser knows, such as `width` or a custom property. */
 const isProperty = (name: string) => /^-?-?[a-z][a-z0-9-]*$/i.test(name) && CSS.supports(name, "initial")
 
-/** The set a name typed is, by its key, label or utility: `colors`, `Colors` or `transition-colors`. */
+/** The set a name typed is, by its key or label: `colors` or `Colors`. */
 function setNamed(text: string) {
   const words = text.trim().toLowerCase()
 
-  return sets.find((set) =>
-    [set, transitionSets[set].label, transitionSets[set].utility].some((name) => name.toLowerCase() === words)
-  )
+  return sets.find((set) => [set, transitionSets[set].label].some((name) => name.toLowerCase() === words))
 }
 
-/** A set or a property as the list under What changes draws it: its name, then what it writes. */
-function changesOption(name: string, writes: string, mono = false) {
-  return (
-    <>
-      <span className={mono ? "font-mono" : ""}>{name}</span>
-      <span className="text-muted-foreground">{writes}</span>
-    </>
-  )
-}
-
-/** What typing in What changes finds: the sets whose name or utility has it, then a property of that name. */
+/** What typing in What changes finds: the sets whose name has it, then a property of that name. */
 const changesSearch: FieldSearch<TransitionProperty> = {
   label: "What changes",
   options: (text) => {
     const name = text.trim()
     const words = name.toLowerCase()
 
-    const matching = sets.filter((set) =>
-      [transitionSets[set].label, transitionSets[set].utility].some((each) => each.toLowerCase().includes(words))
-    )
+    const matching = sets.filter((set) => transitionSets[set].label.toLowerCase().includes(words))
 
     const options: (SearchOption & { value: TransitionProperty })[] = matching.map((set) => ({
       key: set,
       value: set,
-      content: changesOption(transitionSets[set].label, transitionSets[set].utility)
+      content: transitionSets[set].label
     }))
 
     if (words !== "" && setNamed(words) === undefined && isProperty(name)) {
@@ -247,7 +233,7 @@ const changesSearch: FieldSearch<TransitionProperty> = {
         key: `property-${words}`,
         value: { property: name },
         group: matching.length > 0 ? "A property" : undefined,
-        content: changesOption(name, `transition-[${name}]`, true)
+        content: <span className="font-mono">{name}</span>
       })
     }
 
@@ -257,7 +243,7 @@ const changesSearch: FieldSearch<TransitionProperty> = {
 }
 
 /**
- * What changes, as one field: focused, it lists Tailwind's sets with their utilities; typing narrows them, or names a
+ * What changes, as one field: focused, it lists the sets; typing narrows them, or names a
  * property of its own (`width`), offered after any set it matches. Enter takes the highlighted one. The chevron at its
  * end lists the sets too, as Options.
  */
@@ -300,7 +286,6 @@ function PropertyField({
           rows: sets.map((set) => ({
             key: set,
             name: transitionSets[set].label,
-            detail: transitionSets[set].utility,
             current: property === set,
             onPick: () => onChange(set)
           }))

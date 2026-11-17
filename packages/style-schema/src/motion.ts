@@ -4,13 +4,13 @@ import { finiteNumber, stored } from "./stored.ts"
 import { off, stepForm, token, tokenForm, valueForm } from "./value.ts"
 
 /*
- * A layer's transitions, and what they come to in CSS: the properties each of Tailwind's sets changes, CSS's easing
- * keywords and their curves, a spring solved into the `linear()` it's drawn with, and a layer's transitions as one
- * `transition` value. The curves a keyword draws in a project come from its tokens, as Tailwind's theme defines
- * `--ease-in` and the like, so nothing here knows a styling framework's curves (PAR-1278).
+ * A layer's transitions, and what they come to in CSS: the properties each set changes, CSS's easing keywords and
+ * their curves, a spring solved into the `linear()` it's drawn with, and a layer's transitions as one `transition`
+ * value. The curves a keyword draws in a project come from its tokens, as Tailwind's theme defines `--ease-in` and the
+ * like, so nothing here knows a styling framework's curves or property lists (PAR-1278).
  */
 
-/** Tailwind's transition sets, each a list of properties: `transition-colors` changes color, background and the rest. */
+/** The sets a transition can change, each a list of CSS properties: Colors changes color, background and the rest. */
 export const transitionSets = ["all", "colors", "opacity", "transform", "shadow"] as const
 
 /**
@@ -44,7 +44,7 @@ const easing = z.union(
 export type Easing = z.infer<typeof easing>
 
 export const transition = stored({
-  /** One of Tailwind's sets (`colors`), or a CSS property of its own (`width`). */
+  /** One of the sets (`colors`), or a CSS property of its own (`width`). */
   property: z.string().regex(/^-?-?[a-z][a-z0-9-]*$/i, "expected a transition set or a CSS property, such as width"),
   /** The project's default when unset, else 150ms. A spring's settle time is its duration. */
   duration: time.optional(),
@@ -54,24 +54,13 @@ export const transition = stored({
   off
 })
 
-/** How one property, or one of Tailwind's sets of them, changes when the layer's style does. */
+/** How one property, or one of the sets of them, changes when the layer's style does. */
 export type Transition = z.infer<typeof transition>
 
-/** The properties each of Tailwind v4's transition sets changes, as its `transition-*` utilities list them. */
+/** The CSS properties each set changes. */
 export const transitionSetProperties: Record<TransitionSet, readonly string[]> = {
   all: ["all"],
-  colors: [
-    "color",
-    "background-color",
-    "border-color",
-    "outline-color",
-    "text-decoration-color",
-    "fill",
-    "stroke",
-    "--tw-gradient-from",
-    "--tw-gradient-via",
-    "--tw-gradient-to"
-  ],
+  colors: ["color", "background-color", "border-color", "outline-color", "text-decoration-color", "fill", "stroke"],
   opacity: ["opacity"],
   transform: ["transform", "translate", "scale", "rotate"],
   shadow: ["box-shadow"]
@@ -81,7 +70,7 @@ export type TransitionSet = (typeof transitionSets)[number]
 
 export type EasingKeyword = (typeof easingKeywords)[number]
 
-/** Whether a transition's property is one of Tailwind's sets, rather than a property of its own. */
+/** Whether a transition's property is one of the sets, rather than a property of its own. */
 export function isTransitionSet(property: string): property is TransitionSet {
   return transitionSets.some((set) => set === property)
 }

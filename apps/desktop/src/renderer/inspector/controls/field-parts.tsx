@@ -1564,7 +1564,7 @@ export type TokensShown = "listed" | "folded" | "searched"
 /** Words a field takes besides its tokens, as its token menu lists them: Gap's Auto, a row for each way it spreads. */
 export interface MenuKeywords {
   heading: string
-  rows: { key: string; name: string; detail: string; current: boolean; onPick: () => void }[]
+  rows: { key: string; name: string; detail?: string; current: boolean; onPick: () => void }[]
   /** Commands under the words, as W's Add min and Add max. */
   actions?: { key: string; name: string; disabled?: boolean; onPick: () => void }[]
 }
@@ -1631,7 +1631,7 @@ export function TokenMenu<T extends FieldToken>({
             >
               <span className="flex min-w-0 flex-col">
                 <span className={rowName}>{row.name}</span>
-                <span className="truncate text-2xs text-muted-foreground">{row.detail}</span>
+                {row.detail && <span className="truncate text-2xs text-muted-foreground">{row.detail}</span>}
               </span>
               {row.current && <Check aria-hidden className="ml-auto size-3.5 shrink-0" />}
             </button>

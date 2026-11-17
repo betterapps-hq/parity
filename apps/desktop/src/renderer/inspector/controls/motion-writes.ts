@@ -119,7 +119,7 @@ export function transitionForm(entries: readonly TransitionEntry[]): TransitionF
   return new Set(on.map(timing)).size === 1 ? "merged" : "arbitrary"
 }
 
-/** Whether a transition's property is one of Tailwind's sets (`colors`, `all`), rather than a property of its own. */
+/** Whether a transition's property is one of the sets (`colors`, `all`), rather than a property of its own. */
 const isTransitionSet = (property: TransitionProperty): property is Extract<TransitionProperty, string> =>
   textValue.safeParse(property).success
 

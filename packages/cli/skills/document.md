@@ -360,7 +360,7 @@ plays them, so put them on the base and let the state change the look:
 
 | Field      | Takes                                                                                                          |
 | ---------- | -------------------------------------------------------------------------------------------------------------- |
-| `property` | `all`, `colors`, `opacity`, `transform` or `shadow`, as Tailwind's `transition-*`, or a CSS property (`width`) |
+| `property` | A set, `all`, `colors`, `opacity`, `transform` or `shadow`, or a CSS property (`width`)                        |
 | `duration` | `{ "step": 200 }` in milliseconds, or a duration token; the project's default, else 150ms, when unset          |
 | `delay`    | As `duration`                                                                                                  |
 | `easing`   | `{ "keyword": … }` with `linear`, `ease`, `ease-in`, `ease-out` or `ease-in-out`, drawn as the project's token |

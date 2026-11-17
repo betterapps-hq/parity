@@ -15,7 +15,8 @@ import {
   isEasingKeyword,
   isReadFailure,
   plotCss,
-  readEasingFunction
+  readEasingFunction,
+  transitionSetProperties
 } from "@parity-app/style-schema"
 import { type BoxPoint } from "./css-values.ts"
 import type { DurationToken, EasingToken } from "./tokens.ts"
@@ -225,7 +226,7 @@ export { springLinear, springSamples, springSettle }
 
 /* Transitions. */
 
-/** What a transition changes: one of Tailwind's sets, or a property of its own. */
+/** What a transition changes: one of the sets, or a property of its own. */
 export type TransitionProperty = "all" | "colors" | "opacity" | "transform" | "shadow" | { property: string }
 
 export interface TransitionEntry {
@@ -238,34 +239,16 @@ export interface TransitionEntry {
   off?: boolean
 }
 
+/** The sets by name, each with the properties style-schema says it changes. */
 export const transitionSets = {
-  all: { label: "All", properties: ["all"], utility: "transition-all" },
-  colors: {
-    label: "Colors",
-    properties: [
-      "color",
-      "background-color",
-      "border-color",
-      "outline-color",
-      "text-decoration-color",
-      "fill",
-      "stroke",
-      "--tw-gradient-from",
-      "--tw-gradient-via",
-      "--tw-gradient-to"
-    ],
-    utility: "transition-colors"
-  },
-  opacity: { label: "Opacity", properties: ["opacity"], utility: "transition-opacity" },
-  transform: {
-    label: "Transform",
-    properties: ["transform", "translate", "scale", "rotate"],
-    utility: "transition-transform"
-  },
-  shadow: { label: "Shadow", properties: ["box-shadow"], utility: "transition-shadow" }
+  all: { label: "All", properties: transitionSetProperties.all },
+  colors: { label: "Colors", properties: transitionSetProperties.colors },
+  opacity: { label: "Opacity", properties: transitionSetProperties.opacity },
+  transform: { label: "Transform", properties: transitionSetProperties.transform },
+  shadow: { label: "Shadow", properties: transitionSetProperties.shadow }
 } as const
 
-/** The set of Tailwind's a transition changes, or for a property of its own, a set of that one named after it. */
+/** The set a transition changes, or for a property of its own, a set of that one named after it. */
 function transitionSet(property: TransitionProperty) {
   switch (property) {
     case "all":
