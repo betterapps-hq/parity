@@ -1,10 +1,13 @@
 import type { DesignNode, LibraryInfo } from "@parity-app/core"
 import type { StyleSection } from "@parity-app/editor"
+import type { LayerDefinition, PanelSection as TypeSection } from "@parity-app/layer-types"
 import type { ComponentType } from "react"
 import { AttributesSection, PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { isIconLayer } from "./layer-kind.ts"
 import { LayerContent, LayerExport, LayerHeader, LayerMedia, LayerNoStyle, LayerStyles } from "./LayerPanel.tsx"
+import { writesProps } from "./read-from-code.ts"
 import { RoutePanel } from "./RoutePanel.tsx"
+import { useSelectedLayer } from "./selected-layer.ts"
 
 /**
  * Each layer kind's own Design panel (PAR-1056, docs/proposals/layer-panels.md). Every one is its header, the sections
@@ -13,14 +16,26 @@ import { RoutePanel } from "./RoutePanel.tsx"
  */
 function kindPanel(name: string, order: readonly StyleSection[], before: readonly ComponentType[] = []) {
   function KindPanel() {
+    const layer = useSelectedLayer()
+    // What a story draws takes its args as props, which are written back to its file; nothing else of it is.
+    const story = layer !== undefined && writesProps(layer.entry.path, layer.nodeId)
+
     return (
       <>
         <LayerHeader />
         {/* A kind's sections are fixed, so their place is their key. */}
-        {before.map((Section, place) => (
-          <Section key={place} />
-        ))}
-        <LayerStyles order={order} />
+        {before.map((Section, place) =>
+          Section === PropsSection ? (
+            <Section key={place} />
+          ) : (
+            <fieldset key={place} disabled={story} className="contents">
+              <Section />
+            </fieldset>
+          )
+        )}
+        <fieldset disabled={story} className="contents">
+          <LayerStyles order={order} />
+        </fieldset>
         <LayerExport />
       </>
     )
@@ -88,6 +103,33 @@ export function oneKindOrder(kinds: readonly PanelKind[]): readonly StyleSection
   return kind !== undefined && kinds.every((each) => each === kind) ? orders[kind] : undefined
 }
 
+/** The style sections each of a layer type's own sections shows (`@parity-app/layer-types`). */
+const typeStyleSections: Record<TypeSection, readonly StyleSection[]> = {
+  landmark: [],
+  link: [],
+  input: [],
+  source: [],
+  playback: [],
+  layout: ["layout"],
+  typography: ["text"],
+  size: ["size", "spacing", ...position],
+  fill: ["fill"],
+  stroke: ["stroke"],
+  appearance: ["appearance"]
+}
+
+/**
+ * The style sections of a layer read from a component's element (read-only viewer), in order: its type's own, with
+ * Spacing and Position after Size, as every box has them; Typography folded for a structure element, whose text inside
+ * inherits it, as a layout's; and Effects, Motion and CSS, folded until set, last.
+ */
+export function elementOrder(element: LayerDefinition): readonly StyleSection[] {
+  const own = element.sections.flatMap((section) => typeStyleSections[section])
+  const inside: readonly StyleSection[] = element.family === "structure" ? ["text"] : []
+
+  return [...new Set([...own, ...inside, ...drawn])]
+}
+
 /** A layout's panel (PAR-1057). */
 export const LayoutPanel = kindPanel("LayoutPanel", kindOrders.layout)
 
@@ -97,8 +139,11 @@ export const TextPanel = kindPanel("TextPanel", kindOrders.text, [LayerContent])
 /** An image's or a video's panel (PAR-1059, PAR-1060): its file first; Content shows what differs, a video's controls. */
 export const MediaPanel = kindPanel("MediaPanel", mediaOrder, [LayerMedia])
 
-/** An icon's panel (PAR-1061): which icon it is and the props it sets, then its style. */
-export const IconPanel = kindPanel("IconPanel", kindOrders.icon, [PropsSection])
+/**
+ * An icon's panel (PAR-1061): which icon it is and the props it sets, what it passes on to its element, as its accessible
+ * name, then its style, or a note in place of it when its component takes no `className`.
+ */
+export const IconPanel = kindPanel("IconPanel", kindOrders.icon, [PropsSection, AttributesSection, LayerNoStyle])
 
 /**
  * A component instance's panel (PAR-1062), of a component design or of a code component: its props, with the slots it

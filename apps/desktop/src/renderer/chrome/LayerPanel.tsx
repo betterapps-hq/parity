@@ -17,12 +17,7 @@ import {
   type VideoNode
 } from "@parity-app/core"
 import { type InspectorSection, panelParts, selectionCapabilities, type StyleSection } from "@parity-app/editor"
-import {
-  describeElement,
-  type ElementFacts,
-  type PanelSection as TypeSection,
-  panelData
-} from "@parity-app/layer-types"
+import { describeElement, type ElementFacts, panelData } from "@parity-app/layer-types"
 import { updateView } from "@parity-app/multiplayer"
 import { Diamond, Eye, EyeOff, Group, RotateCcw, Sparkles } from "lucide-react"
 import { type ComponentType, type ReactNode, useState } from "react"
@@ -51,7 +46,7 @@ import { Hint } from "./Hint.tsx"
 import { type LayerChange, updateAndRecord } from "./inspector-events.ts"
 import { SlotPanel } from "./instance-slots.tsx"
 import { keymap, shortcutOf } from "./keymap.ts"
-import { kindPanels, panelKind } from "./KindPanels.tsx"
+import { elementOrder, kindPanels, panelKind } from "./KindPanels.tsx"
 import { type HeaderAction, layerActions, layerComponent, type LayerKind, layerKind } from "./layer-kind.ts"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
@@ -126,27 +121,12 @@ export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: s
   })
 }
 
-/** The style sections that show each of a layer type's sections that come from its styles. */
-const typeStyleSections: Record<TypeSection, readonly StyleSection[]> = {
-  landmark: [],
-  link: [],
-  input: [],
-  source: [],
-  playback: [],
-  layout: ["layout", "spacing"],
-  typography: ["text"],
-  size: ["size"],
-  fill: ["fill"],
-  stroke: ["stroke"],
-  appearance: ["appearance", "effects"]
-}
-
 /**
  * The panel of a layer read from a component's element (read-only viewer): its header, named for its type, the sections
  * its attributes fill (`panelData`), its text, and the style sections its type has, in that order.
  */
 function ElementPanel({ element, text }: { element: ElementFacts; text: boolean }) {
-  const order = describeElement(element).sections.flatMap((section) => typeStyleSections[section])
+  const order = elementOrder(describeElement(element))
 
   return (
     <>
