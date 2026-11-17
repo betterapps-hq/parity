@@ -18,7 +18,7 @@
     "typescript": "6.0.3"
   },
   "devDependencies": {
-    "@storybook/react": "10.6.5",
+    "@storybook/react": "10.6.7",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "happy-dom": "catalog:",
