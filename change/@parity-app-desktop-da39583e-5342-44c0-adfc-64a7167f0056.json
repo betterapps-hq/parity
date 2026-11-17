@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Route pages run the page runtime: they change mode without loading again, measure their height in the mode's window and report where they land, with page modules from TanStack Router and React",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
