@@ -243,8 +243,11 @@ go.
 
 **The project's preview file, `.parity/preview.tsx`,** has Storybook's preview exports and runs without Storybook, on
 every builder: its decorators wrap every frame inside the libraries', with Storybook's context, and its loaders run as a
-frame mounts. Storybook's own `.storybook/preview.*` isn't read unless that file imports it (PAR-98), global types give
-only their defaults, not mode variables (PAR-105), and parameters are the file's, not a design's (PAR-106).
+frame mounts. **Without it, Storybook's own `.storybook/preview.*`** wraps every frame, composed with the project's
+`@storybook/react` (or the React framework that re-exports it) through Storybook's portable stories API, so its
+decorators, loaders and parameters apply as in Storybook (PAR-98). Global types give only their defaults, not mode
+variables (PAR-105), and parameters are the preview's, not a design's (PAR-106). `definePreview` previews (PAR-97) and
+add-ons' annotations (PAR-112) aren't applied yet.
 
 **Story files are read as story designs (read-only viewer).** `EntitiesAdapter` in `@parity-app/core` translates a
 tool's own files to Parity's entities, and back: it reads what Parity doesn't, and gives back what it does. Each tool is

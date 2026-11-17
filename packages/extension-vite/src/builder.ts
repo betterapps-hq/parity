@@ -261,7 +261,8 @@ async function beforeOptimizer<T>(
 
 /**
  * Sets what Vite's dependency optimizer bundles, once the project's components are known: the renderer's runtime, the
- * libraries' packages and icons, and what the app's page and components import. The optimizer reads them when it starts,
+ * libraries' packages and icons, the package that composes a tool's preview, and what the app's page, components and
+ * preview file import. The optimizer reads them when it starts,
  * as the server listens.
  */
 function bundleFor(server: Vite.ViteDevServer, runtimeImports: string[], appPage: string[], config: ProjectConfig) {
@@ -272,14 +273,18 @@ function bundleFor(server: Vite.ViteDevServer, runtimeImports: string[], appPage
       config.libraries.flatMap((library) =>
         library.workspace ? [] : [library.importName, ...iconImports(library), ...libraryImports(library)]
       )
-    )
+    ),
+    // The package that composes a tool's preview, which the guest imports beside it (PAR-98).
+    ...(config.previewComposer ? [config.previewComposer.module] : [])
   ]
 
   // A page's own imports too, which an app without an `index.html`, as TanStack Start's, gave the optimizer no way to
-  // find before the page loaded: then it bundled them again, and every frame and page reloaded (PAR-1203).
+  // find before the page loaded: then it bundled them again, and every frame and page reloaded (PAR-1203). The preview
+  // file is crawled as the components are, so what it imports is bundled before the first frame draws (PAR-98).
   const entries = [
     ...appPage,
     ...(config.routeFiles ?? []),
+    ...(config.preview ? [config.preview] : []),
     ...Object.values(config.components)
       .filter((component) => !component.library)
       .map((component) => component.path)

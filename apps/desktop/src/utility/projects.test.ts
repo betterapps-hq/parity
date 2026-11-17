@@ -8,6 +8,7 @@ import {
   type CodeChange,
   type ComponentSource,
   extensionEntities,
+  extensionPreview,
   extensionRenderer,
   parseCanvasDocument
 } from "@parity-app/core"
@@ -91,6 +92,8 @@ interface BuilderHooks {
 /** A builder that serves at the port it's given, and what it was asked. */
 function fakeBuilder() {
   const started: number[] = []
+  /** The config each start was given, once it's known. */
+  const configs: Promise<unknown>[] = []
   const closed: string[] = []
   const crashes: Parameters<ProjectAdapters["startBuilder"]>[1]["onCrash"][] = []
   const codeChanges: Parameters<ProjectAdapters["startBuilder"]>[1]["onCodeChange"][] = []
@@ -147,6 +150,7 @@ function fakeBuilder() {
     // As a builder process does, it starts once the project's config is known, and its prepared build tool may say
     // which stylesheets the app loads before then.
     const config = Promise.resolve(options.config)
+    configs.push(config)
 
     return {
       pid: 1,
@@ -177,7 +181,7 @@ function fakeBuilder() {
   /** Says files changed, as the builder started last does when they're saved. */
   const changeCode = (change: CodeChange) => codeChanges.at(-1)?.(change)
 
-  return { builder, startBuilder, started, closed, crash, fail, changeCode, hooks, loads }
+  return { builder, startBuilder, started, configs, closed, crash, fail, changeCode, hooks, loads }
 }
 
 /** A watcher whose changes the test reports, as `fs.watch` reports them: names relative to the folder. */
@@ -305,6 +309,7 @@ function setUp(
   const projects = openProjects({
     renderers: [extensionRenderer(reactPackage)!],
     entities: [extensionEntities(storybookPackage)!],
+    previews: [extensionPreview(storybookPackage)!],
     providers,
     builders,
     startBuilder: builder.startBuilder,
@@ -382,6 +387,25 @@ describe("opening a project", () => {
     const info = await projects.open(root)
     expect(info.notes.join("\n")).toContain("as the type checker found them last time")
     expect(checker.checkComponents).toHaveBeenCalledTimes(1)
+  })
+
+  it("draws frames in the preview Storybook's extension names, composed with the project's package (PAR-98)", async () => {
+    await write(
+      "package.json",
+      JSON.stringify({
+        name: "shop",
+        dependencies: { react: "^19.0.0", "react-dom": "^19.0.0" },
+        devDependencies: { "@storybook/react-vite": "10" }
+      })
+    )
+    await write(".storybook/preview.ts", "export const decorators = []\n")
+    const { projects, builder } = setUp()
+    await projects.open(root)
+
+    expect(await builder.configs.at(-1)).toMatchObject({
+      preview: ".storybook/preview.ts",
+      previewComposer: { api: "portable-stories", module: "@storybook/react-vite", extension: "storybook" }
+    })
   })
 
   it("starts the builder whose config file is there before detection confirms it, and serves from that one", async () => {

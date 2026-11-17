@@ -1350,15 +1350,14 @@ from `.parity/preview.tsx`, a file with Storybook's preview exports that Parity 
   does, so the canvas loads a guest that imports it afresh. Pictures kept for components and frames count the file and
   what it imports as they count the stylesheets, and the code snapshot reads `.parity`, so a changed provider draws them
   again.
-- **Building on Storybook's preview.** Parity doesn't read `.storybook/preview.*` yet, so the file is the project's
-  preview on the canvas. It can import Storybook's and spread its decorators to build on them:
+- **Building on Storybook's preview.** When both exist, the file replaces `.storybook/preview.*` on the canvas (see
+  PAR-98 below). It can import Storybook's and spread its decorators to build on them:
   `export const decorators = [...(storybook.decorators ?? []), withCanvasOnlyProviders]`.
 - **App F** (`fixtures/webpack-react-router`) has one, `.parity/preview.jsx`: it wraps frames in styled-components'
   `ThemeProvider` with the app's light or dark theme from `src/theme.js`, picked by the `theme` global. The styles
   styled-components adds to the page reach the frames as any project stylesheet does (PAR-1187).
 
-Not yet: global types as mode variables (PAR-105), a design's or state's parameters (PAR-106), `context.id`, and reading
-`.storybook/preview.*` when there's no Parity file (PAR-98).
+Not yet: global types as mode variables (PAR-105), a design's or state's parameters (PAR-106), and `context.id`.
 
 Code: `findPreviewFile` in `packages/project/src/preview-file.ts`, called by `discoverProject`; `gatherChanges` in
 `packages/project/src/code-changes.ts`, given the file by the Vite, webpack-compatible and Next builders; `keyFor` in
@@ -1376,6 +1375,60 @@ project's preview file" case in `code-fingerprint.test.ts`; "doesn't hold once w
 changes" in `utility/frame-traces.test.ts`; "are made again for every component once what the project's preview file
 imports changes" in `utility/previews.test.ts`. App F's file wasn't tried in the running app, since its fixture isn't
 installed locally.
+
+### The project's Storybook preview (PAR-98)
+
+A project with Storybook and no `.parity/preview.*` gets its frames drawn inside `.storybook/preview.*`, applied with
+Storybook's own portable stories API from the project, the one Vitest runs stories with.
+
+- **Named by Storybook's extension.** Parity knows no tool's preview itself. An extension's manifest names one in
+  `contributes.providers.preview`: the files where its tool keeps it and how it's applied. Storybook's names
+  `.storybook/preview.tsx` (then `.ts`, `.jsx`, `.js`, `.mjs`), applied with `portable-stories` from the first of
+  `@storybook/react`, `@storybook/react-vite`, `@storybook/nextjs`, `@storybook/nextjs-vite` and
+  `@storybook/react-webpack5` the project depends on. Frames draw in the first preview whose file is there and whose
+  package is installed. Parity's file, when there is one, replaces it. Parity reads the manifest before the extension's
+  code runs, as it reads a router's decorators.
+- **Composed as Storybook composes it.** The React guest imports `setProjectAnnotations` and `composeStory` from that
+  package, sets the preview as the project's annotations once, then composes a story for each frame that draws the
+  frame's content, with the frame's mode values as its globals. So the preview's decorators, loaders, `beforeEach`,
+  parameters and global types' defaults apply as in Storybook, with Storybook's own context, hooks and renderer
+  annotations. The composed story draws as a component, as `render(<Story />)` draws one, so decorators can use React's
+  hooks, and it doesn't draw again when the frame's content changes, so what's inside keeps its state. Effects of
+  Storybook's own hooks (`useEffect` from `storybook/preview-api`) run once the frame has drawn, as Storybook runs them
+  when a story has rendered, and are cleaned up when the frame goes.
+- **Inside the libraries' decorators,** as Parity's file is. Decorators get `canvasElement`, the frame's stand-in body.
+- **Loaders and `beforeEach` run before the frame draws,** and the guest's `loaded()` waits for them. Loaders that fail
+  say why and the frame stays empty. Storybook keeps one list of `beforeEach` cleanups for every composed story, so a
+  frame mounting runs the cleanups of the frames before it.
+- **A preview or package that doesn't load is reported,** and frames draw with the libraries' decorators alone.
+- **Picked up and redrawn like Parity's file.** The named files are watched, so one coming or going opens the project
+  again, and installing the package changes its dependencies, which does too. A change reaching the file makes the guest
+  new, and the code snapshot reads its folder, `.storybook`, though it starts with a dot. Vite bundles the composing
+  package, and crawls the preview file for what it imports, before the first frame draws.
+- **Only `.storybook`.** A config folder the `storybook dev` script names with `-c`, or the extension's
+  `storybook.configDir` setting, isn't followed for the preview, since the manifest is read before the extension runs.
+
+Not yet: `definePreview` previews (PAR-97), a stories file's decorators on its component's designs (PAR-99), and
+add-ons' annotations, such as MSW's (PAR-112).
+
+Code: `PreviewContribution` in `packages/extension/src/manifest.ts`, checked in `reader/manifest.ts`;
+`contributes.providers.preview` in `packages/extension-storybook/package.json`; `extensionPreview` in
+`packages/core/src/adapters.ts`, given to `openProjects` as `previews` (`builtInPreviews` in
+`apps/desktop/src/utility/extensions.ts`); `findProjectPreview` in `packages/project/src/preview-file.ts`, called by
+`discoverProject`; `previewComposer` in `ProjectConfig` (`packages/core/src/project.ts`); `guestModule` in
+`packages/project/src/guest-module.ts`, which gives the package as `GuestDecorators.composer`; `composedPreview` in
+`packages/extension-react/src/guest.ts`.
+
+Tests: "a preview an extension names for its tool" in `packages/project/src/preview-file.test.ts`; "draws frames in the
+preview Storybook's extension names" in `apps/desktop/src/utility/projects.test.ts`; "takes a tool's preview as data" in
+`packages/extension/src/reader/manifest.test.ts`; "names .storybook/preview.* as the project's preview" in
+`packages/extension-storybook/src/storybook.test.ts`; "counts the dot-folder of a tool's preview" in
+`packages/project/src/code-fingerprint.test.ts`; "imports the package that composes a tool's preview beside it" in
+`packages/project/src/guest-module.test.ts`; "the project's Storybook preview, composed with its portable stories API"
+in `packages/extension-react/src/guest-storybook-preview.test.ts`, against Storybook's own `@storybook/react`: the
+nesting, the context's globals, parameters and frame, loaders, hooks and state kept from one draw to the next,
+Storybook's own hooks' effects, each frame composed with its own project's preview, and what didn't load.
+`examples/shadcn-vite` has a Storybook preview, so the editor's end-to-end tests in CI open frames through it.
 
 ### A preview file offered from the app's providers (PAR-104)
 

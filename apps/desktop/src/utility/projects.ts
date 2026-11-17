@@ -25,6 +25,7 @@ import {
   detectPeers,
   type EntitiesAdapter,
   type EntitiesDescription,
+  type PreviewDescription,
   type ExtensionDecorator,
   type ExtensionTool,
   libraryManifestExtension,
@@ -198,6 +199,12 @@ export interface ProjectAdapters {
    * entities providers. None unless given.
    */
   entities?: EntitiesDescription[]
+  /**
+   * The previews extensions name for their tools, such as Storybook's `.storybook/preview.tsx` (PAR-98): frames draw in
+   * the first that's there when the project has no `.parity/preview.*`. Their files are watched, so one coming or going
+   * detects the project again. None unless given.
+   */
+  previews?: PreviewDescription[]
   /** The builder link: starts a project's builder in a process of its own (see builders.ts). */
   startBuilder: (
     options: BuilderLaunchOptions,
@@ -411,7 +418,13 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     ...(adapters.entities ?? [])
   ]
 
-  const watched = [...new Set(everyAdapter.flatMap((adapter) => adapter.watches ?? []))]
+  const watched = [
+    ...new Set([
+      ...everyAdapter.flatMap((adapter) => adapter.watches ?? []),
+      ...(adapters.previews ?? []).flatMap((preview) => preview.files)
+    ])
+  ]
+
   const env = adapters.environment ?? environment()
   const allowedOrigins = env.PARITY_ALLOWED_ORIGINS ?? []
   const startedWith = env.PARITY_PROJECT
@@ -658,7 +671,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     const config = await discoverProject(root, renderer, pkg, {
       documents: paths,
-      styles
+      styles,
+      previews: adapters.previews
     })
 
     // A router's extension puts a router around every frame, so a component with a link draws on its own (PAR-1152).
@@ -2045,8 +2059,15 @@ function builderProcessId(root: string): string {
 function servedCode(root: string, options: BuilderStartOptions): ServedCode {
   const guest = readFile(options.rendererGuestPath).catch(() => Buffer.alloc(0))
 
+  // A tool's preview, as Storybook's, can be in a dot-folder, which the snapshot reads only when told (PAR-98).
+  const previewFolder = options.config.preview?.match(/^(\.[^/]+)\//)?.[1]
+
   const code = guest.then((contents) =>
-    codeSnapshot(root, `${bitmapFormat}:${createHash("sha256").update(contents).digest("hex")}`)
+    codeSnapshot(
+      root,
+      `${bitmapFormat}:${createHash("sha256").update(contents).digest("hex")}`,
+      previewFolder ? [previewFolder] : []
+    )
   )
 
   return {
