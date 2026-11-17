@@ -309,6 +309,16 @@ describe("sanitizeSheet", () => {
     expect(sanitizeSheet(`@IMPORT 'x.css' screen;b{}`, policy)).toBe("b{}")
   })
 
+  it("reads a quote inside a comment as part of the comment, not a string", () => {
+    expect(sanitizeSheet(String.raw`a{background:/* " */u\72l(http://evil.example/a.png)}`, policy)).toBe(
+      "a{background: none}"
+    )
+    expect(kept("div", "style", String.raw`background:/* " */u\72l(http://evil.example/a.png)`)).toBe(
+      "background: none"
+    )
+    expect(sanitizeSheet(String.raw`/* ' */@\69mport "http://evil.example/a.css";b{}`, policy)).toBe(" b{}")
+  })
+
   it("leaves strings that only say @import or an escaped name as they are", () => {
     const css = String.raw`a::before{content:"@import";color:red} b::after{content:"u\72l(x)"}`
 

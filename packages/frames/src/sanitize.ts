@@ -254,7 +254,7 @@ export function sanitizeRoot(root: PageRoot, policy: SanitizePolicy): SanitizedR
 
 /** A sheet's text with every `url()` outside the policy taken out; `@import` is refused, as the page inlined them. */
 export function sanitizeSheet(text: string, policy: SanitizePolicy): string {
-  const css = rewriteImports(withoutComments(readLoadNames(cssNewlines(text))), () => "")
+  const css = rewriteImports(readLoadNames(withoutComments(cssNewlines(text))), () => "")
 
   // Taking a rule out can join the text around it into another (`@im@import "";port …`). Any such one is renamed, in one
   // pass, to an at-rule CSS doesn't know and skips; a name that starts "@-" can't join into another.
@@ -533,7 +533,8 @@ const cssEscape = String.raw`\\(?:(?:[0-9a-f]{6}|[0-9a-f]{1,5}(?![0-9a-f]))\s?|[
  * style loads images and fonts, so any `https:` host is allowed.
  */
 function sanitizeCss(css: string, policy: SanitizePolicy): string {
-  return sanitizeLoads(withoutComments(readLoadNames(cssNewlines(css))), policy)
+  // Comments go first: a quote inside one is no string's, and the passes after skip strings.
+  return sanitizeLoads(readLoadNames(withoutComments(cssNewlines(css))), policy)
 }
 
 /** CSS with CR LF, CR and form feed as LF, as CSS reads its text before anything else, so an escape before one holds. */
