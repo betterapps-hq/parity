@@ -453,7 +453,8 @@ function srcsetCandidates(value: string): { url: string; descriptor: string }[] 
  */
 function sanitizeCss(css: string, policy: SanitizePolicy): string {
   const urls = withoutComments(readLoadNames(css)).replace(
-    /\burl\(\s*(?:"((?:[^"\\]|\\[\s\S])*)"|'((?:[^'\\]|\\[\s\S])*)'|((?:[^)"'\s\\]|\\[0-9a-f]{1,6}\s?|\\[^\n])*))\s*\)/gi,
+    // A `url()` or its string may run to the end of the text unclosed, which CSS still reads as a URL.
+    /\burl\(\s*(?:"((?:[^"\\]|\\[\s\S])*)(?:"|$)|'((?:[^'\\]|\\[\s\S])*)(?:'|$)|((?:[^)"'\s\\]|\\[0-9a-f]{1,6}\s?|\\[^\n])*))\s*(?:\)|$)/gi,
     (whole, double?: string, single?: string, bare?: string) =>
       allowedUrl(cssString(double ?? single ?? bare ?? ""), "image", policy) ? whole : "none"
   )

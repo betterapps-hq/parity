@@ -397,6 +397,14 @@ describe("sanitizeSheet", () => {
     )
   })
 
+  it("checks a url() left open at the end of the text, which CSS still loads", () => {
+    expect(sanitizeSheet("a{background:url(http://evil.example/x.png", policy)).toBe("a{background:none")
+    expect(sanitizeSheet(`a{background:url("http://evil.example/x.png`, policy)).toBe("a{background:none")
+    expect(sanitizeSheet(`a{background:url(${policy.pageOrigin}/x.png`, policy)).toBe(
+      `a{background:url(${policy.pageOrigin}/x.png`
+    )
+  })
+
   it("takes out an @import that taking out another would make", () => {
     expect(sanitizeSheet(`@im@import "";port "http://evil.example/a.css"; b{}`, policy)).toBe(" b{}")
   })
