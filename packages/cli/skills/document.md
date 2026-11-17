@@ -197,6 +197,10 @@ CSS property doesn't take gets `invalid_value`. Both are in execute.md, under Mo
 | `grow`                                           | `true` to fill along the parent's direction                                   |
 | `alignSelf`                                      | This node across its parent, overriding the parent's `alignItems`             |
 | `colSpan`, `rowSpan`                             | Grid cells to span                                                            |
+| `colStart`, `colEnd`, `rowStart`, `rowEnd`       | Grid lines, from 1, or from -1 after the last track; a start with a span runs |
+|                                                  | that many cells from it                                                       |
+| `justifySelf`                                    | This node across its grid cell, overriding the grid's: `start`, `center`,     |
+|                                                  | `end`, `stretch`                                                              |
 | `position`, `top`, `right`, `bottom`, `left`     | `absolute`, placed against the parent's edges by lengths                      |
 | `zIndex`                                         | Layer order: `{ "step": 10 }`, a whole number, higher in front, or a z-index  |
 |                                                  | token                                                                         |

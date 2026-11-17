@@ -1,11 +1,5 @@
 import {
   Button,
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuShortcut,
-  ContextMenuTrigger,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
@@ -14,7 +8,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
-  Kbd,
   Menubar,
   MenubarCheckboxItem,
   MenubarContent,
@@ -29,7 +22,6 @@ import {
   MenubarSubTrigger,
   MenubarTrigger
 } from "@buildkitgg/shadcn"
-import { barOrder, type LensMark } from "@parity-app/lenses"
 import {
   Bug,
   Check,
@@ -45,50 +37,28 @@ import {
   PanelsLeftRight,
   RefreshCw,
   Square,
-  SquareArrowOutDownLeft,
   SquareArrowOutUpRight,
-  SquarePlus,
   SquareTerminal,
   Terminal,
   X
 } from "lucide-react"
-import { type KeyboardEvent, type ReactNode, useState } from "react"
+import { type ReactNode, useState } from "react"
 import { AccountMenu } from "../../account/AccountMenu.tsx"
 import { iconFor } from "../../chrome/command-icons.ts"
 import { Hint } from "../../chrome/Hint.tsx"
 import { type Command, keymap, shortcutOf } from "../../chrome/keymap.ts"
-import { lensList, lensOrder, lenses, project as openProject, recentProjects } from "./data.ts"
+import { chromeSurface } from "../../lenses/LensBar.tsx"
+import type { LensActions } from "../../lenses/shell.ts"
+import { lensOrder, lenses, project as openProject, recentProjects } from "./data.ts"
 import type { LensId } from "./model.ts"
 
-/** The window's chrome: the title bar's strip and the lens bar down the left, one surface, as the tab strip was. */
-export const chromeSurface = "bg-neutral-100 dark:bg-[#0a0a0a]"
-
-/** What a lens dragged from the lens bar carries, so a group's tabs take it as a new tab and a canvas's side splits. */
-export const lensDragType = "application/x-parity-lens"
-
-/** What the title bar and the lens bar do, for the window they're in. */
-export interface ChromeActions {
+/** What the title bar does: the lenses' actions its View menu uses, and what it does with the project. */
+export type ChromeActions = Pick<
+  LensActions<LensId>,
+  "current" | "show" | "splitRight" | "canSplit" | "toWindow" | "canMoveToWindow" | "panels" | "togglePanels"
+> & {
   /** Whether a project is open: on Home, what acts on one is unavailable. */
   project: boolean
-  /** Which lens shows in the tab in focus, none with every tab closed. */
-  current: LensId | undefined
-  /** How the lens bar marks a lens: in focus, open in another tab or window, or with nothing for the project. */
-  mark: (lens: LensId) => LensMark
-  /** Shows a lens in the tab in focus, as a link opens in the tab it's clicked in, or where it's open. */
-  show: (lens: LensId) => void
-  /** Shows a lens in a new tab, as Ctrl+click opens a link, or where it's open. */
-  openTab: (lens: LensId) => void
-  canOpenTab: (lens: LensId) => boolean
-  splitRight: (lens: LensId) => void
-  canSplit: (lens: LensId) => boolean
-  toWindow: (lens: LensId) => void
-  canMoveToWindow: (lens: LensId) => boolean
-  toMain: (lens: LensId) => void
-  canMoveToMain: (lens: LensId) => boolean
-  close: (lens: LensId) => void
-  canClose: (lens: LensId) => boolean
-  panels: { left: boolean; right: boolean }
-  togglePanels: () => void
   closeProject: () => void
   openProject: (name: string) => void
 }
@@ -440,156 +410,5 @@ function AppMenus({ actions }: { actions: ChromeActions }) {
         </MenubarContent>
       </MenubarMenu>
     </Menubar>
-  )
-}
-
-/**
- * The lenses, one above another down the window's left edge, as VS Code's activity bar lists its views, on the same
- * surface as the title bar. They work as links do in a browser: a click shows the lens in the tab in focus, and
- * Ctrl+click or a middle click opens it in a new tab. The lens in the tab in focus is picked out; one open in another
- * tab or window has a dot, and clicking it goes there. A lens the project has nothing for sits at the bottom, quieter.
- * Clicking the lens in focus hides or shows the left panel, as VS Code's does. The arrow keys move between lenses, and
- * each has a menu to open it in a new tab, split it or move it to a window, and can be dragged onto the tabs, a
- * canvas's side or out of the window.
- */
-export function LensBar({ actions }: { actions: ChromeActions }) {
-  const ordered = barOrder(lensList)
-  const available = ordered.filter((lens) => !lens.unavailable).map((lens) => lens.id)
-  const missing = ordered.filter((lens) => lens.unavailable).map((lens) => lens.id)
-
-  const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Home" && event.key !== "End") {
-      return
-    }
-
-    const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("button[data-lens]")]
-    const at = buttons.findIndex((button) => button === document.activeElement)
-
-    const to = {
-      ArrowDown: Math.min(buttons.length - 1, at + 1),
-      ArrowUp: Math.max(0, at - 1),
-      Home: 0,
-      End: buttons.length - 1
-    }[event.key]
-
-    buttons[to]?.focus()
-    event.preventDefault()
-  }
-
-  return (
-    <div
-      role="toolbar"
-      aria-label="Lenses"
-      aria-orientation="vertical"
-      tabIndex={-1}
-      className={`flex w-12 shrink-0 flex-col items-center gap-1 border-r py-2 ${chromeSurface}`}
-      onKeyDown={onKeyDown}
-    >
-      {available.map((id) => (
-        <LensButton key={id} lens={id} actions={actions} />
-      ))}
-      <div className="mt-auto" />
-      {missing.map((id) => (
-        <LensButton key={id} lens={id} actions={actions} />
-      ))}
-    </div>
-  )
-}
-
-/** Where a lens shows when it isn't the canvas in focus's, for its hint. */
-const placeWords = { tab: "Open in a tab", window: "In its own window" }
-
-/** The lens the lens bar is reached by with Tab while no lens is in focus, as with every tab closed. */
-const firstLens = barOrder(lensList)[0]?.id
-
-function LensButton({ lens, actions }: { lens: LensId; actions: ChromeActions }) {
-  const { name: label, Icon, shortcut: keys, unavailable: missing } = lenses[lens]
-  const { focus: current, elsewhere } = actions.mark(lens)
-  const where = elsewhere && placeWords[elsewhere]
-  const said = missing?.title ?? where
-
-  let look =
-    "border-transparent text-muted-foreground hover:bg-background/70 hover:text-foreground dark:hover:bg-input/20"
-
-  if (current) {
-    look = "border-border bg-background text-foreground shadow-sm dark:border-white/10 dark:bg-white/10"
-  } else if (elsewhere) {
-    look = "border-transparent text-foreground hover:bg-background/70 dark:hover:bg-input/20"
-  } else if (missing) {
-    look =
-      "border-transparent text-muted-foreground/60 hover:bg-background/70 hover:text-muted-foreground dark:hover:bg-input/20"
-  }
-
-  return (
-    <ContextMenu>
-      <ContextMenuTrigger
-        render={
-          <Hint
-            label={
-              <span className="flex items-center gap-1.5">
-                {label} <Kbd>{keys}</Kbd>
-              </span>
-            }
-            detail={said}
-            side="right"
-          >
-            <button
-              type="button"
-              data-lens={lens}
-              aria-label={said ? `${label}, ${said.toLowerCase()}` : label}
-              aria-pressed={current}
-              tabIndex={(actions.current ? current : lens === firstLens) ? 0 : -1}
-              onClick={(event) => (event.ctrlKey || event.metaKey ? actions.openTab(lens) : actions.show(lens))}
-              onAuxClick={(event) => event.button === 1 && actions.openTab(lens)}
-              draggable={!missing}
-              onDragStart={(event) => {
-                event.dataTransfer.setData(lensDragType, lens)
-                event.dataTransfer.effectAllowed = "move"
-              }}
-              className={`relative grid size-9 place-items-center rounded-lg border outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 ${look}`}
-            >
-              <Icon className="size-[18px]" strokeWidth={current ? 2 : 1.75} />
-              {/* The bar at the window's edge, as Layers marks its selected row and VS Code its open view. */}
-              {current && (
-                <span aria-hidden className="absolute inset-y-1 -left-[7px] w-0.5 rounded-r-full bg-(--canvas-layer)" />
-              )}
-              {elsewhere && (
-                <span aria-hidden className="absolute right-1 bottom-1 size-1.5 rounded-full bg-foreground/60" />
-              )}
-            </button>
-          </Hint>
-        }
-      />
-      <ContextMenuContent className="w-auto min-w-52">
-        <ContextMenuItem onClick={() => actions.show(lens)}>
-          <Icon /> Show {label}
-          <ContextMenuShortcut>{keys}</ContextMenuShortcut>
-        </ContextMenuItem>
-        <ContextMenuItem disabled={!actions.canOpenTab(lens)} onClick={() => actions.openTab(lens)}>
-          <SquarePlus /> Open in new tab
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem disabled={!actions.canSplit(lens)} onClick={() => actions.splitRight(lens)}>
-          <Columns2 /> Split right
-        </ContextMenuItem>
-        {actions.canMoveToMain(lens) ? (
-          <ContextMenuItem onClick={() => actions.toMain(lens)}>
-            <SquareArrowOutDownLeft /> Move to main window
-          </ContextMenuItem>
-        ) : (
-          <ContextMenuItem disabled={!actions.canMoveToWindow(lens)} onClick={() => actions.toWindow(lens)}>
-            <SquareArrowOutUpRight /> Move to new window
-          </ContextMenuItem>
-        )}
-        {actions.canClose(lens) && (
-          <>
-            <ContextMenuSeparator />
-            <ContextMenuItem onClick={() => actions.close(lens)}>
-              <X /> Close
-            </ContextMenuItem>
-          </>
-        )}
-      </ContextMenuContent>
-    </ContextMenu>
   )
 }

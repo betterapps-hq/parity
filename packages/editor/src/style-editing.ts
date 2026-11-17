@@ -89,7 +89,9 @@ export const styleRows = {
   min: ["minWidth", "minHeight"],
   max: ["maxWidth", "maxHeight"],
   self: ["alignSelf"],
-  span: ["colSpan", "rowSpan"],
+  // A grid child's cells, by spans or lines, which Grid placement changes together.
+  cells: ["colSpan", "rowSpan", "colStart", "colEnd", "rowStart", "rowEnd"],
+  justifySelf: ["justifySelf"],
   placement: ["position", "top", "right", "bottom", "left"],
   insets: ["top", "right", "bottom", "left"],
   layerOrder: ["zIndex"],

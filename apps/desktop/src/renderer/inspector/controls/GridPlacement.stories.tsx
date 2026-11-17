@@ -5,7 +5,9 @@ import { expect, userEvent, waitFor, within } from "storybook/test"
 import { gridPlacementComparisons, gridPlacementPoints } from "./comparisons.tsx"
 import { LayerPreview, type Measured } from "./controls.tsx"
 import type { Draft } from "./data.ts"
+import { useTokenSets } from "./field-parts.tsx"
 import { GridCellSection } from "./grid-cell.tsx"
+import { demoGrid } from "./layout-controls.tsx"
 import { Playground, useDraft } from "./playground.tsx"
 import { placementWrites } from "./writes.ts"
 
@@ -43,6 +45,7 @@ function Placement({ start }: { start: Draft }) {
     ...start
   })
 
+  const spacing = useTokenSets().spacing
   const [selected, setSelected] = useState(true)
   const [measured, setMeasured] = useState<Measured>()
 
@@ -55,7 +58,7 @@ function Placement({ start }: { start: Draft }) {
         <LayerPreview draft={draft} childSelected={selected} onSelectChild={setSelected} onMeasureChild={setMeasured} />
       }
     >
-      <GridCellSection draft={draft} set={set} measured={measured} />
+      <GridCellSection draft={draft} set={set} grid={demoGrid(draft, spacing)} measured={measured} />
     </Playground>
   )
 }

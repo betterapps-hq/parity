@@ -56,12 +56,13 @@ const drawn: readonly StyleSection[] = ["effects", "motion", "rawCss"]
 export type PanelKind = DesignNode["type"] | "icon"
 
 /**
- * The style sections every kind shares, in one order after its own lead: its size and the box around it, where it sits,
- * how it's drawn as a whole, the text inside it, its fill and stroke, and what's folded until set. Each kind leaves out
- * what it doesn't have, and the capability table what its layers can't take.
+ * The style sections every kind shares, in one order after its own lead: its size, a grid child's in Grid placement,
+ * and the box around it, where it sits, how it's drawn as a whole, the text inside it, its fill and stroke, and what's
+ * folded until set. Each kind leaves out what it doesn't have, and the capability table what its layers can't take.
  */
 const shared: readonly StyleSection[] = [
   "size",
+  "gridPlacement",
   "spacing",
   ...position,
   "appearance",

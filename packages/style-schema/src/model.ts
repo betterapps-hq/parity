@@ -109,6 +109,12 @@ export type Padding = z.infer<typeof padding>
 
 const alignment = z.enum(["start", "center", "end", "stretch"])
 
+/** A grid line, from 1, or from the end when negative: -1 is after the last track. There's no line 0. */
+const gridLine = z
+  .number()
+  .int()
+  .refine((line) => line !== 0, "a grid line counts from 1, or from -1 at the end; there's no line 0")
+
 /** A value that names a token of its kind, or is written out: a radius, a font size, a family. */
 const named = z.union(
   [tokenForm, valueForm, keywordForm, exprForm],
@@ -293,6 +299,13 @@ export const nodeStyle = stored({
   /** Grid cells the node spans, in a grid. */
   colSpan: finiteNumber.optional(),
   rowSpan: finiteNumber.optional(),
+  /** The grid lines the node starts and ends at, in a grid; a start with a span runs that many tracks from it. */
+  colStart: gridLine.optional(),
+  colEnd: gridLine.optional(),
+  rowStart: gridLine.optional(),
+  rowEnd: gridLine.optional(),
+  /** Where this node sits across its grid cell, overriding the grid's `justifyItems`. */
+  justifySelf: alignment.optional(),
   /** Fill along the parent's direction. Same as `{ size: "fill" }` for the parent's main axis. */
   grow: z.boolean().optional(),
   /** Where this node sits on its parent's cross axis, overriding the parent's `alignItems`. */

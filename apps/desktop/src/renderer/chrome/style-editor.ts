@@ -1,4 +1,4 @@
-import type { ContainerSpec } from "@parity-app/core"
+import { type ContainerSpec, findNode } from "@parity-app/core"
 import {
   frameRootShown,
   frameRootStored,
@@ -7,7 +7,8 @@ import {
   type StyleEdit,
   type StyleRow,
   type StyleSelection,
-  styleSelection
+  styleSelection,
+  type GridLayout
 } from "@parity-app/editor"
 import { type ContainerEntry, updateContainer } from "@parity-app/multiplayer"
 import type { Token } from "@parity-app/tokens"
@@ -29,7 +30,7 @@ import {
   rowChanged,
   rowValues
 } from "./inspector-events.ts"
-import { measureNode, nodeTypeStyle, placeNode } from "./LayerPanel.tsx"
+import { measureNode, nodeGrid, nodeTypeStyle, placeNode } from "./LayerPanel.tsx"
 
 /** One row's edit of every selected layer, with what Undo calls it. `undefined` in an edit clears a property. */
 export interface StyleChange<R extends StyleRow = StyleRow> {
@@ -78,6 +79,8 @@ export interface StyleEditor {
    * Typography's unset rows.
    */
   type?: () => Required<TypeValues> | undefined
+  /** With one layer selected in a grid, the grid as the canvas lays it out, for Grid placement's map. */
+  grid?: () => GridLayout | undefined
 }
 
 /** Where a layer sits in the box its insets count from, in pixels. */
@@ -87,7 +90,10 @@ export interface LayerPlace {
   inFlow: { x: number; y: number }
 }
 
-/** A layer's drawn size and type as text, to tell when either changes, or empty while it isn't drawn. */
+/**
+ * A layer's drawn size and type, and the cells of the grid it's in, as text, to tell when any changes, or empty while
+ * it isn't drawn. A grid child moved to other cells at the same size changes only its grid's.
+ */
 function drawnKey(
   editor: ProjectSession["editor"],
   design: string,
@@ -96,11 +102,18 @@ function drawnKey(
 ): string {
   const size = measureNode(editor, design, layer, picked)
 
-  return size ? `${size.width}x${size.height} ${typeStyleKey(nodeTypeStyle(editor, design, layer, picked))}` : ""
+  if (!size) {
+    return ""
+  }
+
+  const grid = nodeGrid(editor, design, layer, picked, () => undefined)
+  const cells = grid ? JSON.stringify([grid.weights, grid.children.map((child) => [child.id, child.area])]) : ""
+
+  return `${size.width}x${size.height} ${typeStyleKey(nodeTypeStyle(editor, design, layer, picked))} ${cells}`
 }
 
 /**
- * Draws the panel again when the one selected layer's drawn size or type changes: its frame drawing it for the first time, an
+ * Draws the panel again when the one selected layer's drawn size, type or grid cells change: its frame drawing it for the first time, an
  * edit laying it out again, or the frame resizing. The panel reads the size as it draws (`measure`, `place`, `type`), and
  * nothing else tells it a frame has drawn, so a layer picked before its frame drew showed no size in Size or Spacing.
  * It watches the design's frames as the canvas's overlay does, and measures once an animation frame at most.
@@ -292,6 +305,10 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
     unit,
     measure: (axis, round = Math.round) => (only ? measure(only, axis, round) : undefined),
     place: () => (only ? placeNode(session.editor, entry.key, only, selected) : undefined),
+    grid: () =>
+      only
+        ? nodeGrid(session.editor, entry.key, only, selected, (id) => findNode(entry.container.root, id)?.name)
+        : undefined,
     type: () => {
       const style = only ? nodeTypeStyle(session.editor, entry.key, only, selected) : undefined
 
