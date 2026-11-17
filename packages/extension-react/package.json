@@ -10,6 +10,7 @@
     ".": "./src/extension.ts",
     "./components": "./src/components.ts",
     "./guest": "./src/guest.ts",
+    "./page": "./src/page.ts",
     "./package.json": "./package.json"
   },
   "dependencies": {
@@ -81,7 +82,11 @@
             ".ts",
             ".jsx",
             ".js"
-          ]
+          ],
+          "page": {
+            "import": "./page",
+            "export": "reactHydration"
+          }
         }
       }
     }

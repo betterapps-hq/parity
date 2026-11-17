@@ -58,10 +58,13 @@ describe("the guest app", () => {
     expect(text(files, "postcss.config.mjs")).toBeUndefined()
   })
 
-  it("runs the page script in the browser before a page's own code, with Next's overlay hidden in a canvas frame", () => {
-    const script = text(guestAppFiles(options), "instrumentation-client.js")
+  it("runs the page runtime in the browser before a page's own code, with Next's overlay hidden in a canvas frame", () => {
+    const pageSource =
+      'import { startPageRuntime } from "./page/0-index.ts"\nstartPageRuntime({ routers: [], hydration: [] })'
 
-    expect(script).toContain('window.parent.postMessage({ parity: "page-height", height }, "*")')
+    const script = text(guestAppFiles({ ...options, pageSource }), "instrumentation-client.js")
+
+    expect(script?.split("\n").slice(1, 3)).toEqual(pageSource.split("\n"))
     expect(script).toContain("nextjs-portal { display: none !important }")
   })
 

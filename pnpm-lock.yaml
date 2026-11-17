@@ -433,6 +433,9 @@ importers:
       '@parity-app/multiplayer-loro':
         specifier: workspace:*
         version: link:../../packages/multiplayer-loro
+      '@parity-app/page-runtime':
+        specifier: workspace:*
+        version: link:../../packages/page-runtime
       '@parity-app/presence-colors':
         specifier: workspace:*
         version: link:../../packages/presence-colors
@@ -1297,6 +1300,19 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.7
+
+  packages/page-runtime:
+    dependencies:
+      '@parity-app/channel':
+        specifier: workspace:*
+        version: link:../channel
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
+    devDependencies:
+      happy-dom:
+        specifier: 'catalog:'
+        version: 21.0.4
 
   packages/presence-colors:
     dependencies:

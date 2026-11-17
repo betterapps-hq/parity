@@ -58,7 +58,7 @@ export { type Detection, type PackageManagerDetection, type ProjectDetection } f
 
 export { chooseAppStyles, type Imported, type Walked } from "./app-styles.ts"
 
-export { appPageModeScript } from "./app-page.ts"
+export { pageEntrySource } from "./page-entry.ts"
 
 export {
   type LeftOutProvider,

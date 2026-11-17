@@ -277,6 +277,17 @@ export interface RendererContribution {
   developmentStandIns?: Record<string, string>
   /** File extensions that can hold the framework's components, as `.tsx`. */
   componentExtensions: string[]
+  /** The module that says when the app's page has hydrated (`PageHydration`), and its export. */
+  page?: PageModuleContribution
+}
+
+/**
+ * A module the builder serves into the app's own page beside the page runtime, when the canvas draws a route
+ * (`@parity-app/extension/page`): the package export, as `./page`, and the name it exports what the runtime takes by.
+ */
+export interface PageModuleContribution {
+  import: string
+  export: string
 }
 
 /** What Parity needs of a builder before its code runs: its entry module, and the files that say it serves a project. */
@@ -304,6 +315,8 @@ export interface RouterContribution {
    * memory router, say, at the frame's URL. They wrap the libraries' own decorators.
    */
   decorators?: FrameDecorator[]
+  /** The module that drives this router inside the app's page (`PageRouter`), and its export. */
+  page?: PageModuleContribution
 }
 
 /**

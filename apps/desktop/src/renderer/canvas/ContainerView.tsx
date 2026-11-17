@@ -47,15 +47,15 @@ import {
   hugsContent,
   kindName,
   kindTitle,
-  pageFrameName,
+  pageFrameUrl,
+  pageMode,
   pickPreviews,
   landedElsewhere,
-  pageHeightMessage,
-  pageLandedMessage,
   stateLabelSpace,
   titleReach
 } from "@parity-app/editor"
 import { updateContainer, updateView } from "@parity-app/multiplayer"
+import { frameName, pageProtocol } from "@parity-app/page-runtime/protocol"
 import { ChevronDown, TriangleAlert } from "lucide-react"
 import {
   type CSSProperties,
@@ -65,6 +65,7 @@ import {
   type RefObject,
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -107,6 +108,7 @@ import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { type LabelReach, useCanvasLabel } from "./labels.ts"
 import { Used, useMountOnUse, useUsed } from "./mount-on-use.tsx"
+import { usePageChannel } from "./page-channel.ts"
 import { PreviewHeader, type PreviewTarget, useSavedView } from "./preview-parts.tsx"
 import { PreviewResize, useBreakpoints } from "./preview-resize.tsx"
 import { pageLandings, routePagePath, routePageUrl, setPageLanding } from "./route-pages.ts"
@@ -1496,7 +1498,15 @@ const FrameTile = memo(function FrameTile({
         data-asleep={awake && !waiting ? undefined : ""}
       >
         {page ? (
-          <PageFrame url={page} design={entry.key} frame={frame} mode={drawn} scale={scale} interactive={interactive} />
+          <PageFrame
+            url={page}
+            project={session.id}
+            design={entry.key}
+            frame={frame}
+            mode={drawn}
+            scale={scale}
+            interactive={interactive}
+          />
         ) : (
           <ModeView
             project={session.id}
@@ -1527,13 +1537,17 @@ const FrameTile = memo(function FrameTile({
 
 /**
  * A page of the app in a screen's frame (PAR-1076): the app's own entry at the page's URL, in a document of its own, so
- * its router, layouts, loaders and redirects run as they do in a browser. It takes no pointer, so the canvas pans and
- * selects over it. It's as tall as the page says it is (see `pageHeightMessage`), and never shorter than the frame's
- * window, unless the frame has been given a height, which it then clips to. When the page lands somewhere other than its
- * own path, as a route that redirects sends it (see `pageLandedMessage`), it notes where for its board and Layers.
+ * its router, layouts, loaders and redirects run as they do in a browser. It loads under the project's own
+ * `.localhost` name (`pageFrameUrl`), so its pages run in a process of their own. It takes no pointer, so the canvas
+ * pans and selects over it. The page runtime in it (`@parity-app/page-runtime`) says hello and gets a channel: the
+ * mode changes over it without the page loading again, and the page says how tall it is in the mode's window, so the
+ * frame grows to the page. It's never shorter than the window, unless the frame has been given a height, which it then
+ * clips to. When the page lands somewhere other than its own path, as a route that redirects sends it, it notes where
+ * for its board and Layers.
  */
 function PageFrame({
   url,
+  project,
   design,
   frame,
   mode,
@@ -1541,6 +1555,8 @@ function PageFrame({
   interactive
 }: {
   url: string
+  /** The open project, whose own name the page loads under. */
+  project: string
   /** The page's design, by key, which Layers notes where it landed under. */
   design: string
   frame: FrameGeometry
@@ -1549,65 +1565,55 @@ function PageFrame({
   /** With the Interact tool, the page takes the pointer and keys, as a design does; otherwise the canvas has them. */
   interactive: boolean
 }) {
-  // The app's own page reads its mode from the frame's name, so a frame in another mode is another page.
-  const name = pageFrameName(mode)
   const page = useRef<HTMLIFrameElement>(null)
-  // How tall the page says it is, for the page it was said for, so another page starts from the window again.
-  const [told, setTold] = useState<{ page: string; height: number }>()
-  // Where the page last said it is, for the page it was said for.
-  const [landed, setLanded] = useState<{ page: string; path: string }>()
+  const id = useId()
+  const src = pageFrameUrl(url, project)
+  const drawn = useMemo(() => pageMode(mode), [mode])
+
+  const viewport = useMemo(
+    () => ({ width: frame.viewport.width, height: frame.viewport.height }),
+    [frame.viewport.width, frame.viewport.height]
+  )
+
+  // Named once, with the mode it opens in, so the app's first render is in it; the mode changes over the channel.
+  const [name] = useState(() =>
+    frameName({
+      protocol: pageProtocol,
+      frame: id,
+      parent: window.location.origin,
+      role: "live",
+      mode: drawn,
+      viewport
+    })
+  )
+
+  const heard = usePageChannel(page, { id, src, mode: drawn, viewport })
+  const height = frame.height ?? Math.max(frame.viewport.height, heard.height ?? 0)
+  const landed = heard.location
+  const elsewhere = landed ? landedElsewhere(url, landed.path) : undefined
+
+  // Layers says where the page landed too, once the page has said.
   useEffect(() => {
-    const heard = (event: MessageEvent) => {
-      if (event.source === null || event.source !== page.current?.contentWindow) {
-        return
-      }
-
-      const said = pageHeightMessage.safeParse(event.data)
-
-      if (said.success) {
-        setTold({ page: `${name} ${url}`, height: said.data })
-      }
-
-      const went = pageLandedMessage.safeParse(event.data)
-
-      if (went.success) {
-        setLanded({ page: `${name} ${url}`, path: went.data })
-      }
-    }
-
-    window.addEventListener("message", heard)
-
-    return () => window.removeEventListener("message", heard)
-  }, [name, url])
-  const content = told?.page === `${name} ${url}` ? told.height : 0
-  const height = frame.height ?? Math.max(frame.viewport.height, content)
-  const elsewhere = landed?.page === `${name} ${url}` ? landedElsewhere(url, landed.path) : undefined
-  const heardLanding = landed?.page === `${name} ${url}`
-
-  // Layers says where the page landed too, once a frame has said.
-  useEffect(() => {
-    if (heardLanding) {
+    if (landed) {
       setPageLanding(design, elsewhere)
     }
-  }, [design, elsewhere, heardLanding])
+  }, [design, elsewhere, landed])
 
   return (
-    <>
-      <div className="overflow-hidden" style={{ width: frame.width * scale, height: height * scale }}>
-        <iframe
-          ref={page}
-          key={name}
-          name={name}
-          title={url}
-          src={url}
-          // Outside Interact it's as inert as a design's frame, so Tab on the canvas never goes into the page and leaves
-          // the canvas's keys behind.
-          inert={!interactive}
-          className={`${interactive ? "pointer-events-auto" : "pointer-events-none"} block origin-top-left border-0 bg-white`}
-          style={{ width: frame.width, height, transform: `scale(${scale})` }}
-        />
-      </div>
-    </>
+    <div className="overflow-hidden" style={{ width: frame.width * scale, height: height * scale }}>
+      <iframe
+        ref={page}
+        key={src}
+        name={name}
+        title={url}
+        src={src}
+        // Outside Interact it's as inert as a design's frame, so Tab on the canvas never goes into the page and leaves
+        // the canvas's keys behind.
+        inert={!interactive}
+        className={`${interactive ? "pointer-events-auto" : "pointer-events-none"} block origin-top-left border-0 bg-white`}
+        style={{ width: frame.width, height, transform: `scale(${scale})` }}
+      />
+    </div>
   )
 }
 

@@ -1,0 +1,19 @@
+{
+  "name": "@parity-app/page-runtime",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "What runs in the app's own page when Parity draws a route: its channel to Parity, the page's mode and height, and the extensions' page modules.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./protocol": "./src/protocol.ts"
+  },
+  "dependencies": {
+    "@parity-app/channel": "workspace:*",
+    "@parity-app/extension": "workspace:*"
+  },
+  "devDependencies": {
+    "happy-dom": "catalog:"
+  }
+}
