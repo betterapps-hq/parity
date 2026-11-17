@@ -167,6 +167,8 @@ export interface WindowModulesOptions {
   /** A line in the extension's log, marked as its window module's in this tab. */
   log(extension: string, level: "info" | "warning" | "error", text: string, stack?: string): void
   record?: RecordExtensionEvent
+  /** Records one of an extension's own telemetry events, as `parity.telemetry.record` asks. */
+  recordOwn?(extension: string, event: string, attributes: Readonly<Record<string, JsonValue>>): void
   /** Sends an error to Sentry, tagged with the extension, its half and the tab. */
   report?(error: Error, tags: { extension: string; extension_half: "window"; tab: string }): void
   /** A module was stopped in this tab after failing too often, or failing to activate, for the person to be told. */
@@ -201,6 +203,8 @@ export interface WindowModules {
   callFromNode(extension: string, method: string, args: JsonValue[]): Promise<JsonValue | undefined>
   /** Where each module is, by extension. */
   states(): Record<string, ModuleState>
+  /** Resolves once every activation started so far has settled, activated or not. */
+  activating(): Promise<void>
   /** The tab closed: deactivates every module. */
   dispose(): Promise<void>
 }
@@ -290,6 +294,8 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
   const now = options.now ?? (() => Date.now())
   const reported = options.reported ?? new Set<string>()
   const entries = new Map<string, Entry>()
+  /** Activations not yet settled, for `activating`. */
+  const inFlight = new Set<Promise<void>>()
   const commands = new Map<string, { entry: Entry; run: Run; handler: CommandHandler }>()
 
   /** A command registered by a module's current run while it's active, if one is. */
@@ -565,6 +571,9 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
           message instanceof Error
             ? options.log(extension.id, "error", message.message, message.stack)
             : options.log(extension.id, "error", message)
+      },
+      telemetry: {
+        record: (event, attributes) => options.recordOwn?.(extension.id, event, attributes)
       },
       host: hostLink(entry, run),
       extensions: { get: other }
@@ -907,10 +916,16 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
         const wanted = trigger !== undefined && !entry.stopped && !halfGone
 
         if (wanted && entry.state === "inactive") {
-          void activate(entry, trigger)
+          const started = activate(entry, trigger).finally(() => inFlight.delete(started))
+          inFlight.add(started)
         } else if (!wanted && entry.state !== "inactive" && trigger === undefined) {
           void deactivate(entry, "setting")
         }
+      }
+    },
+    async activating() {
+      while (inFlight.size > 0) {
+        await Promise.allSettled(inFlight)
       }
     },
     async run(command, target, call) {

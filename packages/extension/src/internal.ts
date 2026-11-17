@@ -12,7 +12,7 @@ import type {
   Selection,
   Settings
 } from "./api.ts"
-import type { Capability } from "./manifest.ts"
+import type { Capability, JsonValue } from "./manifest.ts"
 
 /*
  * @internal What only Parity's own extensions use (docs/proposals/extensions-in-the-window.md): a window module, which
@@ -171,7 +171,8 @@ export type LayerOptions =
       id: string
       space: "screen"
       order: "edge"
-      placement: "topLeft" | "topRight" | "bottomLeft" | "bottomRight" | "bottom"
+      /** A corner, along the bottom, or `fill`: the whole canvas area, as following's frame covers it. */
+      placement: "topLeft" | "topRight" | "bottomLeft" | "bottomRight" | "bottom" | "fill"
     }
 
 export interface BoxOptions {
@@ -488,4 +489,9 @@ export interface WindowParity {
   readonly agents: Agents
   readonly host: HostLink
   readonly extensions: WindowExtensions
+  /**
+   * The extension's own telemetry: events defined in `@parity-app/telemetry` for it, as the multiplayer extension's
+   * `room.*`. Core checks each against its schema; one that isn't defined is dropped.
+   */
+  readonly telemetry: { record(event: string, attributes: Readonly<Record<string, JsonValue>>): void }
 }

@@ -110,7 +110,12 @@ export const syncEvents = [
       sentBy,
       when: "The room goes away: the document stays open here, alone, and this copy writes files."
     }
-  )
+  ),
+  defineEvent("sync.diskIgnored", z.object({ path: z.string().describe("The project file, relative to its root") }), {
+    level: "info",
+    sentBy,
+    when: "A copy in a live room that doesn't write files ignores a file changed on its disk, once per file."
+  })
 ] as const
 
 export const agentsEvents = [

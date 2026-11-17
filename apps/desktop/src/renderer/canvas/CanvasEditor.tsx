@@ -8,6 +8,7 @@ import {
   zoomHeldFrom,
   zoomSettled
 } from "@parity-app/editor"
+import type { Gesture } from "@parity-app/extension/internal"
 import {
   containerEntries,
   noteEntries,
@@ -47,9 +48,9 @@ import { NoteUtil } from "./NoteUtil.tsx"
 import { sizeWhileShown } from "./overlay-canvas.ts"
 import { PageLinksUtil } from "./PageLinksUtil.tsx"
 import { placedBoards } from "./placed-boards.ts"
+import { tellGesture } from "./presence-gestures.ts"
 import { ReferenceUtil } from "./ReferenceUtil.tsx"
 import { recordRestedFar } from "./rested-far.ts"
-import { RoomCursor } from "./RoomCursor.tsx"
 import { routePageLinks } from "./route-pages.ts"
 import { startCanvasSurface } from "./surface/index.ts"
 import { TitleLayer } from "./title-layer.tsx"
@@ -86,12 +87,10 @@ export function canvasIdFor(key: string): CanvasId {
  * tldraw's own context menu acts on tldraw shapes (copy as SVG, paste); designs have their own menus instead. Design
  * titles draw in a layer of their own, above every board.
  */
-// Other people's cursors in a live room in development look like agents' (live-room.ts). Internal extensions' layers
-// under the designs draw in the background, behind every shape (window-canvas.tsx).
+// Internal extensions' layers under the designs draw in the background, behind every shape (window-canvas.tsx).
 const components: TLComponents = {
   ContextMenu: null,
   OnTheCanvas: TitleLayer,
-  CollaboratorCursor: RoomCursor,
   Background: CanvasBackground
 }
 
@@ -323,6 +322,30 @@ function sizeOverlays(editor: Editor): () => void {
   }
 }
 
+/**
+ * The boards tldraw is dragging, as a move tells them: each one's design, where it sits from the pointer, and its size
+ * on the page.
+ */
+function boardTargets(editor: Editor): Extract<Gesture, { kind: "move" }>["targets"] {
+  const pointer = editor.inputs.originPagePoint
+
+  return editor.getSelectedShapes().flatMap((board) => {
+    const bounds = editor.getShapePageBounds(board)
+
+    if (board.type !== "canvas-container" || !bounds) {
+      return []
+    }
+
+    return [
+      {
+        ref: { owner: "design" as const, type: "design", key: board.props.key },
+        offset: { x: bounds.x - pointer.x, y: bounds.y - pointer.y },
+        size: { width: bounds.w, height: bounds.h }
+      }
+    ]
+  })
+}
+
 export function CanvasEditor({
   onEditor,
   shown = true
@@ -331,7 +354,8 @@ export function CanvasEditor({
   /** The canvas's tab is the one showing. Hidden a while, its frames sleep; shown again, those near the view wake. */
   shown?: boolean
 }) {
-  const { id: tab, doc, selection, editor } = useProject()
+  const project = useProject()
+  const { id: tab, doc, selection, editor } = project
   const theme = useResolvedTheme()
 
   // tldraw draws its first frame in the app's theme, rather than in the light one it starts in until it's mounted. Its
@@ -485,7 +509,14 @@ export function CanvasEditor({
 
       // A board or note dragged by tldraw moves in one gesture, from its first move until tldraw stops translating.
       let translation:
-        | { gesture: string; began: number; moved: Set<string>; frames: () => number | undefined }
+        | {
+            gesture: string
+            began: number
+            moved: Set<string>
+            frames: () => number | undefined
+            /** The boards it moves, as `parity.presence` tells the drag, if it moves any (PAR-1268). */
+            told?: Extract<Gesture, { kind: "move" }>["targets"]
+          }
         | undefined
 
       const stopTranslation = react("translation ends", () => {
@@ -493,10 +524,15 @@ export function CanvasEditor({
           return
         }
 
-        const { gesture, began, moved, frames } = translation
+        const { gesture, began, moved, frames, told } = translation
         translation = undefined
         const result = doc.endGesture(gesture)
         const fps = frames()
+
+        // Told after its write, so another copy settles its preview on it.
+        if (told) {
+          tellGesture(project, { kind: "move", phase: "end", targets: told })
+        }
 
         const ended: GestureEnded = {
           kind: "move",
@@ -523,14 +559,22 @@ export function CanvasEditor({
 
         const translating = editor.isIn("select.translating")
 
-        if (translating) {
-          translation ??= {
+        if (translating && !translation) {
+          const told = boardTargets(editor)
+          translation = {
             gesture: doc.beginGesture(),
             began: performance.now(),
             moved: new Set(),
             frames: countFrames()
           }
 
+          if (told.length > 0) {
+            translation.told = told
+            tellGesture(project, { kind: "move", phase: "start", targets: told })
+          }
+        }
+
+        if (translating && translation) {
           if (next.type === "canvas-container" || next.type === "canvas-note" || next.type === "canvas-reference") {
             translation.moved.add(next.props.key)
           }
@@ -706,6 +750,10 @@ export function CanvasEditor({
 
         if (translation) {
           doc.endGesture(translation.gesture)
+
+          if (translation.told) {
+            tellGesture(project, { kind: "move", phase: "cancel", targets: translation.told })
+          }
         }
 
         translation = undefined
@@ -720,7 +768,7 @@ export function CanvasEditor({
         onEditor(undefined)
       }
     },
-    [tab, doc, selection, onEditor]
+    [project, tab, doc, selection, onEditor]
   )
 
   return (
