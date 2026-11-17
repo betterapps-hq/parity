@@ -1,7 +1,7 @@
 import { type Found, isPlaceable, type pixabay, type Searched } from "@parity-app/connectors"
 import type { Decorator } from "@storybook/react-vite"
 import { within } from "storybook/test"
-import { openProjects, ProjectStage } from "../stories/fixtures.tsx"
+import { openProject, ProjectStage } from "../stories/fixtures.tsx"
 import { answeringSearches } from "../stories/host.ts"
 import { storyResults } from "../stories/library-results.ts"
 import { openLibraryBrowser } from "./library-browser.ts"
@@ -27,7 +27,7 @@ export const taken = (): readonly Found[] => picked
 /** Opens the browser on a library, as the Media tab opens it on Pixabay, with the stories' answers unless `live`. */
 export function opening(library: typeof pixabay, search?: Searched, live = false) {
   return async () => {
-    await openProjects("example")
+    await openProject("example")
     picked = []
 
     if (!live) {

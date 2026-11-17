@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
-import { design, example, node, openProjects, ProjectStage, tooltip } from "../stories/fixtures.tsx"
+import { design, example, node, openProject, ProjectStage, tooltip } from "../stories/fixtures.tsx"
 import { panelLimits, setLayout } from "./layout.ts"
 import { LeftPanel } from "./LeftPanel.tsx"
 
@@ -24,25 +24,25 @@ type Story = StoryObj<typeof meta>
 /** Opens the example with the panel on one of its tabs. */
 function openOn(tab: string) {
   return async () => {
-    await openProjects("example")
+    await openProject("example")
     setLayout({ leftTab: tab })
   }
 }
 
 /** Opens the example with a layer deep inside the Plan card selected, so its rows nest and their names run long. */
 async function deepLayerSelected(): Promise<void> {
-  await openProjects("example")
+  await openProject("example")
   example().selection.set({ design: design("Plan card"), node: node("Plan card", "Feature 3 text") })
 }
 
 /** Every design's layers, components first, then screens. */
-export const Layers: Story = { loaders: [() => openProjects("example")] }
+export const Layers: Story = { loaders: [() => openProject("example")] }
 
 /** A design selected on the canvas: its row is highlighted and open to its layers. */
 export const DesignSelected: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       example().selection.set({ design: design("Pricing") })
     }
   ],
@@ -66,7 +66,7 @@ export const DesignSelected: Story = {
 export const Collapsed: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       setLayout({ left: false })
     }
   ]
@@ -76,7 +76,7 @@ export const Collapsed: Story = {
 export const CollapsedOnTokens: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       setLayout({ left: false, leftTab: "tokens" })
     }
   ]
@@ -96,7 +96,7 @@ export const TokensTab: Story = { loaders: [openOn("tokens")] }
 
 /** Pointing at a tab's icon names it in a tooltip. */
 export const TabTooltip: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async ({ canvasElement }) => {
     await userEvent.hover(within(canvasElement).getByRole("tab", { name: "Tokens" }))
     await waitFor(() => expect(tooltip()).toHaveTextContent("Tokens"))

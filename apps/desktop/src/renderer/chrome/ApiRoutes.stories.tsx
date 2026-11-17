@@ -4,7 +4,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
 import { routePageDesign, routeRef } from "../canvas/route-pages.ts"
-import { example, openProjects } from "../stories/fixtures.tsx"
+import { example, openProject } from "../stories/fixtures.tsx"
 import { answerNext } from "../stories/host.ts"
 
 /**
@@ -97,7 +97,7 @@ function apiRoutes(then?: () => Promise<void> | void): Story {
     loaders: [
       async () => {
         answerNext("project.open", async (_, real) => ({ ...(await real()), routes }))
-        await openProjects("example")
+        await openProject("example")
       }
     ],
     play: async () => {

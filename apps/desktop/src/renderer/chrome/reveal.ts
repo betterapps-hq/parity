@@ -5,7 +5,7 @@ import { routePageDesign, routePageGroup, routePageGroups } from "../canvas/rout
 import { findFrames, nodeBox } from "../frame.ts"
 import type { ProjectSession } from "../workspace.ts"
 
-/** A project's tab, whose id finds its routes' pages; a caller without one can't reveal a route. */
+/** A project's session, whose id finds its routes' pages; a caller without one can't reveal a route. */
 type Session = Pick<ProjectSession, "editor" | "selection" | "doc"> & { id?: string }
 
 /**

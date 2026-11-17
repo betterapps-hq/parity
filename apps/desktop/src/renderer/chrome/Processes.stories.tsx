@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import type { ProcessRole, ProjectProcess } from "../../shared/protocol.ts"
-import { openProjects, preferring } from "../stories/fixtures.tsx"
+import { openProject, preferring } from "../stories/fixtures.tsx"
 import { answering, roots, running } from "../stories/host.ts"
 import { AtBottom } from "./chrome-fixtures.tsx"
 import { StatusBar } from "./StatusBar.tsx"
@@ -27,7 +27,7 @@ const ago = (minutes: number) => Date.now() - minutes * 60_000
 
 /** Opens the example with the stats out of the way, then has the stand-in service run `processes` beside it. */
 async function runningWith(...processes: ProjectProcess[]): Promise<void> {
-  await openProjects("example")
+  await openProject("example")
   preferring({ performanceStats: false })
   running.processes.push(...processes)
 }

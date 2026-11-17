@@ -5,7 +5,7 @@ import type { ProjectSession } from "../workspace.ts"
 /**
  * Which slot's name a component design's Props should focus, so a layer's slot chip or a new slot lands there, and why
  * the last rename was refused. Both outlast the panel drawing again, as it does when the canvas's hover changes, and go
- * when the tab closes. A slot is known by its layout, since a rename changes its name.
+ * when the project closes. A slot is known by its layout, since a rename changes its name.
  */
 interface SlotFocus {
   design: string
@@ -17,7 +17,7 @@ interface SlotFocus {
 
 type Session = Pick<ProjectSession, "untilClosed">
 
-/** An open project's slot to focus, if any, dropped when its tab closes. */
+/** An open project's slot to focus, if any, dropped when its project closes. */
 export const slotFocusOf = projectPart((_session: Session) => createStore<SlotFocus | undefined>(() => undefined))
 
 /** Asks Props to focus the name of the slot that `node` is, forgetting any refusal. */

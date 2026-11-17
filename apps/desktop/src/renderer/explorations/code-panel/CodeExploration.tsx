@@ -3,7 +3,7 @@ import { type ReactNode, useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { AppWindow } from "../../App.tsx"
 import { ProjectContext } from "../../canvas/context.ts"
-import { useActiveTabId, useTabs } from "../../workspace.ts"
+import { useProject } from "../../workspace.ts"
 import { CodePanel } from "./CodePanel.tsx"
 import { InspectOverlay } from "./InspectOverlay.tsx"
 
@@ -12,8 +12,7 @@ import { InspectOverlay } from "./InspectOverlay.tsx"
  * either, so the panel sits beside the window and the overlay is put into the canvas area from outside.
  */
 export function CodeExploration() {
-  const active = useActiveTabId()
-  const session = useTabs().find((tab) => tab.id === active)?.session
+  const session = useProject()?.session
 
   return (
     <div className="flex h-screen bg-background text-foreground">

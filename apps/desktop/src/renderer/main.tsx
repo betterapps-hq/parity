@@ -7,7 +7,7 @@ import { startKeybindings } from "./chrome/keybindings.ts"
 import { openReport } from "./chrome/ReportProblemDialog.tsx"
 import { receiveTelemetry } from "./chrome/telemetry-setting.ts"
 import { installClassMerger } from "./class-merger.ts"
-import { setInterfaceTelemetry, watchTabs } from "./interface-events.ts"
+import { setInterfaceTelemetry } from "./interface-events.ts"
 import { watchLongTasks } from "./long-tasks.ts"
 import { preloadOpenProject } from "./ProjectView.tsx"
 import { replaySampling } from "./replay.ts"
@@ -16,7 +16,6 @@ import { watchExtensionSettings } from "./settings-project.ts"
 import { caughtEventId, reactErrorHandlers, startTelemetry } from "./telemetry.ts"
 import { startTheme } from "./theme.ts"
 import { currentTraceHeaders, traceWith } from "./tracing.ts"
-import { workspace } from "./workspace.ts"
 import "tldraw/tldraw.css"
 import "./styles.css"
 
@@ -33,7 +32,7 @@ window.parityTelemetry?.traceFrom(currentTraceHeaders)
 
 watchLongTasks(telemetry)
 
-// Tabs, panels, dialogs, modes, settings and the start page record what's done with them (PAR-634).
+// Panels, dialogs, modes, settings and the start page record what's done with them (PAR-634).
 setInterfaceTelemetry(telemetry)
 
 setWindowTelemetry(telemetry)
@@ -43,11 +42,6 @@ setWindowTelemetry(telemetry)
 setBoundaryReporter((error, { label }) => {
   const eventId = caughtEventId(error)
   void openReport(eventId ? { eventId, label } : {})
-})
-
-watchTabs({
-  subscribe: workspace.subscribe,
-  view: () => ({ tabs: workspace.getTabs(), active: workspace.isHomeActive() ? undefined : workspace.getActiveId() })
 })
 
 void window.canvasHost.telemetry.get().then(receiveTelemetry, () => undefined)

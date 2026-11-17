@@ -257,7 +257,7 @@ export const AddingAViewportSize: Story = {
 
 /** The active project's document, for a project other than the example. */
 function activeDoc() {
-  const session = workspace.getActive()?.session
+  const session = workspace.getProject()?.session
 
   if (!session) {
     throw new Error("No project is open")

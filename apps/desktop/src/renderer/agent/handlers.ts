@@ -22,7 +22,7 @@ import { reportIds } from "../replay.ts"
 import { track } from "../report-error.ts"
 import { notify } from "../toasts.tsx"
 import { runWindowCommand, windowModulesFor } from "../window-modules.ts"
-import { type ProjectSession, type Tab, workspace } from "../workspace.ts"
+import { type Project, type ProjectSession, workspace } from "../workspace.ts"
 import { presence } from "./presence.ts"
 
 /**
@@ -87,11 +87,20 @@ const handlers: Handlers = {
     return copy
   },
   "agent.open": async ({ root }) => {
-    const tab = await workspace.open(root)
-    // A project already open is detected again when what detection reads changed since (PAR-820).
-    await workspace.detectAgain(tab.id)
+    const before = workspace.getProject()
+    const project = await workspace.open(root)
 
-    return summary(tab)
+    // It opens in place of the window's project, which the person was asked to save first, and chose to keep.
+    if (!project) {
+      throw new CodedError(`${before?.title ?? "The open project"} has unsaved changes, and the person kept it open`, {
+        code: "app_error"
+      })
+    }
+
+    // A project already open is detected again when what detection reads changed since (PAR-820).
+    await workspace.detectAgain(project.id)
+
+    return workspace.summary(workspace.getProject() ?? project)
   },
   "agent.snapshot": ({ tab }) => snapshot(tab),
   "agent.status": ({ tab: reference, ...options }) => {
@@ -109,21 +118,19 @@ const handlers: Handlers = {
     return undefined
   },
   "project.componentsChanged": ({ projectId, components, sources, leftOut }) => {
-    const tab = workspace.getTabs().find((candidate) => candidate.session?.id === projectId)
+    const session = sessionOf(projectId)
 
-    if (sources && tab) {
-      workspace.setSources(tab.id, sources, leftOut)
+    if (sources && session) {
+      workspace.setSources(session.id, sources, leftOut)
     }
 
-    tab?.session?.components.set(components)
+    session?.components.set(components)
 
     return undefined
   },
   "project.codeChanged": ({ projectId, paths, stamp }) => {
-    const tab = workspace.getTabs().find((candidate) => candidate.session?.id === projectId)
-
-    if (tab) {
-      workspace.codeChanged(tab.id, paths, stamp)
+    if (sessionOf(projectId)) {
+      workspace.codeChanged(projectId, paths, stamp)
     }
 
     return undefined
@@ -283,41 +290,32 @@ async function answer(method: WindowMethod, params: unknown): Promise<WindowResu
   return handler(params as WindowParams)
 }
 
-/** A tab by id, root or name, as the CLI matches one when it routes a call; the active tab when none is given. */
-function findTab(reference: string | undefined): Tab {
-  // New tabs have no project yet, and Home isn't a tab, so neither is a tab here.
-  const tabs = workspace.getTabs().filter((candidate) => !candidate.blank)
+/**
+ * The window's project, as the one tab agents can name: by id, root or name, as the CLI matches one when it routes a
+ * call, or `active`, or none.
+ */
+function findTab(reference: string | undefined): Project {
+  const project = workspace.getProject()
   const named = reference && reference !== activeTab ? reference : undefined
-  const ids = tabs.map((candidate) => candidate.id)
 
-  if (named) {
-    const found = matchTab(workspace.summaries(), named)
-    const tab = found && tabs.find((candidate) => candidate.id === found.id)
-
-    if (tab) {
-      return tab
-    }
-
-    throw unknownReference("unknown_tab", `No open tab matches "${named}". Tabs: ${ids.join(", ")}`, named, ids, "tab")
-  }
-
-  const active = workspace.getActive()
-
-  if (active && !active.blank) {
-    return active
-  }
-
-  if (ids.length === 0) {
+  if (!project) {
     throw new CodedError("No project is open", { code: "unknown_tab", field: "tab" })
   }
 
-  throw new CodedError(`No project tab is active. Set tab to one of the open tabs: ${ids.join(", ")}`, {
-    code: "unknown_tab",
-    field: "tab"
-  })
+  if (named && !matchTab(workspace.summaries(), named)) {
+    throw unknownReference(
+      "unknown_tab",
+      `No open tab matches "${named}". Tabs: ${project.id}`,
+      named,
+      [project.id],
+      "tab"
+    )
+  }
+
+  return project
 }
 
-function ready(tab: Tab): ProjectSession {
+function ready(tab: Project): ProjectSession {
   if (!tab.session) {
     const broken = tab.status === "error"
     throw new CodedError(`${tab.title} is ${broken ? `broken: ${tab.message}` : "still opening"}`, {
@@ -329,8 +327,8 @@ function ready(tab: Tab): ProjectSession {
   return tab.session
 }
 
-function summary(tab: Tab): TabSummary {
-  return workspace.summaries().find((candidate) => candidate.id === tab.id)!
+function summary(tab: Project): TabSummary {
+  return workspace.summary(tab)
 }
 
 function snapshot(reference: string | undefined): TabSnapshot {
@@ -448,7 +446,9 @@ async function apply(changes: AgentChanges): Promise<ChangeConflict[]> {
     .conflicts
 }
 
-/** The open project's session, in whichever tab has it. */
+/** The window's project's session, when it's this project. */
 function sessionOf(projectId: string): ProjectSession | undefined {
-  return workspace.getTabs().find((tab) => tab.session?.id === projectId)?.session
+  const session = workspace.getProject()?.session
+
+  return session?.id === projectId ? session : undefined
 }

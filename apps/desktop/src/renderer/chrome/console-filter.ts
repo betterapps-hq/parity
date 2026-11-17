@@ -18,7 +18,7 @@ export interface Filter {
   query: string
 }
 
-/** One open project's console filter, so each tab keeps its own. */
+/** One open project's console filter, kept with its session. */
 class ConsoleFilter {
   private readonly filter = createStore<Filter>(() => ({ levels: allLevels, query: "" }))
   private focusCount = 0
@@ -40,7 +40,7 @@ class ConsoleFilter {
   }
 }
 
-/** An open project's console filter, made the first time it's asked for and dropped when its tab closes. */
+/** An open project's console filter, made the first time it's asked for and dropped when its project closes. */
 export const consoleFilterOf = projectPart((_session: Pick<ProjectSession, "untilClosed">) => new ConsoleFilter())
 
 export function useConsoleFilter(session: Pick<ProjectSession, "untilClosed">): Filter {

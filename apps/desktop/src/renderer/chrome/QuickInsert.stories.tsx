@@ -10,7 +10,7 @@ import {
   frameDesigns,
   holdToast,
   node,
-  openProjects,
+  openProject,
   typeInto
 } from "../stories/fixtures.tsx"
 import { answerPreviews } from "../stories/previews.ts"
@@ -37,7 +37,7 @@ const body = () => within(document.body)
 
 /** The example with Pricing's hero layout selected, where an insert would go. */
 const heroSelected = async () => {
-  await openProjects("example")
+  await openProject("example")
   example().selection.set(layersSelection(design("Pricing"), [node("Pricing", "Hero")]))
 }
 
@@ -121,7 +121,7 @@ export const NoResults: Story = {
  * holding it, is made in the middle of the view and selected (PAR-546).
  */
 export const NothingSelected: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async () => {
     await openWith("badge")()
     await userEvent.keyboard("{Enter}")
@@ -142,7 +142,7 @@ export const NothingSelected: Story = {
 export const NowhereToInsertInto: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       const card = design("Plan card")
       updateContainer(example().doc, card, "Make the root a card", (container) => ({
         ...container,

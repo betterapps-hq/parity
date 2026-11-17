@@ -7,7 +7,7 @@ import {
   failingToDraw,
   keepingLinks,
   makingPreviews,
-  openProjects,
+  openProject,
   ProjectStage
 } from "../stories/fixtures.tsx"
 import { answerNext, service } from "../stories/host.ts"
@@ -51,7 +51,7 @@ const forever = 24 * 60 * 60 * 1000
 
 /** Opens the example on the Components tab. */
 async function openComponents(): Promise<void> {
-  await openProjects("example")
+  await openProject("example")
   setLayout({ leftTab: "components" })
 }
 
@@ -560,7 +560,7 @@ export const BlankProject: Story = {
   parameters: { blank: true },
   loaders: [
     async () => {
-      await openProjects("empty")
+      await openProject("empty")
       setLayout({ leftTab: "components" })
     }
   ]

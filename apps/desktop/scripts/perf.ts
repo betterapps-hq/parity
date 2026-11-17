@@ -28,7 +28,7 @@ import { print } from "../../../scripts/output.ts"
 import type { ProjectSession, Workspace } from "../src/renderer/workspace.ts"
 import { type ReactBuild, reactBuild } from "./react-build.ts"
 
-/** What the page holds for these measurements: the open tab's session. */
+/** What the page holds for these measurements: the open project's session. */
 interface PerfWindow {
   perfSession: ProjectSession
   /** The layer a zoom over a layer outlines, and where the pointer rests on it (see `pointAtLayer`). */
@@ -63,7 +63,6 @@ const keep = args.includes("--keep")
 const openOnly = args.includes("--open-only")
 const profiling = args.includes("--profile")
 const soakMinutes = option("soak") === undefined ? undefined : Number(option("soak"))
-const second = resolve(option("second") ?? join(repoDir, "fixtures/vite7-js"))
 
 // The production build unless asked otherwise, so runs compare with those since PAR-519.
 const react = option("react") === undefined ? "production" : reactBuild(option("react"))
@@ -142,26 +141,6 @@ interface Measured {
   memoryMb: Record<string, number>
   /** With `--soak`: what the window held after each round of work, after collecting garbage. */
   soak?: Soaked[]
-  /** What the tab still holds while another is showing, and how long switching back takes to draw it. */
-  hidden?: {
-    nodesShown: number
-    nodesHidden: number
-    heapShownMb: number
-    heapHiddenMb: number
-    /** Switching back, until every frame shows its design, or its bitmap while asleep. */
-    backMs: number
-    /** Switching back, until the last frame near the view woke; missing from runs made before frames slept there. */
-    backWokenMs?: number
-    /** Frames drawing their design once those near the view woke. */
-    backAwake?: number
-    /** The longest frame while switching back, until the frames near the view woke. */
-    backLongestMs: number
-    /** Boards whose size differs from before the switch, once their frames have drawn and a few seconds later. */
-    resizedDrawn: number
-    resizedLater: number
-    /** The boards counted in resizedLater, as `key: before → after`. */
-    resized?: string[]
-  }
 }
 
 /** The window after a round of `--soak`, at a minute into it. */
@@ -213,7 +192,7 @@ try {
 
   if (!only && soakMinutes === undefined) {
     open.reopen = await opened(page, project)
-    // Started again on the same profile, it restores the tab and finds the bitmaps it kept.
+    // Started again on the same profile, it restores the project and finds the bitmaps it kept.
     print("Starting the copy again on the same profile")
     await quit(page, runner)
     runner = launch()
@@ -278,8 +257,8 @@ function launch(): ChildProcess {
 }
 
 /**
- * Closes the copy's window as someone would, so it saves its tabs, and waits for the app to end; one that hasn't ended
- * after 20 seconds is stopped.
+ * Closes the copy's window as someone would, so it saves its project, and waits for the app to end; one that hasn't
+ * ended after 20 seconds is stopped.
  */
 async function quit(page: Page, child: ChildProcess): Promise<void> {
   const ended = new Promise((resolve) => child.once("exit", resolve))
@@ -392,11 +371,11 @@ async function measure(page: Page): Promise<Partial<Measured>> {
   })
 
   // The app's own module instance, as Vite serves it to the page. Sessions are replaced as they change (the editor
-  // mounting, the type checker's results), so the open tab's is looked up each time.
+  // mounting, the type checker's results), so the open project's is looked up each time.
   await page.evaluate(async (url) => {
     // SAFETY: the URL is the app's own workspace.ts, as Vite serves it, which exports `workspace`.
     const { workspace } = (await import(url)) as { workspace: Workspace }
-    Object.defineProperty(window, "perfSession", { get: () => workspace.getActive()?.session })
+    Object.defineProperty(window, "perfSession", { get: () => workspace.getProject()?.session })
   }, "/workspace.ts")
 
   if (css) {
@@ -481,14 +460,6 @@ async function measure(page: Page): Promise<Partial<Measured>> {
   const select = await timeChanges(page, cdp, "select")
   const edit = await timeChanges(page, cdp, "edit")
   const memoryMb = await memory(page, cdp)
-
-  // Last, since it opens another project in a second tab.
-  const hidden = await hiddenTab(page, cdp, census.frames!).catch((cause: unknown) => {
-    console.error("The hidden tab wasn't measured:", cause)
-
-    return undefined
-  })
-
   await cdp.detach()
 
   return {
@@ -496,16 +467,15 @@ async function measure(page: Page): Promise<Partial<Measured>> {
     runs,
     select,
     edit,
-    memoryMb,
-    hidden
+    memoryMb
   }
 }
 
 /**
  * Times opening the project: until every frame on the canvas shows its design, its bitmap or its placeholder (a frame
  * asleep, or waiting for its bitmap without drawing, shows one of the last two), then until every frame shows its
- * bitmap. Given a project, it closes every tab and opens that project again in this window, timed from the open;
- * otherwise it times the page's own load, from when it started, with the tabs it restores.
+ * bitmap. Given a project, it closes the open one and opens that project again in this window, timed from the open;
+ * otherwise it times the page's own load, from when it started, with the project it restores.
  */
 async function opened(page: Page, reopen?: string): Promise<Opening> {
   const opening = await page.evaluate(
@@ -518,9 +488,7 @@ async function opened(page: Page, reopen?: string): Promise<Opening> {
         // SAFETY: the URL is the app's own workspace.ts, as Vite serves it, which exports `workspace`.
         const { workspace } = (await import(url)) as { workspace: Workspace }
 
-        for (const tab of workspace.getTabs()) {
-          await workspace.close(tab.id)
-        }
+        await workspace.close()
 
         while (frames().length > 0) {
           await frame()
@@ -990,144 +958,6 @@ async function timeChanges(page: Page, cdp: CDPSession, change: "select" | "edit
 }
 
 /**
- * Opens a second project so this one's tab is hidden, and counts what the hidden tab still holds after collecting
- * garbage; then switches back and times how long until every frame has drawn its design again, and checks that the
- * boards kept their sizes.
- */
-async function hiddenTab(page: Page, cdp: CDPSession, frames: number): Promise<Measured["hidden"]> {
-  // Zoomed out, frames already sleep, and hiding the tab would free nothing more.
-  await visitEveryBoard(page)
-  const shown = await counts(cdp)
-
-  // Keyed by design, since the shapes' ids aren't kept across sessions.
-  const boards = () =>
-    page.evaluate(() => {
-      // SAFETY: connect() defines perfSession on the window before anything here runs in it.
-      const editor = (window as typeof window & PerfWindow).perfSession.editor!
-
-      return Object.fromEntries(
-        editor.getCurrentPageShapes().flatMap((item) => {
-          const box = editor.getShapePageBounds(item)!
-
-          return "key" in item.props ? [[item.props.key, `${Math.round(box.w)}×${Math.round(box.h)}`]] : []
-        })
-      )
-    })
-
-  const changed = (before: Record<string, string>, after: Record<string, string>) =>
-    Object.keys(before)
-      .filter((key) => before[key] !== after[key])
-      .map((key) => `${key}: ${before[key]} → ${after[key] ?? "gone"}`)
-
-  // The runs before this one may leave boards still settling, so the sizes to keep are the ones that hold still.
-  let sizes = await boards()
-
-  for (let tries = 0; tries < 20; tries++) {
-    await page.waitForTimeout(500)
-    const now = await boards()
-
-    if (changed(sizes, now).length === 0) {
-      break
-    }
-
-    sizes = now
-  }
-
-  const resized = async () => changed(sizes, await boards())
-
-  const first = await page.evaluate(
-    async ([url, root]) => {
-      // SAFETY: the URL is the app's own workspace.ts, as Vite serves it, which exports `workspace`.
-      const { workspace } = (await import(url)) as { workspace: Workspace }
-      const first = workspace.getActive()!.id
-      const tab = await workspace.open(root)
-
-      if (tab.status !== "ready") {
-        throw new Error(`${root} didn't open: ${tab.message ?? tab.status}`)
-      }
-
-      return first
-    },
-    ["/workspace.ts", second] as const
-  )
-
-  await page.waitForTimeout(5000)
-  const hidden = await counts(cdp)
-
-  const back = await page.evaluate(
-    async ([url, id, frames]) => {
-      // SAFETY: the URL is the app's own workspace.ts, as Vite serves it, which exports `workspace`.
-      const { workspace } = (await import(url)) as { workspace: Workspace }
-      const frame = () => new Promise((resolve) => requestAnimationFrame(resolve))
-      const hosts = () => [...document.querySelectorAll("[data-frame]")].filter((host) => !host.closest("[hidden]"))
-      const awake = () => hosts().filter((host) => host.shadowRoot?.querySelector("[data-canvas-node]")).length
-
-      // A frame shows its design, or, asleep, its bitmap: frames away from the view stay asleep (PAR-153).
-      const shown = () =>
-        hosts().filter(
-          (host) =>
-            host.shadowRoot?.querySelector("[data-canvas-node]") ||
-            host.closest("[data-asleep]")?.hasAttribute("data-bitmap")
-        ).length
-
-      const started = performance.now()
-      let last = started
-      let longest = 0
-      let shownMs: number | undefined
-      // Done once every frame shows something and no frame has woken for half a second.
-      let woken = { count: -1, at: started }
-      workspace.activate(id)
-
-      while (performance.now() - started < 10_000) {
-        await frame()
-        const now = performance.now()
-        longest = Math.max(longest, now - last)
-        last = now
-
-        if (shownMs === undefined && shown() >= frames) {
-          shownMs = now - started
-        }
-
-        const count = awake()
-
-        if (count !== woken.count) {
-          woken = { count, at: now }
-        }
-
-        if (shownMs !== undefined && now - woken.at >= 500) {
-          break
-        }
-      }
-
-      await frame()
-      await frame()
-
-      return { ms: shownMs ?? performance.now() - started, wokenMs: woken.at - started, awake: woken.count, longest }
-    },
-    ["/workspace.ts", first, frames] as const
-  )
-
-  const resizedDrawn = await resized()
-  await page.waitForTimeout(3000)
-  const resizedLater = await resized()
-  await page.screenshot({ path: join(outDir, `${label}-back.png`) })
-
-  return {
-    nodesShown: shown.nodes,
-    nodesHidden: hidden.nodes,
-    heapShownMb: shown.heapMb,
-    heapHiddenMb: hidden.heapMb,
-    backMs: round(back.ms),
-    backWokenMs: round(back.wokenMs),
-    backAwake: back.awake,
-    backLongestMs: round(back.longest),
-    resizedDrawn: resizedDrawn.length,
-    resizedLater: resizedLater.length,
-    resized: resizedLater
-  }
-}
-
-/**
  * Brings each board into view in turn at 100%, so its frames wake, as after working across the project, and those left
  * behind go back to sleep; then the camera rests on the first.
  */
@@ -1426,28 +1256,6 @@ function report(result: Result, previous: Result | undefined): void {
     print(`  max ms            ${column(now.maxMs, before?.maxMs)}`)
     print(`  main ms each      ${column(now.mainMsPerSelect, before?.mainMsPerSelect)}`)
     printHot(now.hot)
-  }
-
-  if (result.hidden) {
-    const before = previous?.hidden
-    print(`\nwith another tab showing`)
-    print(`  nodes shown       ${column(result.hidden.nodesShown, before?.nodesShown)}`)
-    print(`  nodes hidden      ${column(result.hidden.nodesHidden, before?.nodesHidden)}`)
-    print(`  heap shown MB     ${column(result.hidden.heapShownMb, before?.heapShownMb)}`)
-    print(`  heap hidden MB    ${column(result.hidden.heapHiddenMb, before?.heapHiddenMb)}`)
-    print(`  back shown ms     ${column(result.hidden.backMs, before?.backMs)}`)
-
-    if (result.hidden.backWokenMs !== undefined) {
-      print(`  back woken ms     ${column(result.hidden.backWokenMs, before?.backWokenMs)}`)
-      print(`  frames awake      ${column(result.hidden.backAwake ?? 0, before?.backAwake)}`)
-    }
-
-    print(`  back longest ms   ${column(result.hidden.backLongestMs, before?.backLongestMs)}`)
-    print(`  boards resized    ${result.hidden.resizedDrawn} once drawn, ${result.hidden.resizedLater} after 3 s`)
-
-    for (const board of result.hidden.resized?.slice(0, 10) ?? []) {
-      print(`    ${board}`)
-    }
   }
 
   if (result.soak?.length) {

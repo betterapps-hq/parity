@@ -23,7 +23,7 @@ import { useId, useState } from "react"
 import type { ProblemReportRequest } from "../../shared/protocol.ts"
 import { reportIds } from "../replay.ts"
 import { useStore, windowStore } from "../store.ts"
-import { useTabs } from "../workspace.ts"
+import { useProject } from "../workspace.ts"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
 import { crashTime, lowerFirst } from "./report-time.ts"
 
@@ -262,9 +262,8 @@ export function ReportProblemDialog() {
   const open = useOpenDialog() === "report"
   const { screenshot: screenshotUrl, crash, crashTime: crashIso, eventId, caught } = useOpened()
 
-  const projects = useTabs()
-    .filter((tab) => !tab.blank && tab.status !== "error")
-    .map((tab) => tab.title)
+  const project = useProject()
+  const projects = project && project.status !== "error" ? [project.title] : []
 
   const [state, setState] = useState<ReportPhase>({ phase: "editing" })
   const [description, setDescription] = useState("")

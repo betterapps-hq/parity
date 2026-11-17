@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { openProjects } from "../stories/fixtures.tsx"
+import { openProject } from "../stories/fixtures.tsx"
 import { HomePrototype } from "./home/prototype.tsx"
 
 /**
@@ -27,7 +27,7 @@ const meta = {
   title: "Parity/Explorations/Start page/Organizations",
   parameters: { layout: "fullscreen" },
   // No project tabs, so the title bar has Home and whatever the story opens.
-  loaders: [() => openProjects()]
+  loaders: [() => openProject()]
 } satisfies Meta
 
 export default meta

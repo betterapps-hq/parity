@@ -14,7 +14,7 @@ import {
   Spinner
 } from "@buildkitgg/shadcn"
 import { ChevronDown, ChevronsUpDown, FileInput, FolderOpen, Plus, Search } from "lucide-react"
-import { type ReactNode, useEffect, useRef, useState } from "react"
+import { type ReactNode, useState } from "react"
 import { accountActions, useAccount } from "../account/account.ts"
 import { currentOrganization, knownOrganizations, OrganizationBadge } from "../account/OrganizationBadge.tsx"
 import { NobodyAvatar } from "../account/PersonAvatar.tsx"
@@ -22,32 +22,18 @@ import { shortcutOf } from "../chrome/keymap.ts"
 import { AzureDevOpsMark, GitHubMark } from "./marks.tsx"
 import { newProjectNotReady, notReady, useStartActions } from "./start-actions.ts"
 
-/**
- * Looks like a field and opens search, which finds your projects and every action. `takeFocus` gives it the keyboard
- * when it shows, as a new tab does, so Enter or Space searches at once.
- */
-export function SearchButton({ large, takeFocus = false }: { large?: boolean; takeFocus?: boolean }) {
+/** Looks like a field and opens search, which finds your projects and every action. */
+export function SearchButton() {
   const actions = useStartActions()
-  const button = useRef<HTMLButtonElement>(null)
-  useEffect(() => {
-    if (takeFocus) {
-      button.current?.focus({ preventScroll: true })
-    }
-  }, [takeFocus])
 
   return (
     <button
-      ref={button}
       type="button"
       onClick={actions.search}
-      className={`flex items-center gap-2.5 border bg-card/60 text-left text-muted-foreground outline-none hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring ${
-        large
-          ? "h-12 w-full rounded-xl px-4 text-base shadow-[0_8px_30px_-12px_rgb(0_0_0/0.35)]"
-          : "h-8 w-[280px] max-w-full min-w-0 shrink rounded-lg px-3 text-sm max-sm:w-full"
-      }`}
+      className="flex h-8 w-[280px] max-w-full min-w-0 shrink items-center gap-2.5 rounded-lg border bg-card/60 px-3 text-left text-sm text-muted-foreground outline-none hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring max-sm:w-full"
     >
-      <Search className={large ? "size-[18px]" : "size-4"} />
-      <span className="flex-1 truncate">{large ? "Search projects and actions" : "Search"}</span>
+      <Search className="size-4" />
+      <span className="flex-1 truncate">Search</span>
       <Kbd>{shortcutOf("actions")}</Kbd>
     </button>
   )

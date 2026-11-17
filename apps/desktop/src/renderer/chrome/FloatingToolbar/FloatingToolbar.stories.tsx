@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../../App.tsx"
 import type { Tool } from "../../selection.ts"
-import { clearNotifications, example, frameDesigns, openProjects, tooltip } from "../../stories/fixtures.tsx"
+import { clearNotifications, example, frameDesigns, openProject, tooltip } from "../../stories/fixtures.tsx"
 import { Window } from "../chrome-fixtures.tsx"
 import { FloatingToolbar } from "./FloatingToolbar.tsx"
 
@@ -29,13 +29,13 @@ const body = () => within(document.body)
 
 /** Opens the example with a tool picked, as its shortcut would. */
 const withTool = (tool: Tool) => async () => {
-  await openProjects("example")
+  await openProject("example")
   example().selection.setTool(tool)
 }
 
 /** Opens the example with a review tool picked, as its menu would. */
 const reviewing = (tool: ReviewTool) => async () => {
-  await openProjects("example")
+  await openProject("example")
   example().selection.startReviewing(tool)
 }
 
