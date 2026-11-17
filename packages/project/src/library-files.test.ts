@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs"
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
@@ -33,7 +34,8 @@ async function write(path: string, content: JsonValue) {
 const component = (fields: Record<string, JsonValue> = {}) => ({ as: "function", ...fields })
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), "canvas-library-files-"))
+  // Resolved as the reader resolves links: macOS's temp folder is a link, and Windows' can be a short name (`RUNNER~1`).
+  root = realpathSync.native(await mkdtemp(join(tmpdir(), "canvas-library-files-")))
 })
 
 afterEach(async () => {
