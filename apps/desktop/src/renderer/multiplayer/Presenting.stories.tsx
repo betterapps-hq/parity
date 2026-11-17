@@ -4,7 +4,7 @@ import { scrolls } from "../stories/canvas-kit.tsx"
 import { CanvasBoard } from "../stories/CanvasBoard.tsx"
 import { DashboardDesign } from "../stories/DashboardDesign.tsx"
 import { Themes } from "../stories/Themes.tsx"
-import { members, presences } from "./story-kit.tsx"
+import { members, presences, TopRight } from "./story-kit.tsx"
 
 /**
  * Presenting: someone asks everyone to follow them for a walkthrough, from their own card at the end of the stack.
@@ -34,9 +34,9 @@ export const AskedToFollow: Story = {
           </CanvasBoard>
           <RemotePointer member={members.mia} at={{ x: 236, y: 170 }} />
           <PresentInvite presenter={members.mia} />
-          <div className="absolute top-3 right-3 @max-[700px]:top-15">
+          <TopRight>
             <FaceStack here={[mia, priya, sam]} you={members.you} />
-          </div>
+          </TopRight>
         </>
       )}
     </Themes>
@@ -53,9 +53,9 @@ export const YourSide: Story = {
             <DashboardDesign />
           </CanvasBoard>
           <PresentingBar presenter={members.mia} followers={[members.jonas, members.priya, members.sam]} />
-          <div className="absolute top-3 right-3 @max-[700px]:top-15">
+          <TopRight>
             <FaceStack here={[jonas, priya, sam]} you={members.mia} />
-          </div>
+          </TopRight>
         </>
       )}
     </Themes>

@@ -1,4 +1,3 @@
-import { Separator } from "@buildkitgg/shadcn"
 import type { ReactNode } from "react"
 
 /*
@@ -9,16 +8,6 @@ import type { ReactNode } from "react"
 /** A bar floating over the canvas. */
 export const floatingBar =
   "rounded-xl border bg-(--floating-bar) p-1 text-popover-foreground shadow-lg [--muted:var(--floating-bar-muted)] [--secondary:var(--floating-bar-secondary)]"
-
-/** An etched line between a bar's groups. */
-export function BarDivider() {
-  return (
-    <Separator
-      orientation="vertical"
-      className="-my-1 mx-1.5 border-x border-l-(--floating-bar-groove) border-r-(--floating-bar-highlight) bg-transparent data-vertical:w-0"
-    />
-  )
-}
 
 /** A group's label in a list, in gray, as the app's panels label theirs. */
 export function GroupLabel({ children, className = "" }: { children: ReactNode; className?: string }) {

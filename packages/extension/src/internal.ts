@@ -171,7 +171,10 @@ export type LayerOptions =
       id: string
       space: "screen"
       order: "edge"
-      /** A corner, along the bottom, or `fill`: the whole canvas area, as following's frame covers it. */
+      /**
+       * A corner, along the bottom, or `fill`: the whole canvas area, as following's frame covers it. `topRight` is on the
+       * zoom controls' row, just left of them, at their height, and below them on a canvas narrower than 676px.
+       */
       placement: "topLeft" | "topRight" | "bottomLeft" | "bottomRight" | "bottom" | "fill"
     }
 

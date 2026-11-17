@@ -11,9 +11,9 @@ import { ErrorBoundary } from "../chrome/ErrorBoundary.tsx"
 import { FloatingToolbar } from "../chrome/FloatingToolbar/FloatingToolbar.tsx"
 import { setLayout, useLayout } from "../chrome/layout.ts"
 import { revealOnceShown } from "../chrome/reveal.ts"
-import { ZoomControls } from "../chrome/ZoomControls.tsx"
+import { CanvasTopRight, ZoomControls } from "../chrome/ZoomControls.tsx"
 import { useTool } from "../selection.ts"
-import { CanvasShown, WindowLayers } from "../window-canvas.tsx"
+import { CanvasShown, WindowLayers, WindowLayersBesideZoom } from "../window-canvas.tsx"
 import { workspace } from "../workspace.ts"
 import { lensOf, onLensRequest } from "./lens-requests.ts"
 import { useLensWorkspace } from "./shell.ts"
@@ -195,11 +195,11 @@ function CanvasArea({
   // Isolated, so the canvas's floating controls and overlays, high up within it, stay below menus and dialogs. It sits
   // above the panels beside it, so a floating bar wider than a narrow canvas lies over them rather than under them
   // (PAR-893); its overlays clip to it, so only the bars reach out. The panels' resize edges, z-10, stay above it. A
-  // right-click on it opens the canvas's menu.
+  // right-click on it opens the canvas's menu. It's a container, so the bars and banners on it can follow its width.
   return (
     <CanvasMenu>
       <div
-        className={`canvas-area relative isolate z-[5] min-w-0 flex-1 ${tool === "text" ? "cursor-text" : ""} ${tool === "frame" ? "cursor-crosshair" : ""}`}
+        className={`canvas-area @container relative isolate z-[5] min-w-0 flex-1 ${tool === "text" ? "cursor-text" : ""} ${tool === "frame" ? "cursor-crosshair" : ""}`}
         data-tool={tool}
         // Dockview moves a lens's canvas without resizing it, as when tabs or a split appear, and tldraw keeps where the
         // canvas was until it next measures; it's told where it is before it takes a press or the pointer.
@@ -232,9 +232,12 @@ function CanvasArea({
                   <FloatingToolbar />
                 </ErrorBoundary>
               )}
-              <ErrorBoundary name="canvas.view-controls" label="Zoom" kind="silent">
-                <ZoomControls />
-              </ErrorBoundary>
+              <CanvasTopRight>
+                <WindowLayersBesideZoom />
+                <ErrorBoundary name="canvas.view-controls" label="Zoom" kind="silent">
+                  <ZoomControls />
+                </ErrorBoundary>
+              </CanvasTopRight>
             </>
           )}
         </CanvasShown>

@@ -8,7 +8,7 @@ import { CanvasPane } from "../stories/CanvasPane.tsx"
 import { DashboardDesign } from "../stories/DashboardDesign.tsx"
 import { Themes } from "../stories/Themes.tsx"
 import { useResolvedTheme } from "../theme.ts"
-import { members, presences } from "./story-kit.tsx"
+import { members, presences, TopRight } from "./story-kit.tsx"
 
 /**
  * Someone's card, opened from their face in the avatar stack: their name over a wash of their color, and buttons to
@@ -76,9 +76,9 @@ function FromAFaceStory() {
         <CanvasBoard name="Dashboard" x={40} y={44}>
           <DashboardDesign />
         </CanvasBoard>
-        <div className="absolute top-3 right-3">
+        <TopRight>
           <FaceStack here={[mia, jonas, priya, claude]} following={members.jonas} you={members.you} />
-        </div>
+        </TopRight>
       </CanvasPane>
     </div>
   )

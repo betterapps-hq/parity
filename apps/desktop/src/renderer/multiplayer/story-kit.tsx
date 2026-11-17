@@ -1,5 +1,7 @@
 import { agentPalette, palette } from "@parity-app/presence-colors"
 import type { Member, Presence } from "@parity-app/presence-ui"
+import type { ReactNode } from "react"
+import { CanvasTopRight, ZoomBar } from "../chrome/ZoomControls.tsx"
 
 /* The people and agents in the multiplayer stories' room. */
 
@@ -75,3 +77,22 @@ export const presences = {
   lena: { member: members.lena, away: "12 min" },
   theo: { member: members.theo }
 } satisfies Record<string, Presence>
+
+/**
+ * The kit's text and accent colors, picked by each pane's color scheme: a `Themes` pane shares the page's variables, so
+ * zoom's buttons would otherwise take the toolbar's theme rather than the pane's.
+ */
+const paneText =
+  "contents [--accent-foreground:light-dark(oklch(0.205_0_0),oklch(0.985_0_0))] [--accent:light-dark(oklch(0.97_0_0),oklch(0.269_0_0))] [--foreground:light-dark(oklch(0.145_0_0),oklch(0.985_0_0))] [--popover-foreground:light-dark(oklch(0.145_0_0),oklch(0.985_0_0))]"
+
+/** The canvas's top-right row as the app lays it out: what's passed, such as the avatar stack, then zoom at 100%. */
+export function TopRight({ children }: { children: ReactNode }) {
+  return (
+    <CanvasTopRight>
+      {children}
+      <div className={paneText}>
+        <ZoomBar zoom={100} enabled={() => true} onRun={() => undefined} />
+      </div>
+    </CanvasTopRight>
+  )
+}

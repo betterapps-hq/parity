@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "The live room's avatar stack is one stack, your face first, beside the zoom controls at their height; a topRight edge layer sits on zoom's row",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

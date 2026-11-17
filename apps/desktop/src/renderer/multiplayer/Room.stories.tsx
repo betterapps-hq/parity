@@ -5,7 +5,7 @@ import { CanvasBoard } from "../stories/CanvasBoard.tsx"
 import { DashboardDesign } from "../stories/DashboardDesign.tsx"
 import { PricingDesign } from "../stories/PricingDesign.tsx"
 import { Themes } from "../stories/Themes.tsx"
-import { members, presences } from "./story-kit.tsx"
+import { members, presences, TopRight } from "./story-kit.tsx"
 
 /**
  * One room, all together, to judge the system as a whole: three people and two agents on the canvas. Mia has the chart
@@ -62,9 +62,9 @@ function Room() {
       <RemotePointer member={codex} at={{ x: pricing.x + 60, y: pricing.y + 150 }} kind="read" detail="Check plans" />
       <Marquee member={priya} rect={{ x: marquee.x - 160, y: marquee.y - 60, w: 160, h: 60 }} />
       <RemotePointer member={priya} at={marquee} />
-      <div className="absolute top-3 right-3">
+      <TopRight>
         <FaceStack here={here} you={members.you} />
-      </div>
+      </TopRight>
     </>
   )
 }

@@ -38,8 +38,8 @@ import type { ProjectSession } from "./workspace.ts"
  * Internal extensions' layers on a project tab's canvas (`parity.canvas.layer`), and the tab's core canvas services as
  * `windowCanvas` takes them (docs/proposals/extensions-in-the-window.md). Each layer is drawn by a host in the canvas
  * area, in the tab's own React tree, so Parity's theme, kit and portals reach it. Page layers move with the camera;
- * edge layers sit in a corner of the screen, clear of the toolbar and zoom controls. Each has its own error boundary,
- * and pauses while its tab is hidden.
+ * edge layers sit in a corner of the screen, clear of the toolbar and zoom controls, and a `topRight` one on the zoom
+ * controls' row, just left of them. Each has its own error boundary, and pauses while its tab is hidden.
  */
 
 type Order = LayerOptions["order"]
@@ -188,10 +188,30 @@ export function WindowLayers({ order }: { order: Order }) {
     return null
   }
 
-  return <TabLayersOf session={session} order={order} shown={shown} />
+  return <TabLayersOf session={session} order={order} shown={shown} besideZoom={false} />
 }
 
-function TabLayersOf({ session, order, shown }: { session: ProjectSession; order: Order; shown: boolean }) {
+/** Draws the tab's `topRight` edge layers in a row, for the canvas to put just left of its zoom controls. */
+export function WindowLayersBesideZoom() {
+  const session = useContext(ProjectContext)
+  const shown = useContext(CanvasShown)
+
+  if (!session) {
+    return null
+  }
+
+  return <TabLayersOf session={session} order="edge" shown={shown} besideZoom />
+}
+
+interface TabLayersOfProps {
+  session: ProjectSession
+  order: Order
+  shown: boolean
+  /** Only the `topRight` edge layers, in a row beside the zoom controls; the other edge layers leave them out. */
+  besideZoom: boolean
+}
+
+function TabLayersOf({ session, order, shown, besideZoom }: TabLayersOfProps) {
   const layers = layersOf(session)
   const all = useStore(layers.drawn)
   const editing = useSyncExternalStore(session.selection.subscribe, () => session.selection.getEditing() !== undefined)
@@ -201,7 +221,10 @@ function TabLayersOf({ session, order, shown }: { session: ProjectSession; order
     layers.frames.setVisible(shown)
   }, [layers, shown])
 
-  const drawn = all.filter((layer) => layer.options.order === order)
+  const drawn = all.filter(
+    (layer) =>
+      layer.options.order === order && (order !== "edge" || (placementOf(layer.options) === "topRight") === besideZoom)
+  )
 
   if (drawn.length === 0) {
     return null
@@ -209,11 +232,23 @@ function TabLayersOf({ session, order, shown }: { session: ProjectSession; order
 
   const mode = shown ? "visible" : "hidden"
 
+  if (besideZoom) {
+    return (
+      <div className="flex items-center gap-2 [&_[data-canvas-interactive]]:pointer-events-auto">
+        {drawn.map((layer) => (
+          <Activity key={layer.key} mode={mode}>
+            <Layer layer={layer} frames={layers.frames} />
+          </Activity>
+        ))}
+      </div>
+    )
+  }
+
   if (order === "edge") {
     return (
       <div className="pointer-events-none absolute inset-0 z-[380] overflow-hidden [&_[data-canvas-interactive]]:pointer-events-auto">
         {drawn.map((layer) => (
-          <div key={layer.key} className={`absolute ${placements[placementOf(layer.options)]}`}>
+          <div key={layer.key} className={`absolute ${placements[cornerOf(layer.options)]}`}>
             <Activity mode={mode}>
               <Layer layer={layer} frames={layers.frames} />
             </Activity>
@@ -253,10 +288,12 @@ const pageOrders: Record<Exclude<Order, "edge">, string> = {
 
 type Placement = Extract<LayerOptions, { space: "screen" }>["placement"]
 
-/** Where each edge placement sits: clear of the zoom controls at the top right and the toolbar along the bottom. */
-const placements: Record<Placement, string> = {
+/**
+ * Where each edge placement sits: clear of the zoom controls at the top right and the toolbar along the bottom. A
+ * `topRight` layer is drawn beside the zoom controls instead (`WindowLayersBesideZoom`).
+ */
+const placements: Record<Exclude<Placement, "topRight">, string> = {
   topLeft: "top-3 left-3",
-  topRight: "top-14 right-3",
   bottomLeft: "bottom-3 left-3",
   bottomRight: "bottom-3 right-3",
   bottom: "bottom-20 left-1/2 -translate-x-1/2",
@@ -265,6 +302,13 @@ const placements: Record<Placement, string> = {
 
 function placementOf(options: LayerOptions): Placement {
   return options.space === "screen" ? options.placement : "topLeft"
+}
+
+/** An edge layer's placement among those drawn in a corner of their own: every one but `topRight`. */
+function cornerOf(options: LayerOptions): Exclude<Placement, "topRight"> {
+  const placement = placementOf(options)
+
+  return placement === "topRight" ? "topLeft" : placement
 }
 
 /** Children placed in page coordinates, moved with the camera without drawing them again. */
