@@ -17,10 +17,11 @@ import {
   styleOfElement
 } from "@parity-app/editor"
 import { buildCopy, type PageMode, type PageRoot } from "@parity-app/frames"
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react"
+import { useEffect, useId, useLayoutEffect, useMemo, useRef } from "react"
 import { findFrames, findNodeElements, prepareFrame, registerFrame, setDrawnNodes, setInnerNodes } from "../frame.ts"
 import { useProject } from "./context.ts"
 import { copyRootAttribute, copyShadowStyle, copySheets, type FrozenCopy, useFrozenCopy } from "./freezer.ts"
+import { type LiveState, poolFor, useLiveBoard } from "./live-frames.ts"
 import { routePagesFile, setCopyLayers, setPageLanding } from "./route-pages.ts"
 
 /** Attributes on a copy's host that are Parity's own, which neither the page's root nor its mode may set. */
@@ -45,6 +46,11 @@ const hostAttributes = new Set([
  * a height of its own, which clips it. It's inert, so its links and forms can't be followed or sent, and nothing in it
  * takes focus. Until its copy comes, a placeholder stands in at the window's height. Where the page landed, when it
  * isn't the route's own path, goes to the board's warning and Layers; the primary frame's copy gives Layers its layers.
+ *
+ * With the Interact tool it can go live (PAR-1263): resting the pointer on it sends one of the project's spare frames
+ * to its route, and pressing it puts the app's own page over its copy, engaged (`useLiveBoard`). While it's live, the
+ * copy hides its fixed and sticky elements, so a fixed header shows once, in the live window, and the board says where
+ * the live page went.
  */
 export function RouteBoard({
   url,
@@ -56,7 +62,8 @@ export function RouteBoard({
   scale,
   primary,
   rank,
-  asleep
+  asleep,
+  interactive
 }: {
   url: string
   project: string
@@ -75,9 +82,13 @@ export function RouteBoard({
    * until pictures come (route-frames.md, step 6), and builds the copy again from what it kept when it wakes.
    */
   asleep: boolean
+  /** With the Interact tool, the board goes live on a press, and warms a spare when the pointer rests on it. */
+  interactive: boolean
 }) {
   const { doc } = useProject()
   const host = useRef<HTMLDivElement>(null)
+  const box = useRef<HTMLDivElement>(null)
+  const id = useId()
   const registry = useRef<CustomElementRegistry>(undefined)
   const drawn = useMemo(() => pageMode(mode), [mode])
 
@@ -88,6 +99,58 @@ export function RouteBoard({
 
   const copy = useFrozenCopy(project, url, drawn, viewport, rank)
   const height = frame.height ?? Math.max(viewport.height, copy?.pageHeight ?? 0)
+  const drawnHeight = useRef(height)
+
+  useEffect(() => {
+    drawnHeight.current = height
+  })
+
+  const { live, ready } = useLiveBoard({
+    id,
+    project,
+    url,
+    design,
+    mode: drawn,
+    viewport,
+    scale,
+    element: () => box.current,
+    pageHeight: () => drawnHeight.current,
+    rank
+  })
+
+  // With Interact, a press on the board makes it live and engaged, and nothing else: the canvas doesn't select or drag,
+  // and the next press lands on the page.
+  useEffect(() => {
+    const element = box.current
+
+    if (!interactive || !element) {
+      return undefined
+    }
+
+    const pool = poolFor(project)
+    const enter = () => pool.hover(id)
+    const leave = () => pool.unhover()
+
+    const down = (event: PointerEvent) => {
+      if (event.button !== 0) {
+        return
+      }
+
+      event.stopPropagation()
+      event.preventDefault()
+      void pool.engage(id)
+    }
+
+    element.addEventListener("pointerenter", enter)
+    element.addEventListener("pointerleave", leave)
+    element.addEventListener("pointerdown", down)
+
+    return () => {
+      element.removeEventListener("pointerenter", enter)
+      element.removeEventListener("pointerleave", leave)
+      element.removeEventListener("pointerdown", down)
+    }
+  }, [id, interactive, project])
 
   // Selecting, outlining and agents find the copy as they find a design's frames.
   useLayoutEffect(() => registerFrame(host.current!, design), [design])
@@ -104,14 +167,28 @@ export function RouteBoard({
     return showCopy(element, copy, drawn, viewport, registry.current)
   }, [asleep, copy, drawn, viewport])
 
-  const elsewhere = copy ? landedElsewhere(url, copy.location.path) : undefined
+  // A fixed header shows once, in the live window, rather than again on the copy around it. After the copy is built, so
+  // a copy built again while the board is live is hidden too.
+  useLayoutEffect(() => {
+    const root = host.current?.shadowRoot
 
-  // The board's warning and Layers say where the page landed, once its copy says.
+    if (!live || !copy || asleep || !root) {
+      return undefined
+    }
+
+    return hideFixed(root)
+  }, [asleep, copy, drawn, live, viewport])
+
+  // While it's live, where the live page went, or tried to go off the app's origin; otherwise where its copy landed.
+  const landed = live?.location ?? copy?.location
+  const elsewhere = live?.stopped ?? (landed ? landedElsewhere(url, landed.path) : undefined)
+
+  // The board's warning and Layers say where the page landed, once its copy or its live page says.
   useEffect(() => {
-    if (copy) {
+    if (landed || live?.stopped) {
       setPageLanding(design, elsewhere)
     }
-  }, [copy, design, elsewhere])
+  }, [design, elsewhere, landed, live?.stopped])
 
   // What the page draws, as layers in the window, never in the project's document.
   useEffect(() => {
@@ -122,8 +199,16 @@ export function RouteBoard({
 
   return (
     <div
+      ref={box}
       className="mode-frame relative overflow-hidden bg-white shadow-lg ring-1 ring-black/15"
-      style={{ width: Math.round(frame.width * scale), height: Math.round(height * scale) }}
+      data-live={liveAttribute(live)}
+      data-ready={ready ? "" : undefined}
+      style={{
+        width: Math.round(frame.width * scale),
+        height: Math.round(height * scale),
+        // With Interact the board takes the press that makes it live; otherwise the canvas has the pointer.
+        pointerEvents: interactive ? "auto" : undefined
+      }}
     >
       <div data-frame-box="">
         <div
@@ -297,6 +382,42 @@ function rootOnHost(host: HTMLElement, root: PageRoot, mode: PageMode): () => vo
 
     for (const name of properties) {
       host.style.removeProperty(name)
+    }
+  }
+}
+
+/** What a board says of the live frame for tools to read: engaged, live, or nothing. */
+function liveAttribute(live: LiveState | undefined): string | undefined {
+  if (!live) {
+    return undefined
+  }
+
+  return live.engaged ? "engaged" : ""
+}
+
+/**
+ * Hides a copy's elements whose computed position is fixed or sticky, as the live page over the copy draws them.
+ * Returns what shows them again.
+ */
+function hideFixed(root: ShadowRoot): () => void {
+  const hidden: { element: HTMLElement | SVGElement; value: string; priority: string }[] = []
+
+  for (const element of root.querySelectorAll<HTMLElement | SVGElement>("*")) {
+    const { position } = getComputedStyle(element)
+
+    if (position === "fixed" || position === "sticky") {
+      hidden.push({
+        element,
+        value: element.style.getPropertyValue("visibility"),
+        priority: element.style.getPropertyPriority("visibility")
+      })
+      element.style.setProperty("visibility", "hidden", "important")
+    }
+  }
+
+  return () => {
+    for (const { element, value, priority } of hidden) {
+      element.style.setProperty("visibility", value, priority)
     }
   }
 }

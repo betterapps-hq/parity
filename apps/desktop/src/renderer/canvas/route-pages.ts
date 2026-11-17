@@ -80,6 +80,14 @@ export function selectedPageGroup(project: string, selection: Selection): string
  */
 export const pageLandings = windowStore<ReadonlyMap<string, string>>(() => new Map())
 
+/**
+ * What a page's board and its row in Layers say of where it landed: a path on the app's own origin, or, for an address
+ * off it, which main stopped the live page going to, the host it tried to open.
+ */
+export function landingLabel(landed: string): string {
+  return URL.canParse(landed) ? `Tried to open ${new URL(landed).host}` : `Lands on ${landed}`
+}
+
 /** Notes where a page landed, or that it landed on its own path. */
 export function setPageLanding(design: string, path: string | undefined): void {
   const now = pageLandings.get()

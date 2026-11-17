@@ -13,20 +13,28 @@ import {
 import type { FollowEnd } from "./canvas-surface.ts"
 
 /** A canvas in memory: a camera, a viewport, and frames run by hand. */
-function fakeCanvas() {
+function fakeCanvas({ lag = 0 }: { lag?: number } = {}) {
   let camera: CameraState = { x: 0, y: 0, z: 1 }
   let viewport = { width: 800, height: 600 }
   let time = 0
   const frames = new Map<number, (now: number) => void>()
   let nextFrame = 1
-  const listeners = { camera: new Set<() => void>(), navigate: new Set<() => void>(), escape: new Set<() => void>() }
-  const tell = (set: Set<() => void>) => [...set].forEach((listener) => listener())
 
-  const on = (set: Set<() => void>) => (listener: () => void) => {
-    set.add(listener)
-
-    return () => set.delete(listener)
+  const listeners = {
+    camera: new Set<() => void>(),
+    navigate: new Set<() => void>(),
+    escape: new Set<() => boolean>()
   }
+
+  const tell = <T>(set: Set<() => T>): T[] => [...set].map((listener) => listener())
+
+  const on =
+    <T>(set: Set<() => T>) =>
+    (listener: () => T) => {
+      set.add(listener)
+
+      return () => set.delete(listener)
+    }
 
   const port: CameraPort = {
     camera: () => camera,
@@ -45,7 +53,8 @@ function fakeCanvas() {
 
       return () => frames.delete(id)
     },
-    now: () => time
+    // `lag` puts the clock after the frames' times, as when what's told runs after its frame began.
+    now: () => time + lag
   }
 
   return {
@@ -70,7 +79,8 @@ function fakeCanvas() {
       tell(listeners.camera)
     },
     navigate: () => tell(listeners.navigate),
-    escape: () => tell(listeners.escape),
+    /** Esc on the canvas: whether anything took it. */
+    escape: () => tell(listeners.escape).some(Boolean),
     get camera() {
       return camera
     }
@@ -149,13 +159,14 @@ describe("the camera", () => {
     }
   })
 
-  it("ends following with Esc, another page, another follow, show, or dispose", () => {
+  it("ends following with Esc, taking the key only then, another page, another follow, show, or dispose", () => {
     const canvas = fakeCanvas()
     const ended: FollowEnd[] = []
     const camera = createCamera(canvas.port, { onFollowEnded: ({ why }) => ended.push(why) })
     const view = { x: 0, y: 0, width: 400, height: 300 }
+    expect(canvas.escape()).toBe(false)
     camera.follow(view)
-    canvas.escape()
+    expect(canvas.escape()).toBe(true)
     camera.follow(view)
     canvas.navigate()
     camera.follow(view)
@@ -163,6 +174,28 @@ describe("the camera", () => {
     void camera.show(view, { animate: false })
     camera.follow(view).dispose()
     expect(ended).toEqual(["escape", "navigated", "replaced", "replaced", "disposed"])
+  })
+
+  it("arrives at what it follows when told every frame, after each frame began, the same view or a moving one", () => {
+    for (const moving of [false, true]) {
+      const canvas = fakeCanvas({ lag: 20 })
+      const camera = createCamera(canvas.port)
+      const following = camera.follow({ x: 0, y: 0, width: 400, height: 300 })
+      canvas.run(glideMs + 32)
+      let target = { x: 3000, y: -2000, width: 800, height: 600 }
+
+      for (let frame = 0; frame < 40; frame++) {
+        target = moving ? { ...target, x: 3000 + frame } : target
+        following.update({ ...target })
+        canvas.run(16)
+      }
+
+      // Still being told, it's there, or a frame or two behind the moving view.
+      const view = camera.get()
+      expect(Math.abs(view.x - target.x)).toBeLessThan(4)
+      expect(view.y).toBeCloseTo(-2000)
+      expect(view.width).toBeCloseTo(800)
+    }
   })
 
   it("fits what it follows to the window again when the window is resized", () => {

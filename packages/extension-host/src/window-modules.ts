@@ -258,7 +258,7 @@ interface Entry {
   current?: Run
   /** Its latest failures in this tab, oldest first, for `extensions.json`. */
   recent: FailureFacts[]
-  /** How many other copies are in the room, as it last recorded. */
+  /** How many copies are in the room, this one included, as it last recorded. */
   peers?: number
 }
 
@@ -675,7 +675,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
       },
       telemetry: {
         record(event, attributes) {
-          // The room's own events say how many others are in it, which `extensions.json` keeps.
+          // The room's own events say how many copies are in it, this one included, which `extensions.json` keeps.
           const peers = peerCount.safeParse(attributes.peers)
 
           if (peers.success) {

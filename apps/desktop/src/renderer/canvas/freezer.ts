@@ -76,6 +76,24 @@ interface CopyNeed {
   rank: () => number
 }
 
+/**
+ * Until when each project's freezer waits, by project: while its live page is in use (`page.used`) and while its pool
+ * refills, since a project's live frame, spares and freezer share one renderer process.
+ */
+const holds = new Map<string, number>()
+
+/** Keeps a project's freezer from starting another page or snapshot until `until`, a time from `Date.now()`. */
+export function holdFreezer(project: string, until: number): void {
+  holds.set(project, Math.max(holds.get(project) ?? 0, until))
+}
+
+/** Resolves once a project's freezer isn't held. */
+async function unheld(project: string): Promise<void> {
+  for (let left = (holds.get(project) ?? 0) - Date.now(); left > 0; left = (holds.get(project) ?? 0) - Date.now()) {
+    await new Promise((resolve) => window.setTimeout(resolve, left))
+  }
+}
+
 /** Whether a project's freezer has stopped after its page process failed too often. */
 export const stoppedFreezers = windowStore<ReadonlySet<string>>(() => new Set())
 
@@ -87,6 +105,7 @@ resetWithWindow(() => {
   }
 
   freezers.clear()
+  holds.clear()
   sheetTexts.clear()
   preparedSheets.clear()
 })
@@ -316,6 +335,7 @@ class Freezer {
       for (let missing = this.missing(); missing.length > 0 && !this.disposed; missing = this.missing()) {
         const [url] = freezeOrder(missing.map((need) => ({ url: need.url, distance: need.rank() })))
         const modes = new Map(missing.filter((need) => need.url === url).map((need) => [need.key, need]))
+        await unheld(this.project)
         await this.freeze(url!, [...modes.values()])
       }
     } catch (error) {
@@ -380,7 +400,10 @@ class Freezer {
         },
         "page.moved": () => null,
         "page.height": () => null,
-        "page.used": () => null
+        "page.used": () => null,
+        "page.scrolled": () => null,
+        "page.zoom": () => null,
+        "page.key": () => null
       }
     })
 
@@ -412,6 +435,7 @@ class Freezer {
           return
         }
 
+        await unheld(this.project)
         sizeFrame(frame, need.viewport)
         await withDeadline(
           channel.request("mode.set", { mode: need.mode, viewport: need.viewport }),

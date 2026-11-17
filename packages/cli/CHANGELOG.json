@@ -2,6 +2,48 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 12:03:28 GMT",
+      "version": "0.81.1",
+      "tag": "@parity-app/cli_v0.81.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b3a4e646d185e025115ecdfd656c7a4368dc1aa5",
+            "comment": "The registry's shadcn style files are made from what shadcn-sync builds, and projects still on a Buildkit kit read each component's props from the kit's own declarations"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 17 Nov 2026 11:01:40 GMT",
+      "version": "0.81.0",
+      "tag": "@parity-app/cli_v0.81.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "9bdb8b336e682ec23cae32968b97f17172a41641",
+            "comment": "Press Ctrl (Cmd on a Mac) while dragging a layer to drop it into the layout under the pointer, even a neighbour"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "692ed100ef595e653a981e4da7eef59ac2ff1a76",
+            "comment": "Route boards show frozen copies of the app's pages, made by one freezer frame per project, with selection, Layers and the Design panel reaching their elements"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f1059a5e710cb99fce52bf203855f5798645af5e",
+            "comment": "parity extensions and get_extensions give each extension's halves, latest failures and the room's sync state"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 09:28:56 GMT",
       "version": "0.80.0",
       "tag": "@parity-app/cli_v0.80.0",

@@ -50,4 +50,33 @@ export const routeFrameProcess = defineEvent(
   }
 )
 
-export const routeFrameEvents = [routeFrameRefused, routeFrameRemoved, routeFrameProcess] as const
+export const routeFrameLive = defineEvent(
+  "routeFrame.live",
+  z.object({
+    from: z
+      .enum(["warming", "parked", "sent", "loading", "new"])
+      .describe(
+        "Which frame went live: the one warming on the board, a spare on its route, a spare sent there, one still loading, or a new one"
+      ),
+    ms: z.number().int().nonnegative().describe("How long going live took, from the press to the page in place")
+  }),
+  {
+    level: "info",
+    sentBy: ["renderer"],
+    when: "A route board goes live with the Interact tool."
+  }
+)
+
+export const routeFrameMiss = defineEvent("routeFrame.miss", z.object({}), {
+  level: "info",
+  sentBy: ["renderer"],
+  when: "A route board goes live with no spare to take, so a new frame loads at its route."
+})
+
+export const routeFrameEvents = [
+  routeFrameRefused,
+  routeFrameRemoved,
+  routeFrameProcess,
+  routeFrameLive,
+  routeFrameMiss
+] as const

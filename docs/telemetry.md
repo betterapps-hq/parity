@@ -251,9 +251,9 @@ Every error from the editor window carries `extensions.json` beside `frames.json
 stopped in a tab (PAR-1283). For each such extension in each tab, it lists its id, version and display name, its halves'
 states, its capabilities, its layers, how many previews and holds it has open, its last five failures, and, for the
 extension that brings the room, the room's state, its random lineage, whether this copy writes files, whether changes
-are pending, the version's size and the peers it last reported. It never holds a document's bytes, names, labels or what
-anyone typed. `extensionsSnapshot` in `@parity-app/extension-host/window-snapshot` builds it, for `parity extensions`
-too.
+are pending, the version's size and how many copies, this one included, it last said were in the room. It never holds a
+document's bytes, names, labels or what anyone typed. `extensionsSnapshot` in
+`@parity-app/extension-host/window-snapshot` builds it, for `parity extensions` too.
 
 ## Turning it off
 
@@ -630,6 +630,8 @@ Some failures are recorded for you, so code doesn't record them again:
 | `room.left`                        | info  | all  | renderer                                | This copy leaves a room.                                                                                                                                                   |
 | `room.reconnected`                 | warn  | all  | renderer                                | The connection to the relay comes back.                                                                                                                                    |
 | `room.relayStarted`                | info  | all  | renderer                                | The window module asks its Node half for the relay, which starts it or finds one.                                                                                          |
+| `routeFrame.live`                  | info  | all  | renderer                                | A route board goes live with the Interact tool.                                                                                                                            |
+| `routeFrame.miss`                  | info  | all  | renderer                                | A route board goes live with no spare to take, so a new frame loads at its route.                                                                                          |
 | `routeFrame.process`               | warn  | all  | renderer                                | A project's page process fails under its freezer frame.                                                                                                                    |
 | `routeFrame.refused`               | info  | all  | renderer                                | The freezer refuses a page's snapshot or gets none, so its board keeps what it had.                                                                                        |
 | `routeFrame.removed`               | debug | all  | renderer                                | The sanitizer takes anything out of a snapshot before its copy is built.                                                                                                   |
@@ -1739,6 +1741,17 @@ Some failures are recorded for you, so code doesn't record them again:
 | --------- | ----------------------- | ------------------------------------------------------------ |
 | `result`  | `"started" \| "shared"` | Whether this copy started the relay, or found another copy's |
 | `port`    | `integer`               | The port the relay listens on                                |
+
+### `routeFrame.live`
+
+| Attribute | Type                                                    | Meaning                                                                                                                        |
+| --------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `from`    | `"warming" \| "parked" \| "sent" \| "loading" \| "new"` | Which frame went live: the one warming on the board, a spare on its route, a spare sent there, one still loading, or a new one |
+| `ms`      | `integer`                                               | How long going live took, from the press to the page in place                                                                  |
+
+### `routeFrame.miss`
+
+No attributes.
 
 ### `routeFrame.process`
 

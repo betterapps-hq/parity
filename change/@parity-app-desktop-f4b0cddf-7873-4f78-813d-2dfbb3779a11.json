@@ -1,6 +1,6 @@
 {
   "type": "minor",
-  "comment": "Show the open project in the lens shell, with today's canvas, Layers and inspector as its first lens, Screens",
+  "comment": "Route boards go live with the Interact tool, from a pool of spare frames of the app's own page",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

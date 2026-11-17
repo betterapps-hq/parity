@@ -441,13 +441,13 @@ What an extension is doing can be seen without Sentry, by the person and by an a
   host state, and `window` its window module in the tab (`loading`, `active`, `inactive`, or `stopped` after failing).
   It gives its latest failures, oldest first, at most five of each half: the window module's from `extensions.json`, and
   the Node half's errors from its log. For the extension that brings the room, it gives the room's sync state from
-  `extensions.json`: attached or not, whether this copy writes files, whether changes are pending, its peers and its
-  lineage. An agent debugging a live room sees what the person sees.
+  `extensions.json`: attached or not, whether this copy writes files, whether changes are pending, how many copies are
+  in the room (this one included) and its lineage. An agent debugging a live room sees what the person sees.
 
 ```
 Multiplayer (@parity-app/extension-multiplayer), running
   halves: Node running, window active
-  room: attached, writes files, 1 peer, nothing pending, lineage 7f3a9c
+  room: attached, writes files, 2 copies in the room, nothing pending, lineage 7f3a9c
   failed 2026-11-17T08:41:05.000Z window selection.onChange: Cannot read properties of undefined (reading 'id')
 ```
 
@@ -587,21 +587,21 @@ names, and sets Shadcn up through shadcn-sync (PAR-1226, PAR-1227).
   ([fixtures/window-test.ts](../packages/extension-host/src/fixtures/window-test.ts)) activating while its setting is on
   and stopping when it goes off, `onStartup` in every tab, five failures stopping it in a tab, failures from a replaced
   run logged without stopping the next, a throwing listener counted, what each extension does in the tab and its last
-  five failures kept for `extensions.json`, the room's peers as it last said, a module stopped in the tab as asked, each
-  call into a module timed, `HalfUnavailableError` while its Node half isn't ready, its Node half's state heard while it
-  activates, a module without a Node half, a Node half stopping for good, calls from the Node half, a missing
-  capability, a window module it builds on coming and going, and gone before its slow teardown rather than after it's
-  back, settings, a project setting's change kept under the prefix as the Node half's are and refused when its schema
-  doesn't allow it, the tab closing, failing to activate, a module turned off while it activates torn down at once, and
-  an activation that's been overtaken, finishing or throwing, without undoing the one after it. With its Node half in
-  the real host code over in-memory ports: the Node half started only with its window module, the Node half told the
-  window module's state while it activates, a Node half's calls refused while its window module isn't ready recorded
-  from the service, sampled, each half calling the other, a command the window module registered run by its module, the
-  service and an agent, the agent's call carried through to the Node half and back from it through the window module,
-  two agents' overlapping calls each kept apart, a command run from inside an agent's window command without waiting
-  behind it, three crashes deactivating the window module, and the Node half's log lines marked as its own. With
-  `PARITY_EXTENSIONS_DEBUG` (PAR-1284): nothing traced for an extension it doesn't name, each call in and out logged
-  with its time and a failure marked, and the calls to the editor and settings.
+  five failures kept for `extensions.json`, how many copies the room last said it had, this one included, a module
+  stopped in the tab as asked, each call into a module timed, `HalfUnavailableError` while its Node half isn't ready,
+  its Node half's state heard while it activates, a module without a Node half, a Node half stopping for good, calls
+  from the Node half, a missing capability, a window module it builds on coming and going, and gone before its slow
+  teardown rather than after it's back, settings, a project setting's change kept under the prefix as the Node half's
+  are and refused when its schema doesn't allow it, the tab closing, failing to activate, a module turned off while it
+  activates torn down at once, and an activation that's been overtaken, finishing or throwing, without undoing the one
+  after it. With its Node half in the real host code over in-memory ports: the Node half started only with its window
+  module, the Node half told the window module's state while it activates, a Node half's calls refused while its window
+  module isn't ready recorded from the service, sampled, each half calling the other, a command the window module
+  registered run by its module, the service and an agent, the agent's call carried through to the Node half and back
+  from it through the window module, two agents' overlapping calls each kept apart, a command run from inside an agent's
+  window command without waiting behind it, three crashes deactivating the window module, and the Node half's log lines
+  marked as its own. With `PARITY_EXTENSIONS_DEBUG` (PAR-1284): nothing traced for an extension it doesn't name, each
+  call in and out logged with its time and a failure marked, and the calls to the editor and settings.
   [debug.test.ts](../packages/extension-host/src/debug.test.ts): the variable's values, and a traced line.
 - [window-canvas.test.ts](../packages/extension-host/src/window-canvas.test.ts) (PAR-1257): a second test-only internal
   extension ([fixtures/window-surface-test.ts](../packages/extension-host/src/fixtures/window-surface-test.ts)), with

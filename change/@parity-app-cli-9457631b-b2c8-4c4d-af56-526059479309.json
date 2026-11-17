@@ -1,6 +1,6 @@
 {
   "type": "minor",
-  "comment": "parity extensions and get_extensions give each extension's halves, latest failures and the room's sync state",
+  "comment": "Route boards go live with the Interact tool, from a pool of spare frames of the app's own page",
   "packageName": "@parity-app/cli",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

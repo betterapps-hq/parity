@@ -73,6 +73,12 @@ export interface Preset {
   notes?: string[]
   /** Where its examples and stories are, when its repository has other components' too. */
   examples?: ExampleHints
+  /**
+   * For a style shadcn-sync generates, the settings it's generated with, as `--base base --style nova`. Its registry
+   * file is made from the `@buildkitgg/shadcn` package sync builds, named for the style's kit so the projects and
+   * saved files that name the kit keep finding it.
+   */
+  sync?: { base: string; style: string }
 }
 
 const createTheme = { import: "@mui/material/styles", export: "createTheme" }
@@ -106,7 +112,11 @@ const fluentThemes = {
   "teams-high-contrast": "teamsHighContrastTheme"
 }
 
-/** Buildkit's shadcn styles on Base UI: the same components and providers, styled differently. */
+/**
+ * shadcn's styles on Base UI, as shadcn-sync generates them: the same components and providers, styled differently.
+ * Each is named for the Buildkit kit that shipped it before sync (`@buildkitgg/shadcn-baseui-nova`), which projects
+ * still on a kit install and saved projects' files name.
+ */
 export const buildkitStyles = ["luma", "lyra", "maia", "mira", "nova", "rhea", "sera", "vega"] as const
 
 const buildkit = Object.fromEntries(
@@ -120,7 +130,13 @@ const buildkit = Object.fromEntries(
         name: `Shadcn ${style.charAt(0).toUpperCase()}${style.slice(1)}`,
         description: `Every shadcn component on Base UI, in the ${style} style, kept in step with upstream.`,
         // Its stylesheet is found as any package's is: `tailwind.css`, the first of the usual names its `exports` has.
-        examples: { paths: ["apps/v4/examples/base/"], anatomy: ["apps/v4/content/docs/components/base/"] },
+        // The examples are shadcn's own, at the release of its CLI that sync built the components with.
+        examples: {
+          repo: "https://github.com/shadcn-ui/ui",
+          paths: ["apps/v4/examples/base/"],
+          anatomy: ["apps/v4/content/docs/components/base/"]
+        },
+        sync: { base: "base", style },
         decorators: [
           { wrap: { import: name, component: "TooltipProvider" } },
           { add: { import: name, component: "Toaster" } }

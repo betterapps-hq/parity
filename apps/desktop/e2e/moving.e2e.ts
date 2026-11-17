@@ -75,6 +75,25 @@ describe("dragging a layer in a layout", () => {
     expect(await app.children("Dashboard", mar)).toHaveLength(2)
   })
 
+  it("drops a revenue bar into the next one with Ctrl pressed during the drag (PAR-206)", async () => {
+    await app.show("Dashboard", zoom)
+    const bars = await app.children("Dashboard", "YZrpk")
+    const [feb, mar] = [bars[3]!, bars[4]!]
+    const inside = await app.children("Dashboard", mar)
+    await app.selectLayer("Dashboard", feb)
+    const from = await app.box("Dashboard", feb)
+    const next = await app.box("Dashboard", mar)
+    // Over the lower half of March's label, at its bottom, so Feb goes in after it. Higher up, over March's bar, Feb
+    // would go into the bar, which is a layout too.
+    const bottom = { x: next.x + next.width / 2, y: next.y + next.height - 1 }
+    await app.drag(center(from), bottom, undefined, ["Control"])
+    await expect.poll(() => app.children("Dashboard", mar)).toEqual([...inside, feb])
+    expect(await app.children("Dashboard", "YZrpk")).toEqual(bars.filter((id) => id !== feb))
+    await app.page.keyboard.press("Control+z")
+    await expect.poll(() => app.children("Dashboard", "YZrpk")).toEqual(bars)
+    expect(await app.children("Dashboard", mar)).toEqual(inside)
+  })
+
   it("does nothing when the pointer moves less than the drag threshold", async () => {
     await app.show("Dashboard", zoom)
     await app.selectLayer("Dashboard", users)

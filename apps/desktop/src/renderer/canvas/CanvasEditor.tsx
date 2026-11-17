@@ -45,6 +45,7 @@ import { CameraGestures, countFrames, type GestureEnded, recordGesture } from ".
 import { drawableColor, KindOutlines, neutralSelection, outlineSources } from "./kind-outlines.ts"
 import { designColor, kindColors } from "./kinds.tsx"
 import { redrawLayer } from "./layer-redraw.ts"
+import { LiveLayer } from "./LiveLayer.tsx"
 import { NoteUtil } from "./NoteUtil.tsx"
 import { sizeWhileShown } from "./overlay-canvas.ts"
 import { PageLinksUtil } from "./PageLinksUtil.tsx"
@@ -122,8 +123,18 @@ export function canvasOf(key: string): CanvasDraws {
 // Internal extensions' layers under the designs draw in the background, behind every shape (window-canvas.tsx).
 const components: TLComponents = {
   ContextMenu: null,
-  OnTheCanvas: TitleLayer,
+  OnTheCanvas: CanvasLayers,
   Background: CanvasBackground
+}
+
+/** The layers in the canvas's page space, above every board: route boards' live frames, then designs' titles. */
+function CanvasLayers() {
+  return (
+    <>
+      <LiveLayer />
+      <TitleLayer />
+    </>
+  )
 }
 
 /** tldraw's background, with internal extensions' layers under the designs drawn on it. */

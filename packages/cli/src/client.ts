@@ -1046,7 +1046,7 @@ export function describeExtensions({ extensions }: ExtensionsResponse): string {
         const said = [
           room.state,
           room.writesFiles ? "writes files" : "doesn't write files",
-          ...(room.peers === undefined ? [] : [`${room.peers} ${room.peers === 1 ? "peer" : "peers"}`]),
+          ...(room.peers === undefined ? [] : [`${room.peers} ${room.peers === 1 ? "copy" : "copies"} in the room`]),
           room.pending ? "changes pending" : "nothing pending",
           ...(room.lineage ? [`lineage ${room.lineage}`] : [])
         ]

@@ -98,6 +98,87 @@ export async function installedVersion(
   return dir
 }
 
+/** The settings a style is built with, as shadcn-sync takes them: `--base base --style nova`. */
+export interface SyncSettings {
+  base: string
+  style: string
+}
+
+/** The package shadcn-sync builds in the app it runs in. */
+export const syncedPackage = "@buildkitgg/shadcn"
+
+/**
+ * A folder where one version of shadcn-sync has built a style's `@buildkitgg/shadcn` package, so the style can be
+ * described without a project that uses it. Sync runs in Tailwind mode, whose stylesheet holds the theme's tokens,
+ * with shadcn's default icons and theme, and records the registry it read in the folder's `shadcn-registry.json`. Each
+ * version and style is built once and kept.
+ */
+export async function syncedStyle(
+  settings: SyncSettings,
+  version: string,
+  cacheRoot = join(homedir(), ".parity", "cache", "packages")
+): Promise<string> {
+  if (!/^[a-z]+$/.test(settings.base) || !/^[a-z]+$/.test(settings.style) || !/^[\w.+-]+$/.test(version)) {
+    throw new Error(
+      `shadcn-sync ${version} --base ${settings.base} --style ${settings.style} isn't a build it could make`
+    )
+  }
+
+  const dir = join(cacheRoot, `@buildkitgg+shadcn-sync@${version}+${settings.base}-${settings.style}`)
+  const built = join(dir, ".parity-installed")
+
+  if (
+    await readFile(built, "utf8").then(
+      () => true,
+      () => false
+    )
+  ) {
+    return dir
+  }
+
+  await rm(dir, { recursive: true, force: true })
+  await mkdir(dir, { recursive: true })
+
+  // The app installs the icon library and React; sync brings the components' other libraries.
+  const dependencies = {
+    "@buildkitgg/shadcn-sync": version,
+    "lucide-react": "latest",
+    react: "latest",
+    "react-dom": "latest"
+  }
+
+  await writeFile(
+    join(dir, "package.json"),
+    `${JSON.stringify({ name: "parity-library", private: true, dependencies }, null, 2)}\n`
+  )
+
+  const options = { cwd: dir, timeout: 600_000, maxBuffer: 64 * 1024 * 1024, windowsHide: true }
+  await shell("npm install --ignore-scripts --no-audit --no-fund --loglevel=error", options)
+
+  await run(
+    process.execPath,
+    [
+      join(dir, "node_modules", "@buildkitgg", "shadcn-sync", "bin", "shadcn-sync.js"),
+      "sync",
+      "--base",
+      settings.base,
+      "--style",
+      settings.style,
+      "--icons",
+      "lucide",
+      "--theme",
+      "neutral",
+      "--css",
+      "tailwind"
+    ],
+    options
+  )
+
+  await writeFile(built, `${syncedPackage} ${settings.base}-${settings.style} from shadcn-sync@${version}\n`)
+
+  return dir
+}
+
 /** Where a package's version was published from: the repository git fetches, and the commit. */
 export interface PublishedSource {
   repository?: string
