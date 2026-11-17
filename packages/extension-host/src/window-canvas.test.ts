@@ -38,29 +38,36 @@ describe("parity.canvas.layer", () => {
     expect(layers).toEqual([])
   })
 
-  it("takes away at once a layer drawn after the module stopped, as a late activation can", async () => {
+  it("closes at once a layer, preview or claim made after the module stopped, as a late activation can", async () => {
     let resume: (() => void) | undefined
     let drew = false
     const resumed = new Promise<void>((resolve) => (resume = resolve))
 
     const late = defineWindowModule({
       async activateWindow(parity) {
-        const { canvas } = parity
+        const { canvas, colors } = parity
         await resumed
         canvas.layer({ id: "late.layer", space: "page", order: "overDesigns" }, "late")
+        canvas.preview([{ ref: { owner: "design", type: "design", key: "card" }, at: { x: 1, y: 1 } }], {
+          color: "peer-9"
+        })
+        colors.claim("peer-8")
         drew = true
 
         return {}
       }
     })
 
-    const { layers, stop } = await tab(late)
+    const { layers, previews, people, stop } = await tab(late)
     await stop()
     resume?.()
     await settle()
 
     expect(drew).toBe(true)
     expect(layers.map((layer) => layer.id)).not.toContain("late.layer")
+    expect(previews.map((each) => each.how)).toEqual([["dispose"]])
+    expect(people.owners("peer-9")).toEqual([])
+    expect(people.owners("peer-8")).toEqual([])
   })
 
   it("refuses a second layer with an id already drawn in the tab, and frees the id once it's taken away", async () => {
