@@ -89,7 +89,8 @@ const paneText =
 export function TopRight({ children }: { children: ReactNode }) {
   return (
     <CanvasTopRight>
-      {children}
+      {/* The row lets the pointer through, as the app's layer host does; what's in it takes the pointer again. */}
+      <div className="pointer-events-auto">{children}</div>
       <div className={paneText}>
         <ZoomBar zoom={100} enabled={() => true} onRun={() => undefined} />
       </div>

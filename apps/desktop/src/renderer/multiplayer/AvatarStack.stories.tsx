@@ -73,10 +73,10 @@ export const States: Story = {
   )
 }
 
-/** Two of you on the canvas: one stack, beside zoom. */
+/** Two of you on a canvas wide enough for the row: one stack, beside zoom, at its height. */
 export const TwoOnTheCanvas: Story = {
   render: () => (
-    <Themes width={560} height={340}>
+    <Themes width={760} height={340}>
       {() => (
         <>
           <CanvasBoard name="Dashboard" x={40} y={48}>
@@ -96,8 +96,11 @@ export const TwoOnTheCanvas: Story = {
       await expect(faces[0]).toHaveAccessibleName("You")
       await expect(faces[1]).toHaveAccessibleName(/^Mia Rossi/)
 
+      // The pane's zoom bar: the one holding its level button.
+      const pane = list.closest("section") ?? canvasElement
+      const level = within(pane).getByRole("button", { name: /^Zoom to 100%/ })
       const stack = list.parentElement?.getBoundingClientRect()
-      const zoom = list.parentElement?.nextElementSibling?.getBoundingClientRect()
+      const zoom = level.parentElement?.getBoundingClientRect()
       await expect(stack?.top).toBe(zoom?.top)
       await expect(stack?.height).toBe(zoom?.height)
       await expect((stack?.right ?? Infinity) < (zoom?.left ?? -Infinity)).toBe(true)
@@ -108,7 +111,7 @@ export const TwoOnTheCanvas: Story = {
 /** Six others on the canvas: you, three of them, then a count of the rest, beside zoom. */
 export const OnTheCanvas: Story = {
   render: () => (
-    <Themes width={560} height={340}>
+    <Themes width={760} height={340}>
       {() => (
         <>
           <CanvasBoard name="Dashboard" x={40} y={48}>
