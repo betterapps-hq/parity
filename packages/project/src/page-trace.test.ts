@@ -9,6 +9,7 @@ const routes = [
 
 const project: PageTraceInput = {
   route: "/projects/$id",
+  landed: true,
   routes,
   folderRoutes: false,
   loaded: undefined,
@@ -96,5 +97,9 @@ describe("pageTraceFiles", () => {
   it("takes the whole project where the builder can't say, or the route isn't known", () => {
     expect(pageTraceFiles(project)).toEqual(project.files)
     expect(pageTraceFiles({ ...project, route: "/gone", loaded: [] })).toEqual(project.files)
+  })
+
+  it("takes the whole project for a page that redirected, or drew its not-found or error page", () => {
+    expect(pageTraceFiles({ ...project, loaded: [], landed: false })).toEqual(project.files)
   })
 })

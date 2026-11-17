@@ -73,6 +73,15 @@ describe("page traces (PAR-1200)", () => {
     expect(Object.keys(traced!.files)).toContain("src/other.ts")
   })
 
+  it("has none when a file it lists changed after the copy's page started loading", async () => {
+    const copy = { origin: "http://shop.localhost:5173", loadedAt: Date.now() - 60_000, landed: true, pageHeight: 900 }
+    const frozen = { ...copy, root: { classes: [], attributes: [], style: "" }, body: {}, sheets: [] }
+    expect(await pageTraces(projects([])).trace({ ...job, copy: frozen })).toBeUndefined()
+    expect(
+      await pageTraces(projects([])).trace({ ...job, copy: { ...frozen, loadedAt: Date.now() + 60_000 } })
+    ).toBeDefined()
+  })
+
   it("holds until a file it lists changes, and a file it doesn't list leaves it holding", async () => {
     const traces = pageTraces(projects([]))
     const traced = (await traces.trace(job))!

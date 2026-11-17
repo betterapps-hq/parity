@@ -754,11 +754,13 @@ Each is an issue, in this order.
    it. Pictures are kept beside frames' bitmaps as `page-<hash>.webp`, with the trace's files and digest inside. A trace
    is `pageTraceFiles`'s choice (`@parity-app/project`): the builder's `loadedFiles` of the route's chain where it has
    them, every file under the route's folder for Next, else the whole project, each with the chain, Parity's scan of its
-   imports, the stylesheets and the shared config. Server code is the scan's, since no builder's server graph is read
-   yet. Which pictures a code change makes stale is step 7's; a stale one is only found when its board asks for it.
-   Boards choose their tier with `boardTier` from the camera's zoom and `useFrameView`'s `near`, with no live or pointed
-   board yet, and route boards ask for no design bitmaps. A copy is still kept by project, URL, mode and window. A
-   capture that fails isn't tried again until the board's copy changes.
+   imports, the stylesheets and the shared config. A page that redirected, or drew its not-found or error page, takes
+   the whole project, since its chain doesn't lead to what it drew. A copy notes when its page started loading, and a
+   picture whose traced files changed after that is kept without a trace. Server code is the scan's, since no builder's
+   server graph is read yet. Which pictures a code change makes stale is step 7's; a stale one is only found when its
+   board asks for it. Boards choose their tier with `boardTier` from the camera's zoom and `useFrameView`'s `near`, with
+   no live or pointed board yet, and route boards ask for no design bitmaps. A copy is still kept by project, URL, mode
+   and window. A capture that fails is tried again after 2 s, doubling up to 16 s, as frames' are.
 7. **Code changes and previews:** the watcher's changes reaching the window, stale copies by trace, starting frames
    again where pages don't update themselves, the second hello, markup groups, and style previews in copies and the live
    page.

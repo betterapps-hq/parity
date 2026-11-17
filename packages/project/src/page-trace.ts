@@ -17,6 +17,11 @@ export interface TracedRoute {
 export interface PageTraceInput {
   /** The route's id. */
   route: string
+  /**
+   * The copy is of the route's own page. One it redirected to, or its not-found or error page, draws files the route's
+   * chain doesn't lead to, such as another route's or a framework's special files, so it takes the whole project.
+   */
+  landed: boolean
   routes: readonly TracedRoute[]
   /** Its router names routes by folder, as Next's App and Pages Routers do. */
   folderRoutes: boolean
@@ -58,7 +63,7 @@ export function routeChain(route: string, routes: readonly TracedRoute[]): strin
  *   that the page never loads.
  * - Where the router names routes by folder (Next.js, which has no `loadedFiles`): every file under the route's folder,
  *   its parents' files (the layouts), and the scan.
- * - Otherwise, or for a route that isn't known: the whole project.
+ * - Otherwise, for a route that isn't known, or for a page that didn't land on its own route: the whole project.
  *
  * Each with the stylesheets and the files every page depends on.
  */
@@ -66,7 +71,7 @@ export function pageTraceFiles(input: PageTraceInput): string[] {
   const chain = routeChain(input.route, input.routes)
   const sorted = (files: Iterable<string>) => [...new Set(files)].sort((a, b) => a.localeCompare(b, "en"))
 
-  if (chain.length === 0 || (input.loaded === undefined && !input.folderRoutes)) {
+  if (chain.length === 0 || !input.landed || (input.loaded === undefined && !input.folderRoutes)) {
     return sorted(input.files)
   }
 

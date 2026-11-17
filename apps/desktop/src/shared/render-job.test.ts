@@ -405,6 +405,8 @@ describe("a page's picture's name (PAR-1200)", () => {
 
     const copy = {
       origin: "http://shop.localhost:5173",
+      loadedAt: 0,
+      landed: true,
       pageHeight: 900,
       root: { classes: [], attributes: [], style: "" },
       body: {},

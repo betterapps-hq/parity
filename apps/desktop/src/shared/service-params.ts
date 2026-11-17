@@ -121,6 +121,10 @@ export const pageJob = z.object({
   copy: z
     .object({
       origin: z.string(),
+      /** When its page started loading, in milliseconds since 1970; a file changed after it may not be what it drew. */
+      loadedAt: finiteNumber,
+      /** It's of the route's own page, not one it redirected to, nor its not-found or error page. */
+      landed: z.boolean(),
       pageHeight: finiteNumber,
       root: z.object({
         classes: z.array(z.string()),

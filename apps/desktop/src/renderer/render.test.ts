@@ -170,6 +170,8 @@ function pageJob(mode: Partial<PageJob["mode"]> = {}, copy = true): PageJob {
   if (copy) {
     job.copy = {
       origin: "http://app.localhost:5173",
+      loadedAt: 0,
+      landed: true,
       pageHeight: 2532,
       root: { classes: [], attributes: [], style: "" },
       body: {

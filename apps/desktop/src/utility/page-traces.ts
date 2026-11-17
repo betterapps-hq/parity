@@ -1,3 +1,4 @@
+import { stat } from "node:fs/promises"
 import { join } from "node:path"
 import type { FrameTrace } from "@parity-app/change-detection"
 import {
@@ -26,7 +27,10 @@ export type PageTraceProjects = Pick<OpenProjects, "pageProject" | "loadedFiles"
 
 /** What page traces do: take a page's trace before its picture is captured, and say whether a kept one still holds. */
 export interface PageTraces {
-  /** The files a route's page reads and their digest now; none when its project or code isn't known. */
+  /**
+   * The files a route's page reads and their digest now; none when its project or code isn't known, or when one of them
+   * changed after the job's copy started loading, so what it drew may not be what they hold now.
+   */
   trace(job: PageJob): Promise<FrameTrace | undefined>
   /** Whether the files a trace lists hash to its digest now. */
   holds(job: PageJob, trace: FrameTrace): Promise<boolean>
@@ -79,6 +83,7 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
 
       const files = pageTraceFiles({
         route: job.route,
+        landed: job.copy?.landed ?? true,
         routes: project.routes,
         folderRoutes: project.folderRoutes,
         loaded,
@@ -87,6 +92,12 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
         shared: sharedPreviewFiles(snapshot),
         files: [...snapshot.files.keys()]
       })
+
+      const loadedAt = job.copy?.loadedAt
+
+      if (loadedAt !== undefined && (await changedSince(root, files, loadedAt))) {
+        return undefined
+      }
 
       const hashes = await hashesOf(root, files)
 
@@ -105,4 +116,18 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
       return traceDigest(salt(await project.code), Object.entries(hashes)) === trace.digest
     }
   }
+}
+
+/** Whether any of `files` was written after `time`, in milliseconds since 1970. A file that's gone counts as unchanged. */
+async function changedSince(root: string, files: readonly string[], time: number): Promise<boolean> {
+  const times = await Promise.all(
+    files.map((path) =>
+      stat(join(root, path)).then(
+        (info) => info.mtimeMs,
+        () => 0
+      )
+    )
+  )
+
+  return times.some((written) => written > time)
 }

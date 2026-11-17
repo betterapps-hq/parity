@@ -55,6 +55,8 @@ export interface FrozenCopy {
   sheets: string[]
   /** The builder's origin, which the copy was sanitized against and its sheets prepared for. */
   origin: string
+  /** When its page started loading, in milliseconds since 1970: what code it drew is no newer than this. */
+  loadedAt: number
 }
 
 /** Every copy the window has, by `copyKey`. */
@@ -239,6 +241,7 @@ class Freezer {
     }
 
     const src = pageFrameUrl(url, this.project)
+    const loadedAt = Date.now()
     const origin = new URL(src).origin
     const id = `freezer-${crypto.randomUUID()}`
     const frame = document.createElement("iframe")
@@ -317,7 +320,7 @@ class Freezer {
           channel.request("mode.set", { mode: need.mode, viewport: need.viewport }),
           pageDeadlines["mode.set"]
         )
-        await this.snapshot(channel, need, origin)
+        await this.snapshot(channel, need, origin, loadedAt)
       }
     } finally {
       window.removeEventListener("message", hello)
@@ -328,7 +331,12 @@ class Freezer {
   }
 
   /** Takes one mode's snapshot, checks and sanitizes it, gets the sheets it lists, and keeps its copy. */
-  private async snapshot(channel: Channel<ParityMethods, PageMethods>, need: CopyNeed, origin: string): Promise<void> {
+  private async snapshot(
+    channel: Channel<ParityMethods, PageMethods>,
+    need: CopyNeed,
+    origin: string,
+    loadedAt: number
+  ): Promise<void> {
     let taken: unknown
 
     try {
@@ -383,7 +391,8 @@ class Freezer {
       root: root.root,
       body: body.body,
       sheets: snapshot.sheets.map(sheetId),
-      origin
+      origin,
+      loadedAt
     }
 
     copies.set(new Map(copies.get()).set(need.key, copy))

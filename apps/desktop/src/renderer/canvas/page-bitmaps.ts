@@ -43,6 +43,8 @@ export function withCopy(job: PageJob, copy: FrozenCopy): PageJob {
     ...job,
     copy: {
       origin: copy.origin,
+      loadedAt: copy.loadedAt,
+      landed: copy.location.outcome === "landed",
       pageHeight: copy.pageHeight,
       root: copy.root,
       body: copy.body,
@@ -56,6 +58,9 @@ interface Read {
   name: string
   kept?: KeptBitmap
 }
+
+/** How long after a failed capture it's tried again, doubling each time it fails, up to eight times as long. */
+const retryMs = 2000
 
 /** What `usePagePicture` captured, by the capture's key. */
 interface Taken {
@@ -104,16 +109,28 @@ export function usePagePicture(job: PageJob, copy: FrozenCopy | undefined, rank:
     }
 
     let live = true
+    let timer: ReturnType<typeof setTimeout> | undefined
     want(key, 1)
 
-    void capture(key, withCopy(latest.current, copy), undefined, () => ranked.current()).then((src) => {
-      if (live && src !== undefined && src !== failed) {
-        setTaken({ key, src })
-      }
-    })
+    // A capture that failed, as when the offscreen window's renderer went, is tried again later, as frames' are.
+    const take = (attempt: number) =>
+      void capture(key, withCopy(latest.current, copy), undefined, () => ranked.current()).then((src) => {
+        if (!live) {
+          return
+        }
+
+        if (src === failed) {
+          timer = setTimeout(() => take(attempt + 1), retryMs * Math.min(2 ** attempt, 8))
+        } else if (src !== undefined) {
+          setTaken({ key, src })
+        }
+      })
+
+    take(0)
 
     return () => {
       live = false
+      clearTimeout(timer)
       want(key, -1)
     }
   }, [key, copy])
