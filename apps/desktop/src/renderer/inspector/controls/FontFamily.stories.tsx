@@ -5,7 +5,7 @@ import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { FontFamilyField, resolveFont } from "./font-fields.tsx"
 import { Playground } from "./playground.tsx"
-import { standInProjectFonts } from "./stand-in-fonts.ts"
+import { stackFont } from "./rendered-type.ts"
 import { fontTokens } from "./stand-in-tokens.ts"
 import { TextSample } from "./text-preview.tsx"
 import { type FontValue, fontWrites } from "./text-writes.ts"
@@ -18,7 +18,7 @@ import { type FontValue, fontWrites } from "./text-writes.ts"
  * frame can't load is Missing, drawn in the fallback with its name struck through. Its chevron opens the font tokens,
  * as every token field's does: the nearest token first for a font of its own, then Create token and Allow here, and
  * Detach while a token's set. The list has the project's fonts,
- * then the ones installed on this computer; Storybook lists stand-ins for both.
+ * then the ones installed on this computer, as the app lists them.
  */
 const meta = {
   title: "Parity/Fields/Font family",
@@ -29,7 +29,8 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-const geist = standInProjectFonts[0]!
+/** The font the stand-in project's sans token names, which the text inherits. */
+const sans = () => stackFont(fontTokens[0]!.stack)
 
 function Font({ start, tokensOnly, mixed }: { start?: FontValue; tokensOnly?: boolean; mixed?: boolean }) {
   const [value, setValue] = useState(start)
@@ -37,11 +38,14 @@ function Font({ start, tokensOnly, mixed }: { start?: FontValue; tokensOnly?: bo
   const shown = resolveFont(preview ?? value, fontTokens)
 
   return (
-    <Playground writes={fontWrites(value)} preview={<TextSample style={{ fontFamily: shown?.stack ?? geist.stack }} />}>
+    <Playground
+      writes={fontWrites(value)}
+      preview={<TextSample style={{ fontFamily: shown?.stack ?? fontTokens[0]!.stack }} />}
+    >
       <Field label="Font" mixed={mixed && value === undefined}>
         <FontFamilyField
           value={value}
-          inherited={{ font: geist, from: "Plans" }}
+          inherited={{ font: sans(), from: "Plans" }}
           mixed={mixed}
           tokensOnly={tokensOnly}
           onChange={setValue}

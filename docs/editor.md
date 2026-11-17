@@ -4594,8 +4594,8 @@ section with the group's own title leads it without a title of its own, and its 
   tokens and the families its stylesheets declare with `@font-face`, then the fonts installed on this computer, from
   Local Font Access, each set in its own face; Weight offers the faces the font has, and a variable font's whole axis
   (`inspector/controls/fonts.ts`, tested in `fonts.test.ts`; the project's faces from `declaredFaces` in `guest.ts`).
-  Storybook lists stand-ins for both (`stand-in-fonts.ts`). The presets listed are still the stand-in project's,
-  measured with the project's type tokens. Not saved: Preset, and the color's opacity.
+  Storybook lists them as the app does, the computer's fonts included. The presets listed are still the stand-in
+  project's, measured with the project's type tokens. Not saved: Preset, and the color's opacity.
 - **Appearance:** Opacity beside Blend mode, Radius from the project's radius tokens, and Clip content, a menu of
   Visible, Clip, Scroll and Scroll when needed. Not saved: Blend mode, Corner shape, Each corner and Scroll always.
 - **Stroke:** + adds the project's usual stroke and − removes it; then its color and one width. Not saved: the color's

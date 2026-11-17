@@ -1,7 +1,7 @@
 import { Slider, Toggle } from "@buildkitgg/shadcn"
 import { formatNumber, lengthForm, remPx } from "@parity-app/style-schema"
 import { ALargeSmall, Italic, MoveHorizontal, MoveVertical, TriangleAlert } from "lucide-react"
-import { type ReactNode, useEffect, useState } from "react"
+import { type ReactNode, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { clamp, stepCount } from "./css-values.ts"
@@ -110,14 +110,8 @@ export function FontFamilyField({
   onPreview: (value: FontValue | undefined) => void
 }) {
   const { tokens, create } = useTokens("font")
+  // The computer's fonts, listed after the project's.
   const installed = useInstalledFonts()
-
-  // The computer's fonts are listed after the project's, once asked for.
-  useEffect(() => {
-    if (!tokensOnly) {
-      askForInstalledFonts()
-    }
-  }, [tokensOnly])
 
   // What Add font says it'll do, under the row.
   const [note, setNote] = useState<Message>()
@@ -262,7 +256,8 @@ export function FontFamilyField({
   }
 
   return (
-    <div>
+    // A click or a key in the field asks again for the computer's fonts where the browser gave none without one.
+    <div onPointerDownCapture={askForInstalledFonts} onKeyDownCapture={askForInstalledFonts}>
       <ValueField
         label="Font"
         shown={own ? resolved?.name : undefined}

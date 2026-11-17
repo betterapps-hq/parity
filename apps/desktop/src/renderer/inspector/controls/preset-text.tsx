@@ -18,6 +18,7 @@ import {
 } from "./field-parts.tsx"
 import { Field, FieldGrid } from "./field-row.tsx"
 import { FontFamilyField, FontSizeField, LetterSpacingField, LineHeightField, WeightField } from "./font-fields.tsx"
+import { useInstalledFonts } from "./fonts.ts"
 import {
   applyPreset,
   closestPreset,
@@ -560,6 +561,8 @@ function TypeControl({
   onChange: (layer: PresetLayer) => void
 }) {
   const sets = useTokenSets()
+  // The computer's fonts, which say what faces a font has, draw the row again when they come.
+  useInstalledFonts()
   const type = typeOf(layer)
   const numbers = measured(type, sets)
   const set = <F extends TypeField>(name: F, value: TypeValues[F] | undefined) => onChange(setValue(layer, name, value))

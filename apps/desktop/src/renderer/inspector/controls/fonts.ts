@@ -104,26 +104,22 @@ export function installedFamilies(faces: readonly LocalFace[]): FontFamily[] {
   ).toSorted((a, b) => a.name.localeCompare(b.name))
 }
 
-/** Fonts set in place of the project's and the computer's, for Storybook, which loads no project and lists none. */
-let shown: { project: FontFamily[]; installed: FontFamily[] } | undefined
 let installed: FontFamily[] | undefined
 let asked = false
 const listeners = new Set<() => void>()
 
-/** Lists these fonts in place of the project's and the computer's, as Storybook does. */
-export function showFonts(fonts: { project: FontFamily[]; installed: FontFamily[] }): void {
-  shown = fonts
-  listeners.forEach((listener) => listener())
-}
-
 /** The project's own fonts, from the loaded project's stylesheets, as they are now. */
 export function projectFonts(): FontFamily[] {
-  return shown?.project ?? declaredFamilies(declaredFaces())
+  return declaredFamilies(declaredFaces())
 }
 
-/** Asks for the computer's fonts once; the fields draw again when they come. */
+/**
+ * Asks for the computer's fonts, the first time anything wants them; what wants them draws again when they come. A
+ * browser that lists them only after a click or a key, as Chrome does, gives none at first, so they're asked for
+ * again on the next one (`FontFamilyField`). Electron lists them straight away.
+ */
 export function askForInstalledFonts(): void {
-  if (asked || shown) {
+  if (asked) {
     return
   }
 
@@ -135,28 +131,30 @@ export function askForInstalledFonts(): void {
     .catch(() => [])
     .then((found) => {
       installed = found
+      asked = found.length > 0
       listeners.forEach((listener) => listener())
     })
 }
 
 const subscribe = (listener: () => void) => {
   listeners.add(listener)
+  askForInstalledFonts()
 
   return () => listeners.delete(listener)
 }
 
 const none: FontFamily[] = []
 
-/** The fonts installed on this computer, once asked for (`askForInstalledFonts`); none until they come. */
+/** The fonts installed on this computer, asked for the first time it's used; none until they come. */
 export function useInstalledFonts(): FontFamily[] {
-  return useSyncExternalStore(subscribe, () => shown?.installed ?? installed ?? none)
+  return useSyncExternalStore(subscribe, () => installed ?? none)
 }
 
 /** A font by its first family's name, ignoring case and quotes: the project's first, then the computer's. */
 export function findFont(name: string): FontFamily | undefined {
   const bare = (stackFamilies(name)[0] ?? name).toLowerCase()
 
-  return [...projectFonts(), ...(shown?.installed ?? installed ?? [])].find((font) =>
+  return [...projectFonts(), ...(installed ?? [])].find((font) =>
     [font.name, stackFamilies(font.stack)[0]].some((family) => family?.toLowerCase() === bare)
   )
 }
