@@ -10,7 +10,7 @@ import {
 import { routeTree, samplePath, type Selection, withCopyLayers } from "@parity-app/editor"
 import { type ContainerEntry, containerEntry, type ProjectDoc } from "@parity-app/multiplayer"
 import type { ProjectInfo } from "@parity-app/project"
-import { windowStore } from "../store.ts"
+import { type Store, windowStore } from "../store.ts"
 import { componentBoardsTop } from "./component-boards.ts"
 
 /**
@@ -104,7 +104,9 @@ export function setPageLanding(design: string, path: string | undefined): void {
  * board's main frame, and kept in the window, never in the project's document. Layers shows them inside the route that
  * draws the page (`withCopyLayers`).
  */
-export const copyLayers = windowStore<ReadonlyMap<string, readonly DesignNode[]>>(() => new Map())
+export const copyLayers: Store<ReadonlyMap<string, readonly DesignNode[]>> = windowStore<
+  ReadonlyMap<string, readonly DesignNode[]>
+>(() => new Map())
 
 /** Keeps what a page's copy draws as its layers. */
 export function setCopyLayers(design: string, layers: readonly DesignNode[]): void {
