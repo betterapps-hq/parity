@@ -95,6 +95,28 @@ describe("buildCopy", () => {
     expect(drawn.parent("0")).toBeUndefined()
   })
 
+  it("attaches a shadow root with its styles and content, in the copy's registry, its elements without ids", () => {
+    const host: FrozenElement = {
+      tag: "price-tag",
+      attributes: [],
+      children: [],
+      shadow: {
+        children: [
+          { tag: "span", attributes: [], children: ["$9"] },
+          { tag: "slot", attributes: [], children: [] }
+        ],
+        styles: ["span { color: red }"]
+      }
+    }
+
+    const built = buildCopy(document, { tag: "body", attributes: [], children: [host] }, registry)
+    const shadow = built.fragment.querySelector("price-tag")!.shadowRoot!
+
+    expect(shadow.innerHTML).toBe("<style>span { color: red }</style><span>$9</span><slot></slot>")
+    expect(built.drawn.ids).toEqual(["0"])
+    expect(built.drawn.nodeOf(shadow.querySelector("span")!)).toBeUndefined()
+  })
+
   it("finds the node an element belongs to, an svg's shape its svg, and none for the stand-in", () => {
     const { drawn, standIn } = copy()
 

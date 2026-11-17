@@ -1,5 +1,5 @@
 import { bodyAttribute, type DrawnNodes } from "@parity-app/core"
-import type { FrozenElement } from "./snapshot.ts"
+import type { FrozenElement, FrozenShadow } from "./snapshot.ts"
 
 const namespaces = {
   html: "http://www.w3.org/1999/xhtml",
@@ -21,7 +21,9 @@ export interface BuiltCopy {
  * `inert`, and the `DrawnNodes` that maps their ids to them. Every element is created in `registry`, the copy's shadow
  * root's own, so none is upgraded by a definition in Parity's window. Each element's id is its path from the body,
  * counting elements only (`0.3.1`). What's inside an `<svg>` has no id: its layer is the picture (`elementLayers`), so
- * selecting a shape in it finds the `<svg>`. `body` has been through `sanitizePage`.
+ * selecting a shape in it finds the `<svg>`. An element's open shadow root is attached again, in the same registry,
+ * with its own styles; what's in it has no id either, as the page's DOM has none for it, so it selects its host. `body`
+ * has been through `sanitizePage`.
  */
 export function buildCopy(document: Document, body: FrozenElement, registry: CustomElementRegistry): BuiltCopy {
   const ids: string[] = []
@@ -38,14 +40,34 @@ export function buildCopy(document: Document, body: FrozenElement, registry: Cus
   standIn.setAttribute("inert", "")
 
   interface Pending {
-    frozen: FrozenElement
-    into: Element
+    frozen: Pick<FrozenElement, "children">
+    into: Element | ShadowRoot
     parent: string | undefined
-    /** Inside an `<svg>`, whose elements aren't layers of their own. */
-    inPicture: boolean
+    /** Inside an `<svg>` or a shadow root, whose elements aren't layers of their own. */
+    unlayered: boolean
   }
 
-  const pending: Pending[] = [{ frozen: body, into: standIn, parent: undefined, inPicture: false }]
+  /** Attaches a host's shadow root, its styles first, and gives what to build into it, without ids. */
+  const shadowContent = (host: Element, shadow: FrozenShadow, id: string): Pending[] => {
+    let root: ShadowRoot
+
+    try {
+      root = host.attachShadow({ mode: "open", customElementRegistry: registry })
+    } catch {
+      // An element that can't hold a shadow root keeps only its own children.
+      return []
+    }
+
+    for (const text of shadow.styles) {
+      const style = create({ tag: "style", attributes: [], children: [] })
+      style.textContent = text
+      root.append(style)
+    }
+
+    return [{ frozen: shadow, into: root, parent: id, unlayered: true }]
+  }
+
+  const pending: Pending[] = [{ frozen: body, into: standIn, parent: undefined, unlayered: false }]
 
   for (let next = pending.pop(); next; next = pending.pop()) {
     let index = 0
@@ -63,8 +85,12 @@ export function buildCopy(document: Document, body: FrozenElement, registry: Cus
       setAttributes(element, child.attributes)
       next.into.append(element)
 
-      if (next.inPicture) {
-        children.push({ frozen: child, into: element, parent: id, inPicture: true })
+      if (child.shadow) {
+        children.push(...shadowContent(element, child.shadow, id))
+      }
+
+      if (next.unlayered) {
+        children.push({ frozen: child, into: element, parent: id, unlayered: true })
         continue
       }
 
@@ -80,7 +106,7 @@ export function buildCopy(document: Document, body: FrozenElement, registry: Cus
         frozen: child,
         into: element,
         parent: id,
-        inPicture: child.namespace === "svg" && child.tag === "svg"
+        unlayered: child.namespace === "svg" && child.tag === "svg"
       })
     }
 

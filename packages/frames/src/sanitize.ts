@@ -17,7 +17,7 @@ const htmlElements = new Set(
     "a abbr address area article aside audio b bdi bdo blockquote body br button canvas caption cite code col colgroup",
     "data datalist dd del details dfn dialog div dl dt em fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6",
     "header hgroup hr i img input ins kbd label legend li main map mark menu meter nav ol optgroup option output p",
-    "picture pre progress q rp rt ruby s samp search section select selectedcontent small source span strong sub",
+    "picture pre progress q rp rt ruby s samp search section select selectedcontent slot small source span strong sub",
     "summary sup table tbody td textarea tfoot th thead time tr track u ul var video wbr"
   ]
     .join(" ")
@@ -357,6 +357,13 @@ function sanitizeElement(element: FrozenElement, policy: SanitizePolicy, count: 
 
   if (element.namespace) {
     clean.namespace = element.namespace
+  }
+
+  if (element.shadow) {
+    clean.shadow = {
+      children: element.shadow.children.map((child) => sanitizeNode(child, policy, count)),
+      styles: element.shadow.styles.map((style) => sanitizeSheet(style, policy))
+    }
   }
 
   return clean

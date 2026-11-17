@@ -85,6 +85,43 @@ describe("takeSnapshot", () => {
     })
   })
 
+  it("takes an open shadow root's content and its styles, but not a closed one's", async () => {
+    document.body.innerHTML = `<price-tag></price-tag><secret-tag></secret-tag>`
+    const open = document.querySelector("price-tag")!.attachShadow({ mode: "open" })
+    open.innerHTML = `<style>span { color: red }</style><span>$9</span><slot></slot>`
+    document.querySelector("secret-tag")!.attachShadow({ mode: "closed" }).innerHTML = `<span>hidden</span>`
+
+    const { body } = await takeSnapshot(window, { mode: plain, viewport: desktop, location: landed, sheets: new Map() })
+    const [priceTag, secretTag] = body.children
+
+    expect(priceTag).toMatchObject({
+      tag: "price-tag",
+      shadow: { children: [{ tag: "span", children: ["$9"] }, { tag: "slot" }] }
+    })
+    expect(priceTag instanceof Object && priceTag.shadow?.styles.join("")).toContain("color: red")
+    expect(secretTag).toEqual({ tag: "secret-tag", attributes: [], children: [] })
+  })
+
+  it("draws a canvas as a picture at the size and display it was drawn at", async () => {
+    document.body.innerHTML = `<canvas style="margin: 4px;"></canvas>`
+    const canvas = document.querySelector("canvas")!
+    canvas.toDataURL = () => "data:image/png;base64,AA"
+    Object.defineProperty(canvas, "offsetWidth", { value: 320 })
+    Object.defineProperty(canvas, "offsetHeight", { value: 200 })
+    canvas.style.display = "block"
+
+    const { body } = await takeSnapshot(window, { mode: plain, viewport: desktop, location: landed, sheets: new Map() })
+
+    expect(body.children[0]).toEqual({
+      tag: "img",
+      attributes: [
+        ["src", "data:image/png;base64,AA"],
+        ["style", "margin: 4px; display: block; width: 320px; height: 200px; display: block"]
+      ],
+      children: []
+    })
+  })
+
   it("writes a form's state in as attributes, never a password", async () => {
     document.body.innerHTML = `<input id="name"><input id="secret" type="password"><input id="agree" type="checkbox"><select><option>A</option><option id="b">B</option></select><textarea></textarea>`
     document.querySelector<HTMLInputElement>("#name")!.value = "Ada"

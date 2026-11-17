@@ -26,6 +26,7 @@ export {
 
 export {
   type FrozenElement,
+  type FrozenShadow,
   type FrozenNode,
   maxSheetText,
   maxSnapshotDepth,

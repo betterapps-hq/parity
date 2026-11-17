@@ -46,6 +46,14 @@ export interface FrozenElement {
   namespace?: "svg" | "math"
   attributes: [name: string, value: string][]
   children: FrozenNode[]
+  /** An open shadow root's content, as a web component drew it, and its own stylesheets' text. */
+  shadow?: FrozenShadow
+}
+
+/** What's in an element's open shadow root: its nodes, and its `<style>`s' and adopted sheets' rules in order. */
+export interface FrozenShadow {
+  children: FrozenNode[]
+  styles: string[]
 }
 
 export interface PageSheet {
@@ -86,7 +94,8 @@ const shallowElement = z.strictObject({
   tag: z.string().min(1),
   namespace: z.enum(["svg", "math"]).optional(),
   attributes: z.array(attribute),
-  children: z.array(z.unknown())
+  children: z.array(z.unknown()),
+  shadow: z.strictObject({ children: z.array(z.unknown()), styles: z.array(z.string()) }).optional()
 })
 
 const textNode = z.string()
@@ -167,6 +176,21 @@ const frozenBody = z.unknown().transform((value, context): FrozenElement => {
 
       text += textOf(element)
       next.into.push(element)
+
+      if (raw.shadow) {
+        const shadow: FrozenShadow = { children: [], styles: raw.shadow.styles }
+        element.shadow = shadow
+        text += shadow.styles.reduce((sum, style) => sum + style.length, 0)
+
+        for (let index = raw.shadow.children.length - 1; index >= 0; index -= 1) {
+          pending.push({
+            raw: raw.shadow.children[index],
+            into: shadow.children,
+            depth: next.depth + 1,
+            at: `${next.at}/shadow/children/${index}`
+          })
+        }
+      }
 
       for (let index = raw.children.length - 1; index >= 0; index -= 1) {
         pending.push({

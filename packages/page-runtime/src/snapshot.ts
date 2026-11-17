@@ -152,10 +152,34 @@ function frozenElement(element: Element, base: string): FrozenElement {
 
   frozen.children = childrenOf(element, base)
 
+  // A web component's open shadow root, which draws what the page shows of it; a closed one can't be read.
+  if (element.shadowRoot) {
+    frozen.shadow = { children: childrenOf(element.shadowRoot, base), styles: shadowStyles(element.shadowRoot, base) }
+  }
+
   return frozen
 }
 
-function childrenOf(element: Element, base: string): FrozenNode[] {
+/** A shadow root's `<style>`s' and adopted sheets' rules, each sheet's in its conditions; one it can't read is left out. */
+function shadowStyles(root: ShadowRoot, base: string): string[] {
+  const anonymous = { count: 0 }
+
+  const linked = [...root.querySelectorAll<HTMLStyleElement | HTMLLinkElement>("style, link[rel~='stylesheet']")]
+  const sheets = linked.flatMap((element) => (element.sheet ? [element.sheet] : []))
+
+  return [...sheets, ...root.adoptedStyleSheets].flatMap((sheet) => {
+    if (sheet.disabled) {
+      return []
+    }
+
+    const pieces = sheetPieces(sheet, sheet.href ?? base, mediaCondition(sheet.media.mediaText), anonymous) ?? []
+    const text = pieces.flatMap((piece) => ("text" in piece ? [withConditions(piece.text, piece.conditions)] : []))
+
+    return text.length > 0 ? [text.join("\n")] : []
+  })
+}
+
+function childrenOf(element: Node, base: string): FrozenNode[] {
   const children: FrozenNode[] = []
 
   for (const child of element.childNodes) {
@@ -169,7 +193,7 @@ function childrenOf(element: Element, base: string): FrozenNode[] {
   return children
 }
 
-/** A `<canvas>` as an `<img>` of itself, when the page can read it; otherwise the canvas, empty. */
+/** A `<canvas>` as an `<img>` of itself at the size it's drawn, when the page can read it; otherwise the canvas, empty. */
 function canvasPicture(canvas: HTMLCanvasElement, frozen: FrozenElement): FrozenElement {
   let src: string
 
@@ -179,9 +203,19 @@ function canvasPicture(canvas: HTMLCanvasElement, frozen: FrozenElement): Frozen
     return frozen
   }
 
+  // The `<img>` keeps the size and display the canvas drew at, which rules for `canvas` gave it and won't give an img.
+  const display = canvas.ownerDocument.defaultView?.getComputedStyle(canvas).display || "inline"
+  const own = frozen.attributes.find(([name]) => name === "style")?.[1] ?? ""
+  const drawn = `width: ${canvas.offsetWidth}px; height: ${canvas.offsetHeight}px; display: ${display}`
+  const style = own.trim() ? `${own.replace(/;\s*$/, "")}; ${drawn}` : drawn
+
   return {
     tag: "img",
-    attributes: [...frozen.attributes.filter(([name]) => name !== "src"), ["src", src]],
+    attributes: [
+      ...frozen.attributes.filter(([name]) => name !== "src" && name !== "style"),
+      ["src", src],
+      ["style", style]
+    ],
     children: []
   }
 }

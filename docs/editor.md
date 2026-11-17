@@ -8588,10 +8588,11 @@ A screen is named for the component its route draws, else its path.
   a page past 50,000 elements, 256 deep or 8 MB of text, and passed through `sanitizePage` and `sanitizeRoot`. The board
   builds it with `buildCopy` in a shadow root from `prepareFrame`, with a custom element registry of its own, so the
   guest's definitions don't upgrade its elements; each sheet goes through `sanitizeSheet` and `prepareCanvasCss` once
-  and is shared by every copy. `<html>`'s classes and attributes go on the frame's host, `<body>`'s on the body
-  stand-in, and the mode's on both. A copy is as tall as its page in the mode's window, unless the board has a height of
-  its own, and it's inert, so nothing in it takes focus or follows a link. Until it comes, a placeholder stands in at
-  the window's height.
+  and is shared by every copy. `<html>`'s classes and attributes go on the frame's host and on an element around the
+  body stand-in, `<body>`'s on the stand-in, and the mode's on the host and the stand-in. A web component's open shadow
+  root comes with its own styles, and a canvas comes as a picture at the size it was drawn. A copy is as tall as its
+  page in the mode's window, unless the board has a height of its own, and it's inert, so nothing in it takes focus or
+  follows a link. Until it comes, a placeholder stands in at the window's height.
 - **Selecting inside a copy.** A copy's frame is registered under its page's design with its mode and state, and its
   elements have ids from their place in the body (`0.3.1`), which `buildCopy`'s `DrawnNodes` maps, so clicking and
   double-clicking select inside a copy as in a design's frame, with the element's outline, name and spacing. Layers
@@ -8675,21 +8676,22 @@ read refused; the height told in the mode's window, rounded up, and not once the
 without a hydration module has gone quiet, or once a hydration module says the app committed; a router that isn't the
 app's passed over; `route.go` moving the app and saying where it ended, a redirect included, without a `page.moved`;
 `route.go` refused without a router; where the page moved told, by its router or its address; `page.used` at most once a
-second), `packages/page-runtime/src/snapshot.test.ts` (15, PAR-1262: the body's tree as plain data without scripts or
-styles; every URL made absolute; svg's namespace and case; a form's state as attributes, never a password; `<html>`
-without the mode or the runtime's style, its `url()`s absolute; sheets by content hash for `sheets.get`, one it can't
-read by address with its media, an unreadable import where it stands inside every condition around it, and an anonymous
-imported layer kept one named layer inside its `supports()`; the same markup hash for the same tree; `url()`s and
-`image-set()`'s strings made absolute; a snapshot and its sheets over the channel; a wait or too many ids refused; the
-snapshot's deadline), `packages/frames/src/freezer.test.ts` (5: nearest route first, each once; nothing with no boards;
-restarting after 1 s and 5 s, stopping after three failures in two minutes, and forgetting older ones),
-`element-layers.test.ts` ("gives a copy's elements their path from the body as ids"), `route-boards.test.ts` ("puts what
-the copy drew inside the innermost route"), `apps/desktop/src/main/page-sheets.test.ts` (6: its `@import`s inlined in
-their layer and media, and `supports()` kept apart from the media after it; another host's sheet over https, its
-`url()`s absolute against where it came from; anything else refused unasked; nothing for a failed answer, one that isn't
-CSS, or a request that fails), `packages/extension-tanstack-router/src/page.test.ts` (6: the router found on the page's
-window or not; where it resolved, with search and hash; its not-found route and an error; a navigation resolved once the
-router has resolved, not when it's first idle; one given up when aborted; the watcher told until it stops),
+second), `packages/page-runtime/src/snapshot.test.ts` (17, PAR-1262: the body's tree as plain data without scripts or
+styles; an open shadow root's content and styles, not a closed one's; a canvas as a picture at its drawn size; every URL
+made absolute; svg's namespace and case; a form's state as attributes, never a password; `<html>` without the mode or
+the runtime's style, its `url()`s absolute; sheets by content hash for `sheets.get`, one it can't read by address with
+its media, an unreadable import where it stands inside every condition around it, and an anonymous imported layer kept
+one named layer inside its `supports()`; the same markup hash for the same tree; `url()`s and `image-set()`'s strings
+made absolute; a snapshot and its sheets over the channel; a wait or too many ids refused; the snapshot's deadline),
+`packages/frames/src/freezer.test.ts` (5: nearest route first, each once; nothing with no boards; restarting after 1 s
+and 5 s, stopping after three failures in two minutes, and forgetting older ones), `element-layers.test.ts` ("gives a
+copy's elements their path from the body as ids"), `route-boards.test.ts` ("puts what the copy drew inside the innermost
+route"), `apps/desktop/src/main/page-sheets.test.ts` (6: its `@import`s inlined in their layer and media, and
+`supports()` kept apart from the media after it; another host's sheet over https, its `url()`s absolute against where it
+came from; anything else refused unasked; nothing for a failed answer, one that isn't CSS, or a request that fails),
+`packages/extension-tanstack-router/src/page.test.ts` (6: the router found on the page's window or not; where it
+resolved, with search and hash; its not-found route and an error; a navigation resolved once the router has resolved,
+not when it's first idle; one given up when aborted; the watcher told until it stops),
 `packages/extension-react-router/src/page.test.ts` (10, with React Router's own router: framework mode's router found or
 not; library mode's through the wrapped `createBrowserRouter`, with the rest of React Router passed through; not-found
 for an unmatched path and a loader's error; a navigation resolved once React commits the new page, a redirect included;
