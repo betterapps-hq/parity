@@ -12,7 +12,9 @@ export default defineMain({
   staticDirs: [
     { from: "../src/renderer/stories/media", to: "/images" },
     // The same pictures and clip, as a project keeps its videos (PAR-841).
-    { from: "../src/renderer/stories/media", to: "/videos" }
+    { from: "../src/renderer/stories/media", to: "/videos" },
+    // The blank page a lens's own window opens on, before Dockview moves the lens into it (PAR-1237).
+    { from: "../src/renderer/explorations/lenses/popout", to: "/lens-popout" }
   ],
   // The app's Vite config serves the renderer from its own root on a fixed port; Storybook serves from here. Stories
   // open the example project, served here in place of its builder, and search through the connectors the dev server
