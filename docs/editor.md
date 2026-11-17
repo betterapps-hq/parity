@@ -5516,9 +5516,10 @@ Tests:
 - `packages/multiplayer/src/testing/describe-project-doc.ts`, "concurrent", on Loro: two people typing the same keys in
   40 orders of their own, carets moving and copies exchanging at times of their own, keeping every letter; and Undo
   taking out only this person's typing, keeping what the other typed since.
-- `packages/editor/src/text-editing.test.ts`, "taking someone else's change into text being typed" (6): a change before
+- `packages/editor/src/text-editing.test.ts`, "taking someone else's change into text being typed" (7): a change before
   the typing moving the caret, one after it leaving the caret, both writing at one place, both changing the same
-  characters, a selection moved by a deletion before it, and a change taken as it is when nothing's typed.
+  characters, a selection moved by a deletion before it, changes on both sides of the typing kept apart, and a change
+  taken as it is when nothing's typed.
 - `apps/desktop/src/renderer/canvas/text-caret-drawn.test.ts` (3), in Chrome: a caret at the left of the character it's
   before, across text nodes and onto a wrapped line; at the right of the last character at the end and past it; and none
   in an element without text.

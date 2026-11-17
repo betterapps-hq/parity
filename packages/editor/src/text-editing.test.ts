@@ -321,6 +321,11 @@ describe("taking someone else's change into text being typed", () => {
     })
   })
 
+  it("keeps the other's changes on both sides of the typing apart (PAR-1238)", () => {
+    // "b" composed into "中" while someone wrote "Z" before the text and "Y" after it.
+    expect(rebaseText("abc", "a中c", "ZabcY", caret(2))).toEqual({ text: "Za中cY", selection: caret(3) })
+  })
+
   it("takes the change as it is when nothing's typed", () => {
     expect(rebaseText("Hello", "Hello", "Hello there", caret(2))).toEqual({ text: "Hello there", selection: caret(2) })
   })

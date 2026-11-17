@@ -224,24 +224,6 @@ export function spliceAt(before: string, after: string, caret?: number): TextSpl
   return { start, end: before.length - tail, insert: after.slice(start, after.length - tail) }
 }
 
-/** The one change that turns `before` into `after`, around what they start and end with in common. */
-function spliceBetween(before: string, after: string): TextSplice {
-  const most = Math.min(before.length, after.length)
-  let start = 0
-
-  while (start < most && before[start] === after[start]) {
-    start++
-  }
-
-  let tail = 0
-
-  while (tail < most - start && before[before.length - 1 - tail] === after[after.length - 1 - tail]) {
-    tail++
-  }
-
-  return { start, end: before.length - tail, insert: after.slice(start, after.length - tail) }
-}
-
 /** A text with someone else's change taken in, and where the selection is in it. */
 export interface RebasedText {
   text: string
@@ -250,51 +232,199 @@ export interface RebasedText {
 
 /**
  * Someone else's change to a text being typed, taken in (docs/proposals/extensions-in-the-window.md, Live text). `base`
- * is the text both started from, `local` what's typed since, and `remote` the text with the other change. Both changes
- * are kept, the typing placed where it was among the other's, and the selection moves with the characters around it,
- * so the caret stays where the person is typing. Where the two change the same characters, what either removed goes
- * and the typing follows what the other wrote.
+ * is the text both started from, `local` what's typed since, and `remote` the text with the other's changes. Both are
+ * kept, the typing placed where it was among the other's, and the selection moves with the characters around it, so
+ * the caret stays where the person is typing. Each character of `base` is followed to where it is in `remote`
+ * (`keptCharacters`), so the other's changes on both sides of the typing stay apart (PAR-1238). Where the two change
+ * the same characters, what either removed goes and the typing follows what the other wrote; where both only write at
+ * one place, the typing comes first.
  */
 export function rebaseText(base: string, local: string, remote: string, selection: TextRange): RebasedText {
-  const mine = spliceBetween(base, local)
-  const theirs = spliceBetween(base, remote)
+  const mine = spliceAt(base, local, selection.end)
+  const where = keptCharacters(base, remote)
   const typedEnd = mine.start + mine.insert.length
-  const overlap = mine.start < theirs.end && theirs.start < mine.end
-  // The characters of `base` the two changes replace between them, and where what replaces them starts in the result.
-  const from = overlap ? Math.min(mine.start, theirs.start) : mine.start
-  const to = overlap ? Math.max(mine.end, theirs.end) : mine.end
+  // Where the characters the typing replaced still are in `remote`.
+  const replaced = where.slice(mine.start, mine.end).filter((at) => at >= 0)
+  const gone = new Set(replaced)
 
-  // Where a place in `base` outside the changes is in the result. Inside what the other replaced, it's the end of what
-  // they wrote.
-  const moved = (at: number) => {
-    if (at <= theirs.start) {
-      return at
+  // The other changed the characters the typing replaced: removed some, or wrote between them.
+  const overlap =
+    replaced.length < mine.end - mine.start ||
+    replaced.some((at, index) => index > 0 && at !== replaced[index - 1]! + 1)
+
+  // Where a place in `base` is in `remote`: just after the last character before it that's still there.
+  const after = (at: number) => {
+    for (let index = at - 1; index >= 0; index--) {
+      if (where[index]! >= 0) {
+        return where[index]! + 1
+      }
     }
 
-    return at >= theirs.end
-      ? at + theirs.insert.length - (theirs.end - theirs.start)
-      : theirs.start + theirs.insert.length
+    return 0
   }
 
-  const start = overlap ? from + theirs.insert.length : moved(from)
-  const after = start + mine.insert.length
+  // Where the first character after the typing that's still there is in `remote`.
+  const before = () => {
+    for (let index = mine.end; index < base.length; index++) {
+      if (where[index]! >= 0) {
+        return where[index]!
+      }
+    }
+
+    return remote.length
+  }
+
+  const insertAt = overlap ? before() : after(mine.start)
+  let text = ""
+
+  for (let at = 0; at <= remote.length; at++) {
+    if (at === insertAt) {
+      text += mine.insert
+    }
+
+    if (at < remote.length && !gone.has(at)) {
+      text += remote[at]
+    }
+  }
+
+  // Where a place in `remote` is in the result, before the typing when it's where the typing goes.
+  const shown = (at: number) => {
+    let removed = 0
+
+    for (const position of gone) {
+      if (position < at) {
+        removed++
+      }
+    }
+
+    return at - removed + (insertAt < at ? mine.insert.length : 0)
+  }
+
+  const typing = shown(insertAt)
 
   // Where a place in `local` is in the result: before the typing, in it, or after it.
   const place = (at: number) => {
     if (at <= mine.start) {
-      return Math.min(moved(at), start)
+      return Math.min(shown(after(at)), typing)
     }
 
     if (at <= typedEnd) {
-      return start + at - mine.start
+      return typing + at - mine.start
     }
 
-    return Math.max(moved(at - typedEnd + mine.end), moved(to)) - moved(to) + after
+    return Math.max(shown(after(at - typedEnd + mine.end)), typing + mine.insert.length)
   }
 
-  return {
-    text:
-      (overlap ? base.slice(0, from) + theirs.insert : remote.slice(0, start)) + mine.insert + remote.slice(moved(to)),
-    selection: { start: place(selection.start), end: place(selection.end) }
+  return { text, selection: { start: place(selection.start), end: place(selection.end) } }
+}
+
+/**
+ * Where each character of `before` is in `after`, or -1 for one that's gone: the longest run of characters they share,
+ * in order, after what they start and end with.
+ */
+export function keptCharacters(before: string, after: string): number[] {
+  let head = 0
+
+  while (head < before.length && head < after.length && before[head] === after[head]) {
+    head++
   }
+
+  let tail = 0
+
+  while (
+    tail < before.length - head &&
+    tail < after.length - head &&
+    before[before.length - 1 - tail] === after[after.length - 1 - tail]
+  ) {
+    tail++
+  }
+
+  const where = Array.from({ length: before.length }, () => -1)
+
+  for (let index = 0; index < head; index++) {
+    where[index] = index
+  }
+
+  for (let index = 0; index < tail; index++) {
+    where[before.length - 1 - index] = after.length - 1 - index
+  }
+
+  // The middles, by Myers' difference: its cost grows with how much others changed, not with the text's length.
+  const a = before.slice(head, before.length - tail)
+  const b = after.slice(head, after.length - tail)
+
+  for (const [i, j] of sharedRun(a, b)) {
+    where[head + i] = head + j
+  }
+
+  return where
+}
+
+/** The most changes `sharedRun` looks through before it gives up and treats the rest as changed. */
+const mostChanges = 2000
+
+/**
+ * The characters `a` and `b` share, in order, as pairs of positions: Myers' O(ND) difference, which keeps one row per
+ * change it looks through. Past `mostChanges` it gives up and shares nothing, so a far-apart pair costs no more than that.
+ */
+function sharedRun(a: string, b: string): [number, number][] {
+  const offset = Math.min(a.length + b.length, mostChanges) + 1
+  const furthest = new Int32Array(2 * offset + 1)
+  const rows: Int32Array[] = []
+
+  for (let changes = 0; changes < offset; changes++) {
+    rows.push(furthest.slice())
+
+    for (let diagonal = -changes; diagonal <= changes; diagonal += 2) {
+      const down =
+        diagonal === -changes ||
+        (diagonal !== changes && furthest[offset + diagonal - 1]! < furthest[offset + diagonal + 1]!)
+
+      let x = down ? furthest[offset + diagonal + 1]! : furthest[offset + diagonal - 1]! + 1
+      let y = x - diagonal
+
+      while (x < a.length && y < b.length && a[x] === b[y]) {
+        x++
+        y++
+      }
+
+      furthest[offset + diagonal] = x
+
+      if (x >= a.length && y >= b.length) {
+        return backtrack(rows, offset, a.length, b.length, a, b)
+      }
+    }
+  }
+
+  return []
+}
+
+/** The shared pairs on the path `sharedRun` found, walked back from the end through the rows it kept. */
+function backtrack(rows: Int32Array[], offset: number, n: number, m: number, a: string, b: string): [number, number][] {
+  const pairs: [number, number][] = []
+  let x = n
+  let y = m
+
+  for (let changes = rows.length - 1; changes >= 0; changes--) {
+    const row = rows[changes]!
+    const diagonal = x - y
+
+    const down =
+      diagonal === -changes || (diagonal !== changes && row[offset + diagonal - 1]! < row[offset + diagonal + 1]!)
+
+    const previous = down ? diagonal + 1 : diagonal - 1
+    const fromX = row[offset + previous]!
+    const fromY = fromX - previous
+
+    while (x > fromX && y > fromY && a[x - 1] === b[y - 1]) {
+      x--
+      y--
+      pairs.push([x, y])
+    }
+
+    x = fromX
+    y = fromY
+  }
+
+  return pairs.reverse()
 }

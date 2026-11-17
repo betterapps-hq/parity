@@ -450,6 +450,7 @@ export {
 
 export {
   editableText,
+  keptCharacters,
   openingSelection,
   type RebasedText,
   rebaseText,

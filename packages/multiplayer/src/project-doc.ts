@@ -10,6 +10,7 @@ import {
   type ReferenceSpec
 } from "@parity-app/core"
 import {
+  keptCharacters,
   sameDesign,
   sameDocument,
   sameTokenValues,
@@ -868,7 +869,7 @@ function textBack(
   }
 
   const { at, remove, insert } = op.edit
-  const where = kept(left, now)
+  const where = keptCharacters(left, now)
   // The step's characters still there, in runs of neighbours.
   const runs: { start: number; end: number }[] = []
 
@@ -912,117 +913,6 @@ function textBack(
     ...(insert === "" ? [] : [splice(back, back, insert)]),
     ...runs.toReversed().map(({ start, end }) => splice(start, end, ""))
   ]
-}
-
-/**
- * Where each character of `before` is in `after`, or -1 for one that's gone: the longest run of characters they share,
- * in order, after what they start and end with.
- */
-function kept(before: string, after: string): number[] {
-  let head = 0
-
-  while (head < before.length && head < after.length && before[head] === after[head]) {
-    head++
-  }
-
-  let tail = 0
-
-  while (
-    tail < before.length - head &&
-    tail < after.length - head &&
-    before[before.length - 1 - tail] === after[after.length - 1 - tail]
-  ) {
-    tail++
-  }
-
-  const where = Array.from({ length: before.length }, () => -1)
-
-  for (let index = 0; index < head; index++) {
-    where[index] = index
-  }
-
-  for (let index = 0; index < tail; index++) {
-    where[before.length - 1 - index] = after.length - 1 - index
-  }
-
-  // The middles, by Myers' difference: its cost grows with how much others changed, not with the text's length.
-  const a = before.slice(head, before.length - tail)
-  const b = after.slice(head, after.length - tail)
-
-  for (const [i, j] of sharedRun(a, b)) {
-    where[head + i] = head + j
-  }
-
-  return where
-}
-
-/** The most changes `sharedRun` looks through before it gives up and treats the rest as changed. */
-const mostChanges = 2000
-
-/**
- * The characters `a` and `b` share, in order, as pairs of positions: Myers' O(ND) difference, which keeps one row per
- * change it looks through. Past `mostChanges` it gives up and shares nothing, so a far-apart pair costs no more than that.
- */
-function sharedRun(a: string, b: string): [number, number][] {
-  const offset = Math.min(a.length + b.length, mostChanges) + 1
-  const furthest = new Int32Array(2 * offset + 1)
-  const rows: Int32Array[] = []
-
-  for (let changes = 0; changes < offset; changes++) {
-    rows.push(furthest.slice())
-
-    for (let diagonal = -changes; diagonal <= changes; diagonal += 2) {
-      const down =
-        diagonal === -changes ||
-        (diagonal !== changes && furthest[offset + diagonal - 1]! < furthest[offset + diagonal + 1]!)
-
-      let x = down ? furthest[offset + diagonal + 1]! : furthest[offset + diagonal - 1]! + 1
-      let y = x - diagonal
-
-      while (x < a.length && y < b.length && a[x] === b[y]) {
-        x++
-        y++
-      }
-
-      furthest[offset + diagonal] = x
-
-      if (x >= a.length && y >= b.length) {
-        return backtrack(rows, offset, a.length, b.length, a, b)
-      }
-    }
-  }
-
-  return []
-}
-
-/** The shared pairs on the path `sharedRun` found, walked back from the end through the rows it kept. */
-function backtrack(rows: Int32Array[], offset: number, n: number, m: number, a: string, b: string): [number, number][] {
-  const pairs: [number, number][] = []
-  let x = n
-  let y = m
-
-  for (let changes = rows.length - 1; changes >= 0; changes--) {
-    const row = rows[changes]!
-    const diagonal = x - y
-
-    const down =
-      diagonal === -changes || (diagonal !== changes && row[offset + diagonal - 1]! < row[offset + diagonal + 1]!)
-
-    const previous = down ? diagonal + 1 : diagonal - 1
-    const fromX = row[offset + previous]!
-    const fromY = fromX - previous
-
-    while (x > fromX && y > fromY && a[x - 1] === b[y - 1]) {
-      x--
-      y--
-      pairs.push([x, y])
-    }
-
-    x = fromX
-    y = fromY
-  }
-
-  return pairs.reverse()
 }
 
 /**
