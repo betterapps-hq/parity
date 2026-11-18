@@ -30,6 +30,8 @@ export interface OutlineValue {
   color?: string
   alpha?: number
   width?: number
+  /** A border width token the width names, which the Width field shows until a number replaces it. */
+  widthToken?: string
   style?: LineStyle
   offset?: number
 }
@@ -95,7 +97,7 @@ export function BorderSection({ value, set }: { value: BorderValue; set: (next: 
 export function OutlineSection({ value, set }: { value: OutlineValue; set: (next: OutlineValue) => void }) {
   const newColor = useNewColor()
   const usedColors = useUsedColors()
-  const outlined = value.color !== undefined || value.width !== undefined
+  const outlined = value.color !== undefined || value.width !== undefined || value.widthToken !== undefined
 
   const action = (
     <SectionButton adds={!outlined} what="outline" onClick={() => set(outlined ? {} : { color: newColor, width: 2 })} />
@@ -113,7 +115,7 @@ export function OutlineSection({ value, set }: { value: OutlineValue; set: (next
               min={0}
               unit="px"
               value={value.width}
-              placeholder="1"
+              placeholder={value.widthToken ?? "1"}
               onChange={(width) => set({ ...value, width })}
             />
           </Field>
