@@ -6,9 +6,11 @@ import {
   copyId,
   type FrozenElement,
   freezeLoadDeadline,
+  freezeKeeps,
   freezeOrder,
   freezeQuiet,
   groupLeaders,
+  keepsLiveCopy,
   type MarkupGroups,
   type PageLocation,
   type PageMode,
@@ -670,6 +672,13 @@ class Freezer {
       return
     }
 
+    // A live page a link moved on while it went quiet draws another route than its board's.
+    const { pathname, search } = new URL(url)
+
+    if (from === "live" && !keepsLiveCopy(pathname + search, snapshot.location)) {
+      return
+    }
+
     const policy: SanitizePolicy = { pageOrigin: origin }
     const body = sanitizePage(snapshot.body, policy)
     const root = sanitizeRoot(snapshot.root, policy)
@@ -719,13 +728,17 @@ class Freezer {
     }
 
     const next = new Map(copies.get())
+    // A copy kept from the live page since this freeze began, queued or under way, holds what was done in the page; a
+    // newer live page's snapshot replaces it.
+    const replaced = (need: CopyNeed) => from === "live" || !freezeKeeps(next.get(need.key), changes)
+    const needs = unit.needs.filter(replaced)
 
-    for (const need of unit.needs) {
+    for (const need of needs) {
       next.set(need.key, copy)
     }
 
     for (const other of group) {
-      for (const need of other.needs) {
+      for (const need of other.needs.filter(replaced)) {
         const before = next.get(need.key)
 
         next.set(need.key, {
@@ -743,7 +756,7 @@ class Freezer {
     if (changed) {
       this.changes++
 
-      for (const need of [unit, ...group].flatMap((each) => each.needs)) {
+      for (const need of [...needs, ...group.flatMap((each) => each.needs.filter(replaced))]) {
         this.stale.set(need.key, this.changes)
       }
     }

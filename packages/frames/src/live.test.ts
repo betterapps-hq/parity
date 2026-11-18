@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { keepsLiveCopy, liveExpired, liveWindowTop, pickLive, type LiveChoice } from "./live.ts"
+import { freezeKeeps, keepsLiveCopy, liveExpired, liveWindowTop, pickLive, type LiveChoice } from "./live.ts"
 import type { PoolFrame } from "./pool.ts"
 
 describe("pickLive", () => {
@@ -90,5 +90,17 @@ describe("keepsLiveCopy", () => {
   it("leaves the board's copy when a redirect took the page elsewhere, or it never said where it is", () => {
     expect(keepsLiveCopy("/account", at("/sign-in", "", "redirected"))).toBe(false)
     expect(keepsLiveCopy("/pricing", undefined)).toBe(false)
+  })
+})
+
+describe("freezeKeeps", () => {
+  it("leaves a copy kept from the live page after the freeze began, with no code change since", () => {
+    expect(freezeKeeps({ used: true, changes: 3 }, 3)).toBe(true)
+  })
+
+  it("replaces one a code change made stale before the freeze began, and any copy the freezer made", () => {
+    expect(freezeKeeps({ used: true, changes: 2 }, 3)).toBe(false)
+    expect(freezeKeeps({ changes: 3 }, 3)).toBe(false)
+    expect(freezeKeeps(undefined, 0)).toBe(false)
   })
 })

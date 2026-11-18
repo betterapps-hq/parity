@@ -115,3 +115,12 @@ export function liveExpired(outSince: number | undefined, now: number): boolean 
 export function keepsLiveCopy(route: string, location: PageLocation | undefined): boolean {
   return location !== undefined && `${location.path}${location.search}` === route
 }
+
+/**
+ * Whether a freeze leaves a board's copy as it is: a copy kept from the live page (`used`) after the freeze began, at
+ * the freezer's count of code changes `began`, with no code change since, holds what was done in the page, which the
+ * freeze's fresh load doesn't. A freeze begun after a change that made it stale replaces it.
+ */
+export function freezeKeeps(copy: { used?: true; changes: number } | undefined, began: number): boolean {
+  return copy?.used === true && copy.changes >= began
+}
