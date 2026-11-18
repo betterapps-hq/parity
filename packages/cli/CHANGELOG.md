@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Wed, 18 Nov 2026 08:20:44 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 18 Nov 2026 09:52:39 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.85.2
+
+Wed, 18 Nov 2026 09:52:39 GMT
+
+### Patches
+
+- Route boards notice their app page's process crashing at once: the live page, spares and snapshots close together and
+  start again after the usual pause, instead of waiting out a timeout. (ajcraswell@gmail.com)
 
 ## 0.85.1
 
