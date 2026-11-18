@@ -75,6 +75,13 @@ const canvasUtils = [ContainerUtil, NoteUtil, ReferenceUtil, PageLinksUtil, ...w
 /** The kinds of things the project holds that tldraw draws, each as a shape following its entry. */
 type ProjectedType = "canvas-container" | "canvas-note" | "canvas-reference" | "canvas-page-links"
 
+const projectedTypes: ReadonlySet<string> = new Set<ProjectedType>([
+  "canvas-container",
+  "canvas-note",
+  "canvas-reference",
+  "canvas-page-links"
+])
+
 /** A shape as the project wants it: where it is, and for a reference its size and link. */
 interface Projected {
   type: ProjectedType
@@ -563,6 +570,13 @@ export function CanvasEditor({
               }
 
               place(pageLines, pageLinesBoard(), dragged)
+
+              // Shapes the project doesn't draw, as tldraw's own text from a double-click on the empty canvas, go at once.
+              const strays = editor.getCurrentPageShapes().filter((item) => !projectedTypes.has(item.type))
+
+              if (strays.length > 0) {
+                editor.deleteShapes(strays.map((item) => item.id))
+              }
 
               return
             }
