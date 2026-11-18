@@ -92,7 +92,12 @@ function DefaultTag() {
 }
 
 /** The field: the state the props are in, which typing searches the states from, over the list of them. */
-function Search({ states, current, changedLabel, ...props }: StatePickerProps & { current?: PickerState }) {
+function Search({
+  states,
+  current,
+  changedLabel,
+  ...props
+}: Omit<StatePickerProps, "current"> & { current?: PickerState }) {
   const listId = useId()
   const input = useRef<HTMLInputElement>(null)
   const [open, setOpen] = useState(false)
@@ -149,7 +154,12 @@ function Search({ states, current, changedLabel, ...props }: StatePickerProps & 
     if (command && current && current.id !== baseId) {
       event.preventDefault()
       close()
-      ;({ rename: () => props.onRenaming(current.id), duplicate: () => props.onDuplicate(current.id) })[command]()
+
+      if (command === "duplicate") {
+        props.onDuplicate(current.id)
+      } else {
+        props.onRenaming(current.id)
+      }
 
       return
     }
