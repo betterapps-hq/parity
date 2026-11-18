@@ -50,8 +50,8 @@ function changedField(was: LineValue, next: LineValue): keyof LineValue | undefi
 }
 
 /** What an edit to a border or outline did, for its undo label: added it, took it off, or changed one field. */
-function changeLabel(what: "border" | "outline", was: LineValue, next: LineValue): string {
-  if (!isSet(was)) {
+function changeLabel(what: "border" | "outline", wasSet: boolean, was: LineValue, next: LineValue): string {
+  if (!wasSet) {
     return `Add ${what}`
   }
 
@@ -107,11 +107,11 @@ export function BorderSection({ editor, edit }: SectionProps) {
     : {}
 
   const set = (next: BorderValue) => {
-    const label = changeLabel("border", value, next)
+    const label = changeLabel("border", bordered, value, next)
 
     if (!isSet(next)) {
       edit("border", { borderColor: undefined, borderWidth: undefined, borderStyle: undefined }, label)
-    } else if (!isSet(value)) {
+    } else if (!bordered) {
       edit(
         "border",
         {
@@ -163,7 +163,8 @@ export function OutlineSection({ editor, edit }: SectionProps) {
     : {}
 
   const set = (next: OutlineValue) => {
-    const label = changeLabel("outline", value, next)
+    // Layers whose only outline property is a width that differs show `{}`, so whether to add goes by `outlined`.
+    const label = changeLabel("outline", outlined, value, next)
 
     if (!isSet(next)) {
       edit(
@@ -171,7 +172,7 @@ export function OutlineSection({ editor, edit }: SectionProps) {
         { outlineColor: undefined, outlineWidth: undefined, outlineStyle: undefined, outlineOffset: undefined },
         label
       )
-    } else if (!isSet(value)) {
+    } else if (!outlined) {
       edit(
         "outline",
         { outlineColor: colorStored(next, undefined), outlineWidth: lineWidthOf({ number: next.width ?? 1 }) },
