@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Other people's pointers in a live room move smoothly: presence goes 30 times a second, stamped with when each position was taken, and each pointer is drawn a little behind and moved every frame. room.latency adds how far apart presence arrives and late positions.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

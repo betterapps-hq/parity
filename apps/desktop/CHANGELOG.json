@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Wed, 18 Nov 2026 13:03:28 GMT",
+      "version": "0.114.0",
+      "tag": "@parity-app/desktop_v0.114.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b3de691f6b1a8ff258c0169b6e228425f51b762d",
+            "comment": "Settings › Diagnostics › Spare route frames sets how many spare route frames each project keeps per focused window, from Off to 4; a machine with less than 8 GB keeps 1 at most"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "bdeeb14c751c9c6676f62a23f4522ecb2dbb8c99",
+            "comment": "Other people's pointers in a live room move smoothly: presence goes 30 times a second, stamped with when each position was taken, and each pointer is drawn a little behind and moved every frame. room.latency adds how far apart presence arrives and late positions."
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 18 Nov 2026 12:14:58 GMT",
       "version": "0.113.0",
       "tag": "@parity-app/desktop_v0.113.0",
