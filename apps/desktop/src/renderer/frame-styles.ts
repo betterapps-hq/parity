@@ -283,7 +283,9 @@ function followed(declarations: CSSStyleDeclaration, rule: CSSRule): CSSStyleDec
       // SAFETY: what code reads from a rule's declarations is one of their keys, or undefined for anything else.
       const value: unknown = target[property as keyof CSSStyleDeclaration]
 
-      return value instanceof Function ? value.bind(target) : value
+      // A lens window's methods are its own `Function`s, which aren't an `instanceof` this window's.
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof -- only their type says they're methods to bind
+      return typeof value === "function" ? value.bind(target) : value
     },
     set(target, property, value) {
       const done = Reflect.set(target, property, value, target)
