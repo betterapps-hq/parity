@@ -169,6 +169,11 @@ export function isHTMLInputElement(value: Maybe): value is HTMLInputElement {
   return isHTMLElement(value) && value.localName === "input"
 }
 
+/** Whether `value` is a `<style>`. */
+export function isHTMLStyleElement(value: Maybe): value is HTMLStyleElement {
+  return isHTMLElement(value) && value.localName === "style"
+}
+
 /** Whether `value` is a text node. */
 export function isText(value: Maybe): value is Text {
   return isNode(value) && value.nodeType === 3

@@ -212,7 +212,8 @@ export function prepareFrame(
   sheets: readonly CSSStyleSheet[],
   environment: FrameEnvironment
 ): HTMLElement {
-  rewriteAddedRules()
+  // SAFETY: a window is its own realm's global object, so it carries that realm's CSSOM classes.
+  rewriteAddedRules((host.ownerDocument.defaultView ?? window) as Window & typeof globalThis)
   const shadow = unrecordedShadow(host, environment.registry)
   watchFrameStyles(shadow)
 
@@ -396,21 +397,24 @@ export function setFrameViewport(host: HTMLElement, viewport: FrameViewport): vo
   host.style.setProperty(viewportHeightProperty, `${viewport.height / 100}px`)
 }
 
-let rewritingRules = false
+/** The windows whose stylesheets' added rules are rewritten. */
+const rewritingRules = new WeakSet<Window>()
 
 /**
  * Viewport units and `rem` in rules the project's code adds to a stylesheet while it runs, as CSS-in-JS does in
  * production, measure the frame's window and root font too, as its stylesheets' do. They're rewritten as they're added,
  * wherever that is. That changes nothing outside a frame, where the custom properties aren't set, so the units still
  * measure Parity's window and root. An insert or delete in a stylesheet the project's code wrote into a frame also has
- * the frame draw it again (`frame-styles.ts`). It's done once for the page's whole life, so it's never undone.
+ * the frame draw it again (`frame-styles.ts`). It's done once for each window a frame is drawn in, the main one or a
+ * lens's own, whose `CSSStyleSheet` is its own, for that window's whole life, so it's never undone.
  */
-function rewriteAddedRules(): void {
-  if (rewritingRules) {
+function rewriteAddedRules(realm: Window & typeof globalThis): void {
+  if (rewritingRules.has(realm)) {
     return
   }
 
-  rewritingRules = true
+  rewritingRules.add(realm)
+  const { CSSStyleSheet } = realm
   // The originals, called with each sheet as `this`.
   const original = Object.getOwnPropertyDescriptors(CSSStyleSheet.prototype)
   const insertRule = original.insertRule.value!
@@ -437,7 +441,7 @@ function rewriteAddedRules(): void {
     replaceSync.call(this, rewriteSheetFrameUnits(text))
   }
 
-  followRuleEdits()
+  followRuleEdits(realm)
 }
 
 const watched = new WeakSet<ShadowRoot>()

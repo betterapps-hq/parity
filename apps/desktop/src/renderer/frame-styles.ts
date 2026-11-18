@@ -1,5 +1,5 @@
 import { importsIn, type prepareCanvasCss, withImports, withMedia } from "@parity-app/core"
-import { isDocumentFragment, isElement, isShadowRoot } from "./lens-windows.ts"
+import { isDocumentFragment, isElement, isHTMLStyleElement, isShadowRoot } from "./lens-windows.ts"
 import { fetchStylesheet } from "./page-styles.ts"
 
 type CanvasCss = ReturnType<typeof prepareCanvasCss>
@@ -109,9 +109,9 @@ export function catchFrameStyles(shadow: ShadowRoot, prepare: PrepareCss, origin
  */
 export function frameRulesEdited(sheet: CSSStyleSheet): void {
   const owner = sheet.ownerNode
-  const entry = owner instanceof HTMLStyleElement ? entryOf(owner) : undefined
+  const entry = isHTMLStyleElement(owner) ? entryOf(owner) : undefined
 
-  if (owner instanceof HTMLStyleElement && entry) {
+  if (isHTMLStyleElement(owner) && entry) {
     // A change to its text made before this edit, still queued, is followed first, so it doesn't undo the edit.
     follow(entry, entry.observer?.takeRecords() ?? [])
     catchElement(entry, owner)
@@ -146,9 +146,9 @@ function release(entry: FrameEntry, element: HTMLStyleElement): void {
 /** Draws the frame a caught sheet is in again, as it's switched off or on: its rules haven't changed. */
 function redraw(sheet: CSSStyleSheet): void {
   const owner = sheet.ownerNode
-  const entry = owner instanceof HTMLStyleElement ? entryOf(owner) : undefined
+  const entry = isHTMLStyleElement(owner) ? entryOf(owner) : undefined
 
-  if (owner instanceof HTMLStyleElement && entry) {
+  if (isHTMLStyleElement(owner) && entry) {
     catchElement(entry, owner)
     schedule(entry)
   }
@@ -164,7 +164,12 @@ function entryOf(owner: HTMLStyleElement): FrameEntry | undefined {
 
 /** Whether `sheet` is a `<style>` element's in a frame, whose edits the frame follows. */
 function inFrame(sheet: CSSStyleSheet | null): sheet is CSSStyleSheet {
-  return sheet?.ownerNode instanceof HTMLStyleElement && entryOf(sheet.ownerNode) !== undefined
+  return isHTMLStyleElement(sheet?.ownerNode) && entryOf(sheet.ownerNode) !== undefined
+}
+
+/** Whether a style sheet is a CSS one, in any of the app's windows, whose rules can be read. */
+function isCSSStyleSheet(sheet: StyleSheet | null): sheet is CSSStyleSheet {
+  return !!sheet && "cssRules" in sheet
 }
 
 /** Each caught rule's declarations, as the project's code is given them, which tell the frame what it changes. */
@@ -174,10 +179,11 @@ const followedDeclarations = new WeakMap<CSSStyleDeclaration, CSSStyleDeclaratio
  * Follows the edits the project's code makes to a caught sheet's rules rather than the sheet itself: rules inserted
  * into or deleted from a rule in it (`@media`), a selector changed, and declarations set or removed through a rule's
  * `style`. Only a frame's `<style>` sheets are touched: a rule's `style` is followed for them alone, so Parity's own
- * styles and every element's inline style stay as fast as they were. Called once, with `rewriteAddedRules` in
- * `frame.ts`.
+ * styles and every element's inline style stay as fast as they were. Called once for each window a frame is drawn in,
+ * the main one or a lens's own, whose classes these are, with `rewriteAddedRules` in `frame.ts`.
  */
-export function followRuleEdits(): void {
+export function followRuleEdits(realm: Window & typeof globalThis = window): void {
+  const { CSSGroupingRule, CSSStyleRule, StyleSheet, HTMLStyleElement } = realm
   const grouping = Object.getOwnPropertyDescriptors(CSSGroupingRule.prototype)
   const insertRule = grouping.insertRule.value!
   const deleteRule = grouping.deleteRule.value!
@@ -199,9 +205,9 @@ export function followRuleEdits(): void {
       ...disabled,
       set(this: StyleSheet | HTMLStyleElement, value: boolean) {
         disabled.set!.call(this, value)
-        const sheet = this instanceof HTMLStyleElement ? this.sheet : this
+        const sheet = "sheet" in this ? this.sheet : this
 
-        if (sheet instanceof CSSStyleSheet && inFrame(sheet)) {
+        if (isCSSStyleSheet(sheet) && inFrame(sheet)) {
           redraw(sheet)
         }
       }
@@ -300,7 +306,7 @@ function follow(entry: FrameEntry, records: MutationRecord[]): void {
   const projectMedia = new Map<HTMLStyleElement, string | null>()
 
   for (const record of records) {
-    if (record.type === "attributes" && record.target instanceof HTMLStyleElement) {
+    if (record.type === "attributes" && isHTMLStyleElement(record.target)) {
       projectMedia.set(record.target, record.target.getAttribute("media"))
     }
   }
@@ -313,7 +319,7 @@ function follow(entry: FrameEntry, records: MutationRecord[]): void {
     if (record.type === "characterData") {
       const element = record.target.parentElement
 
-      if (element instanceof HTMLStyleElement && owners.get(element) === entry) {
+      if (isHTMLStyleElement(element) && owners.get(element) === entry) {
         // New text replaces its rules, edits and all.
         entry.edited.delete(element)
         changed = true
@@ -325,7 +331,7 @@ function follow(entry: FrameEntry, records: MutationRecord[]): void {
     const parent = record.target
 
     // Text added to or taken from a caught element replaces its rules too.
-    if (parent instanceof HTMLStyleElement && owners.get(parent) === entry) {
+    if (isHTMLStyleElement(parent) && owners.get(parent) === entry) {
       entry.edited.delete(parent)
       changed = true
     }
@@ -363,7 +369,7 @@ function follow(entry: FrameEntry, records: MutationRecord[]): void {
 }
 
 function stylesIn(node: Node): HTMLStyleElement[] {
-  if (node instanceof HTMLStyleElement) {
+  if (isHTMLStyleElement(node)) {
     return [node]
   }
 
