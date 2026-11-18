@@ -32,7 +32,7 @@ import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { Name } from "./Name.tsx"
 import { NodePanel } from "./NodePanel.tsx"
-import { ComponentUses, PageLinks } from "./PageLinks.tsx"
+import { PageLinks } from "./PageLinks.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { readFromCode, writesProps } from "./read-from-code.ts"
 import { ReferencePanel } from "./ReferencePanel.tsx"
@@ -187,7 +187,7 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
     )
   }
 
-  // One of the project's components on its board: its header, what its code says of it, where it's used, and Export.
+  // One of the project's components on its board: its header, what its code says of it, and Export.
   const component = boardComponent(session.id, entry.container.id)
 
   if (component !== undefined) {
@@ -195,7 +195,6 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
       <>
         <DesignHeader entry={entry} />
         <ComponentSourceSection component={component} />
-        <ComponentUses component={component} />
         <ExtensionSections selected={{ nodeType: "component", target: { type: "component", key: component } }} />
         <DesignExport entry={entry} />
       </>
