@@ -47,10 +47,10 @@ export interface SpacingHover {
 const colors = spacingColors
 
 /**
- * Border, between margin and padding, as DevTools draws it in amber between its orange margin and green padding. The
- * canvas doesn't draw a border's ring, so it's the box model's own.
+ * A hovered side of the border in the preview: the focus ring's color. The canvas shades padding and margin but draws
+ * a border as the border itself, so the box model's border ring takes no color of its own.
  */
-const borderColor = "oklch(0.8 0.14 80)"
+const borderHover = "var(--ring)"
 
 /** Padding, hatched in its color as the canvas hatches it (CanvasOverlay). Margin is flat, outside the layer. */
 const hatched = (color: string) =>
@@ -246,8 +246,8 @@ function BoxSide({
  * Spacing's box: margin's ring around padding's around the layer's size, each side's measurement and unit where the side
  * is, as DevTools' box model lays them out. Hovering a value opens its field in a popover after a moment; pressing it, or
  * Enter, opens it at once. Padding is hatched in its color, as the canvas shades it, and margin, outside it, is flat
- * in its own within a dashed edge. Given a border, its ring goes between them, solid amber, as DevTools draws it: the
- * box shows everything that adds to the layer's size.
+ * in its own within a dashed edge. Given a border, its ring goes between them, a plain solid edge on the panel's color: the
+ * canvas doesn't shade a border as it does padding and margin, so the ring takes no color of its own.
  */
 export function BoxModel({
   padding,
@@ -335,14 +335,14 @@ export function BoxModel({
     </div>
   )
 
-  // The border's ring, solid, as a border is drawn, around padding's.
+  // The border's ring, a plain solid edge, as a border is drawn, around padding's.
   const inner =
     border === undefined ? (
       paddingBox
     ) : (
       <div
-        className="relative flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-md border p-1"
-        style={{ background: tint(borderColor, 22), borderColor: tint(borderColor, 80) }}
+        className="relative flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-md border bg-background p-1"
+        style={{ borderColor: "color-mix(in oklch, var(--foreground) 35%, transparent)" }}
       >
         {name("Border")}
         {side("border", 0)}
@@ -485,9 +485,9 @@ export function SpacingPreview({
     margin: margins.join(" "),
     borderWidth: borders.join(" "),
     borderStyle: "solid",
-    // A hovered side of the border lights up in the box model's amber.
+    // A hovered side of the border lights up in the focus ring's color.
     borderColor: [0, 1, 2, 3]
-      .map((index) => (hover?.box === "border" && hover.sides.includes(index) ? borderColor : "#262626"))
+      .map((index) => (hover?.box === "border" && hover.sides.includes(index) ? borderHover : "#262626"))
       .join(" "),
     // Auto margins center a layer only when it doesn't stretch.
     width: width ?? (margins[1] === "auto" || margins[3] === "auto" ? 200 : undefined),

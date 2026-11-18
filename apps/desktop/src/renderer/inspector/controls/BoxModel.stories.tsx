@@ -184,7 +184,7 @@ export const EditingASide: Story = {
 }
 
 /**
- * With a border, as DevTools draws one: its ring, in amber, between margin and padding, so the box shows everything
+ * With a border, as DevTools draws one: its ring, a plain edge, between margin and padding, so the box shows everything
  * that adds to the layer's size. Each side's width opens its field, with the border-width tokens, as padding's do.
  */
 export const WithBorder: Story = {
