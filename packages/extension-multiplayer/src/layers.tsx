@@ -185,16 +185,15 @@ function SelectionOutline({
         </Outlined>
       </AtScreenSize>
       {mark && caret && (
-        // A caret as a text field draws one: thin, a little shorter than the letters' box, blinking once it rests.
-        // Keyed by where it is, so it shows steadily again each time it moves. People's colors are soft, so it has
-        // the outline's hairline of ink round it, a screen pixel wide, to read on light text.
+        // A caret a little shorter than the letters' box, as a text field draws one, but 2px wide and steady, so
+        // someone else's is easy to see. People's colors are soft, so it's their color a third of the way to their
+        // ink, with the outline's hairline of ink round it, a screen pixel wide, to read on a white board.
         <span
-          key={`${caret.anchor}:${caret.focus}`}
           aria-hidden
-          className="absolute animate-[room-caret-blink_1.06s_step-end_0.5s_infinite] motion-reduce:animate-none"
+          className="absolute"
           style={{
             ...mark,
-            background: members[0]?.palette.color,
+            background: `color-mix(in oklch, ${members[0]?.palette.color}, ${members[0]?.palette.ink} 35%)`,
             boxShadow: `0 0 0 ${1 / zoom}px color-mix(in oklch, ${members[0]?.palette.ink} 35%, transparent)`
           }}
         />

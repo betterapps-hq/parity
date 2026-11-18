@@ -10,7 +10,8 @@ const storybook: InstalledStatus = {
   icon: { viewBox: "0 0 24 24", path: "M0 0h24v24H0z", color: { light: "#FF4785", dark: "#FF4785" } },
   contributes: {},
   permissions: {},
-  activates: ["onDetect"]
+  activates: ["onDetect"],
+  internal: false
 }
 
 describe("what the window sends Settings (PAR-1212)", () => {

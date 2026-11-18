@@ -2,7 +2,16 @@ import { CanvasLayerContext, type CanvasLayerContextValue, useColor, useFrame } 
 import type { AgentStep } from "@parity-app/extension/internal"
 import { ActionIcon, AgentBadge, AgentPointer, type PaletteLook } from "@parity-app/presence-ui"
 import { LoaderCircle, Sparkles } from "lucide-react"
-import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
+import {
+  type CSSProperties,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore
+} from "react"
 import {
   arcPoint,
   breathe,
@@ -441,9 +450,12 @@ function AgentCursor({
         />
       </div>
       {activity && (
+        // Each agent's strip is a row up from the last. The toolbar is centred along the bottom, 324px wide, so on a
+        // canvas narrower than 1140px a strip beside it would run under it: there they start above the toolbar.
         <div
-          className="absolute left-3 flex max-w-96 items-center gap-2 rounded-lg border bg-background/90 px-3 py-2 text-xs shadow-lg backdrop-blur"
-          style={{ bottom: 12 + index * 44 }}
+          className="absolute bottom-[calc(12px+var(--strip)*44px)] left-3 flex max-w-96 items-center gap-2 rounded-lg border bg-background/90 px-3 py-2 text-xs shadow-lg backdrop-blur @max-[1140px]:bottom-[calc(68px+var(--strip)*44px)]"
+          // SAFETY: React passes a custom property through as it is; CSSProperties only lacks its name.
+          style={{ "--strip": index } as CSSProperties}
         >
           {activity.done ? (
             <Sparkles className="size-3.5 shrink-0" style={{ color: activity.error ? "var(--destructive)" : color }} />

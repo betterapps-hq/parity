@@ -1,4 +1,5 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn"
+import { useState } from "react"
 import { EveryoneGroup } from "./EveryoneGroup.tsx"
 import { EveryoneRow } from "./EveryoneRow.tsx"
 import { faceButton } from "./face-button.ts"
@@ -12,22 +13,29 @@ interface EveryoneCountProps {
   onFollow?: (member: Member) => void
 }
 
-/** The count of faces past the first few: it opens everyone here, people and agents apart. */
+/** The count of faces past the first few: it opens everyone here, people and agents apart, and closes on a Follow. */
 export function EveryoneCount({ everyone, more, size, following, onFollow }: EveryoneCountProps) {
   const people = everyone.filter((presence) => !presence.member.agent)
   const agents = everyone.filter((presence) => presence.member.agent)
+  const [open, setOpen] = useState(false)
 
   const row = (presence: Presence) => (
     <EveryoneRow
       key={keyOf(presence.member)}
       presence={presence}
       following={presence.member === following}
-      onFollow={onFollow && (() => onFollow(presence.member))}
+      onFollow={
+        onFollow &&
+        (() => {
+          setOpen(false)
+          onFollow(presence.member)
+        })
+      }
     />
   )
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
           <button

@@ -220,6 +220,8 @@ export function TokenDetail({
                         // The fields open because Edit was pressed, so the first takes the keyboard.
                         // oxlint-disable-next-line jsx-a11y/no-autofocus
                         autoFocus={index === 0}
+                        // Named with the token as well as the theme beside it, so each field says whose value it is.
+                        aria-label={`${preview.name} in ${themeLabel(theme, themes, themeNames)}`}
                         aria-invalid={problems[theme] ? true : undefined}
                         onChange={(event) => setDrafts({ ...drafts, [theme]: event.currentTarget.value })}
                         onKeyDown={(event) => {

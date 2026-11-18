@@ -127,7 +127,7 @@ export const OnTheCanvas: Story = {
 }
 
 /** A canvas with the bar on it, for the stories that point at it. Follows the toolbar's theme. */
-function Pointed({ here }: { here: Presence[] }) {
+function Pointed({ here, onGoTo }: { here: Presence[]; onGoTo?: () => void }) {
   const theme = useResolvedTheme()
 
   return (
@@ -137,7 +137,7 @@ function Pointed({ here }: { here: Presence[] }) {
           <DashboardDesign />
         </CanvasBoard>
         <TopRight>
-          <FaceStack here={here} you={you} />
+          <FaceStack here={here} you={you} onGoTo={onGoTo} />
         </TopRight>
       </CanvasPane>
     </div>
@@ -171,5 +171,17 @@ export const YourCard: Story = {
     await userEvent.click(within(canvasElement).getByRole("button", { name: "You" }))
     const page = within(canvasElement.ownerDocument.body)
     await waitFor(() => expect(page.getByRole("button", { name: /Present to everyone/ })).toBeVisible())
+  }
+}
+
+/** Go to on Jonas's card: the card closes as the canvas goes to him, so it's out of the way of what you went to see. */
+export const GoingToSomeone: Story = {
+  render: () => <Pointed here={[mia, jonas, claude]} onGoTo={() => undefined} />,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Jonas Weber/ }))
+    const page = within(canvasElement.ownerDocument.body)
+    const goTo = await page.findByRole("button", { name: "Go to" })
+    await userEvent.click(goTo)
+    await waitFor(() => expect(page.queryByRole("button", { name: "Go to" })).not.toBeInTheDocument())
   }
 }

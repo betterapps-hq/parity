@@ -21,7 +21,8 @@ const storybook: InstalledStatus = {
     }
   },
   permissions: { processes: ["bin:storybook"] },
-  activates: ["onDetect"]
+  activates: ["onDetect"],
+  internal: false
 }
 
 const portless: InstalledStatus = {
@@ -31,14 +32,26 @@ const portless: InstalledStatus = {
   icon,
   contributes: {},
   permissions: {},
-  activates: ["onDetect"]
+  activates: ["onDetect"],
+  internal: false
+}
+
+/** Multiplayer, which comes with Parity rather than being found in a project. */
+const multiplayer: InstalledStatus = {
+  id: "@parity-app/extension-multiplayer",
+  displayName: "Multiplayer",
+  prefix: "multiplayer",
+  icon,
+  contributes: {},
+  permissions: {},
+  activates: ["onStartup"],
+  internal: true
 }
 
 /** Portless's host, running in the project, as the service tells the window. */
 const portlessRunning: ExtensionStatus = {
   ...portless,
   version: "0.0.0",
-  internal: false,
   window: false,
   node: true,
   capabilities: [],
@@ -80,6 +93,17 @@ describe("the extensions Settings lists (PAR-1129)", () => {
     const [entry] = extensionList([portless], { tools: [], running: [] })
 
     expect(entry).toMatchObject({ running: false, found: "No Portless in this project", adds: [] })
+  })
+
+  it("says an internal extension comes with Parity, with or without a project open (PAR-1291)", () => {
+    const running: ExtensionStatus = { ...portlessRunning, ...multiplayer, activates: ["onStartup"] }
+
+    expect(extensionList([multiplayer], undefined)[0]?.found).toBe("Comes with Parity")
+    expect(extensionList([multiplayer], { tools: [], running: [running] })[0]).toMatchObject({
+      running: true,
+      found: "Comes with Parity",
+      state: "running"
+    })
   })
 
   it("draws each extension's manifest logo and settings on its page", () => {

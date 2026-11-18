@@ -94,7 +94,7 @@ describe("what's drawn", () => {
 
   it("draws someone's caret a little shorter than the line, the same width on screen at any zoom", () => {
     const caret = { x: 100, top: 20, bottom: 40 }
-    expect(caretMark(caret, 1)).toEqual({ left: 99.25, top: 22, width: 1.5, height: 16 })
-    expect(caretMark(caret, 2)).toEqual({ left: 99.625, top: 22, width: 0.75, height: 16 })
+    expect(caretMark(caret, 1)).toEqual({ left: 99, top: 22, width: 2, height: 16 })
+    expect(caretMark(caret, 2)).toEqual({ left: 99.5, top: 22, width: 1, height: 16 })
   })
 })
