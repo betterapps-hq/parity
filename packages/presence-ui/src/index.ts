@@ -15,7 +15,16 @@ export {
   whoseAgent
 } from "./member.ts"
 
-export { glideEasing, glideMs, type Point, type PointerStep, type PointerTrack, pointerMove } from "./glide.ts"
+export {
+  glideEase,
+  glideEasing,
+  glideMs,
+  type Point,
+  type PointerFrame,
+  type PointerStep,
+  type PointerTrack,
+  pointerFrame
+} from "./glide.ts"
 
 export { Arrow, pointerPath } from "./Arrow.tsx"
 
@@ -26,6 +35,8 @@ export { ActionIcon, AgentBadge, AgentPointer, type AgentStepKind } from "./Agen
 export { MemberBadge } from "./MemberBadge.tsx"
 
 export { RemotePointer } from "./RemotePointer.tsx"
+
+export { type PointerSample, PointerTrail, trailDelayMs } from "./trail.ts"
 
 export { Outlined } from "./Outlined.tsx"
 

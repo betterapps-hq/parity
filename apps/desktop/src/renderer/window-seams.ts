@@ -150,7 +150,8 @@ function followPointer(session: ProjectSession, listener: (pointer: Pointer) => 
       if (inside) {
         over = true
         at = current.screenToPage({ x: event.clientX, y: event.clientY })
-        listener({ at, over })
+        // When the input happened, which a busy window tells later (PAR-1307).
+        listener({ at, over, t: event.timeStamp })
       } else if (over) {
         away()
       }
@@ -158,7 +159,7 @@ function followPointer(session: ProjectSession, listener: (pointer: Pointer) => 
 
     const away = () => {
       over = false
-      listener({ at, over })
+      listener({ at, over, t: performance.now() })
     }
 
     window.addEventListener("pointermove", move)

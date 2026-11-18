@@ -85,6 +85,61 @@ describe("joinRoom", () => {
     ])
   })
 
+  it("sends presence alone at a steady rate, the latest each time, while an event takes it along at once", async () => {
+    const relay = fakeRelay()
+    let clock = 0
+    const timers: { at: number; run: () => void }[] = []
+
+    const room = joinRoom(
+      relay.transport,
+      "a",
+      () => clock,
+      (run, ms) => {
+        timers.push({ at: clock + ms, run })
+
+        return () => undefined
+      }
+    )
+
+    const presence = (x: number) => ({
+      name: "Mia",
+      selection: [],
+      viewing: {},
+      pointer: { at: { x, y: 0 }, over: true }
+    })
+
+    const sent = () =>
+      relay.posted.map((each) => (each.kind === "batch" ? each.data.presence?.pointer?.at.x : undefined))
+
+    /** Moves the clock on, running the timers due meanwhile. */
+    const wait = async (ms: number) => {
+      clock += ms
+
+      for (const timer of timers.filter((each) => each.at <= clock)) {
+        timers.splice(timers.indexOf(timer), 1)
+        timer.run()
+      }
+
+      await relay.arrive()
+    }
+
+    room.presence(presence(1))
+    await relay.arrive()
+    // Positions a few milliseconds apart: only the latest goes, 33 ms after the last.
+    room.presence(presence(2))
+    await wait(10)
+    room.presence(presence(3))
+    await wait(10)
+    expect(sent()).toEqual([1])
+    await wait(13)
+    expect(sent()).toEqual([1, 3])
+
+    // An event goes at once, with the latest presence.
+    room.presence(presence(4))
+    room.send({ kind: "changes", bytes: "AQ==" })
+    expect(sent()).toEqual([1, 3, 4])
+  })
+
   it("asks every other copy for the document, and opens on the first snapshot to arrive", async () => {
     const relay = fakeRelay()
     const room = joinRoom(relay.transport, "c")
@@ -127,6 +182,28 @@ describe("joinRoom", () => {
     relay.say({ kind: "batch", from: "a" })
 
     expect(heard).toEqual(["a changes", "a presence Ana", "a missing AA==", "down", "reconnected 0"])
+  })
+
+  it("counts how far apart each copy's presence arrives, leaving out pauses of a second or more", () => {
+    const relay = fakeRelay()
+    let clock = 0
+    const room = joinRoom(relay.transport, "b", () => clock)
+    const presence = { name: "Ana", selection: [], viewing: {} }
+    relay.say({ kind: "welcome", host: "a", peers: ["a", "b", "c"] })
+
+    for (const [at, from] of [
+      [0, "a"],
+      [30, "a"],
+      [40, "c"],
+      [100, "a"],
+      [2100, "a"]
+    ] as const) {
+      clock = at
+      relay.say({ kind: "batch", from, data: { events: [], presence } })
+    }
+
+    expect(room.takeStats().presenceGaps).toEqual([30, 70])
+    expect(room.takeStats().presenceGaps).toEqual([])
   })
 
   it("says who left while the connection was down, before who's here, once it comes back", () => {
