@@ -16,6 +16,7 @@ import {
 } from "@parity-app/core"
 import { hasFlag } from "./bits.ts"
 import { catchFrameStyles, followRuleEdits, frameRulesEdited, type PrepareCss } from "./frame-styles.ts"
+import { onEachWindow } from "./lens-windows.ts"
 import { unrecordedShadow } from "./shadow.ts"
 import scrollbarCss from "./scrollbars.css?raw"
 
@@ -118,7 +119,8 @@ function frameRootSheet(): CSSStyleSheet {
     return rootSheet
   }
 
-  registerRootFontSize()
+  // In each window frames are drawn in, the main one and each lens's own, since a registration is its document's alone.
+  onEachWindow(registerRootFontSize)
   rootSheet = new CSSStyleSheet()
   rootSheet.replaceSync(frameRootCss())
 
@@ -144,15 +146,23 @@ ${scrollbarCss}
 }
 
 /**
- * Registers the length a frame's root reads its font size into, so `1em` there becomes pixels before `--canvas-rem`
- * passes it down. Registering is the document's, and once: a second registration of the name, as when this module is
- * loaded again in development, is refused, and the first still holds.
+ * Registers the length a frame's root reads its font size into, in `view`'s document, so `1em` there becomes pixels
+ * before `--canvas-rem` passes it down. Registering is the document's, and once: a second registration of the name, as
+ * when this module is loaded again in development, is refused, and the first still holds.
  */
-function registerRootFontSize(): void {
+function registerRootFontSize(view: Window): void {
+  // SAFETY: a window is its own realm's global object, which has the realm's `CSS` and `DOMException`.
+  const realm = view as Window & typeof globalThis
+
   try {
-    CSS.registerProperty({ name: rootFontSizeProperty, syntax: "<length>", inherits: false, initialValue: "16px" })
+    realm.CSS.registerProperty({
+      name: rootFontSizeProperty,
+      syntax: "<length>",
+      inherits: false,
+      initialValue: "16px"
+    })
   } catch (error) {
-    if (!(error instanceof DOMException && error.name === "InvalidModificationError")) {
+    if (!(error instanceof realm.DOMException && error.name === "InvalidModificationError")) {
       throw error
     }
   }
