@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "A copy in another's live room keeps no recovery copy of the room's edits, and leaves the one from last time for when the project opens alone",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

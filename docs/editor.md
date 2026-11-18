@@ -6330,14 +6330,19 @@ runs build up a lot of them between the person's saves.
   the files hold. It goes over whatever the files hold now without asking, since an agent often changes a file with the
   CLI in between. Discard removes the copy. Projects that open together are asked about one after another. Nothing is
   kept for the project until it's answered, so the copy can't be written over first.
+- **A copy in another's live room keeps none (PAR-1289).** The copy that writes the files has the room's edits, so a
+  guest that quits unexpectedly isn't offered them as its own next time, which would bring older edits back into the
+  room. A guest isn't offered the copy from last time either, and doesn't remove it, even after taking over the room's
+  files: it waits for the project to open alone, unless the guest keeps its own over it.
 
 Tests:
 
 - `packages/editor/src/recovery.test.ts` (8): nothing kept while everything's saved or undone back; each unsaved file,
   the modes and token edits kept; restoring as one unsaved undo step, tokens with what the stylesheet holds, files made
   and deleted, and over a file an agent changed since; reading a copy back, and nothing from one that isn't.
-- `apps/desktop/src/renderer/recovery.test.ts` (5): nothing written before the offer is answered, one write after a run
-  of changes, removed after Save, brought up to date at once as the app quits, removed when discarded.
+- `apps/desktop/src/renderer/recovery.test.ts` (7): nothing written before the offer is answered, one write after a run
+  of changes, removed after Save, brought up to date at once as the app quits, removed when discarded, and nothing kept
+  or removed in a copy that joined another's room, nor after it takes over.
 - `apps/desktop/src/utility/recovery.test.ts` (4): a file per project outside it, removed when there's nothing to keep,
   nothing read from a copy cut short or from another version, nothing kept without a folder.
 - `apps/desktop/src/renderer/chrome/report-time.test.ts`: how the time reads ("6:35 PM today").
@@ -6497,9 +6502,10 @@ Tests:
   host's snapshot takes over and saves an edit, and the text matches a copy that opened the file alone and saved the
   same edit, byte for byte, with only the edited line changed from the file on disk (PAR-1288).
 - `packages/multiplayer/src/saver.test.ts`, "ProjectSaver in a live room": others' changes written and counted in
-  `fromOthers`; nothing written or unsaved in a copy that doesn't write files; taking over and letting go; every token
-  value edited written on taking over, one changed back to its original included; a file the host saved taken as what
-  the file holds, so one changed back since is written (PAR-1254).
+  `fromOthers`; nothing written or unsaved in a copy that doesn't write files, and no recovery copy kept until it takes
+  over (PAR-1289); taking over and letting go; every token value edited written on taking over, one changed back to its
+  original included; a file the host saved taken as what the file holds, so one changed back since is written
+  (PAR-1254).
 - `packages/multiplayer/src/testing/describe-project-doc.ts`, "concurrent", run on Loro: a copy taking over after the
   host saved and left writes the file and token value it changed back since (PAR-1254).
 - `apps/desktop/src/renderer/tokens-store.test.ts`, "joining a live room" (2), in Chrome: a guest that loaded a value

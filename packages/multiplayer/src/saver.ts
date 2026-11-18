@@ -470,6 +470,11 @@ export function createProjectSaver(
     tokenFailure: () => tokenFailure,
 
     recoveryCopy: (keptAt = Date.now()) => {
+      // A copy in another's room keeps no copy of the room's edits: the writing copy has them (PAR-1289).
+      if (!writesFiles) {
+        return undefined
+      }
+
       const documents = unsaved()
         .filter((path) => path !== stylesheet() && (doc.files().has(path) || saved.has(path)))
         .filter((path) => doc.file(path) !== saved.get(path))
