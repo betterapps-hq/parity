@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Give apps that import react-router-dom 7 a page router, and find React Router in apps that list only react-router-dom",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

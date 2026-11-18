@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Wed, 18 Nov 2026 09:52:03 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 18 Nov 2026 10:09:09 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.110.0
+
+Wed, 18 Nov 2026 10:09:09 GMT
+
+### Minor changes
+
+- Give apps that import react-router-dom 7 a page router, and find React Router in apps that list only react-router-dom
+  (ajcraswell@gmail.com)
 
 ## 0.109.3
 

@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Wed, 18 Nov 2026 10:09:09 GMT",
+      "version": "0.110.0",
+      "tag": "@parity-app/desktop_v0.110.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9e924ce39c8e065c703d4028674c8ee44b599db9",
+            "comment": "Give apps that import react-router-dom 7 a page router, and find React Router in apps that list only react-router-dom"
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 18 Nov 2026 09:52:03 GMT",
       "version": "0.109.3",
       "tag": "@parity-app/desktop_v0.109.3",
