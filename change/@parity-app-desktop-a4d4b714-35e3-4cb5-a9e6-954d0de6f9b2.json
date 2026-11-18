@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Refreeze a route's frozen copies only when a file in its own page's trace changes.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

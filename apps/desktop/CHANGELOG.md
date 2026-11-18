@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Wed, 18 Nov 2026 07:38:17 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 18 Nov 2026 08:20:14 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.109.2
+
+Wed, 18 Nov 2026 08:20:14 GMT
+
+### Patches
+
+- Refreeze a route's frozen copies only when a file in its own page's trace changes. (ajcraswell@gmail.com)
 
 ## 0.109.1
 
