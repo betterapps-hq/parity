@@ -21,7 +21,7 @@ import {
   Unstored,
   ValueField
 } from "./field-parts.tsx"
-import { EachToggle, Field, PairGlyph, SideGlyph } from "./field-row.tsx"
+import { AllSidesGlyph, EachToggle, Field, PairGlyph, SideGlyph } from "./field-row.tsx"
 import {
   onStep,
   readSide,
@@ -520,7 +520,7 @@ export function FourSidesField({
       field([1, 3], `Horizontal ${noun}`, <PairGlyph across />, 1)
     ]
   } else {
-    fields = field([0, 1, 2, 3], label, undefined)
+    fields = field([0, 1, 2, 3], label, <AllSidesGlyph />)
   }
 
   return (

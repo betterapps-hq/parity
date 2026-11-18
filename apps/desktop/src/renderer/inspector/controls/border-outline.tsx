@@ -2,7 +2,7 @@ import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
 import { mixColor } from "./css-values.ts"
 import { useTokenSets, useTokens, useUsedColors } from "./field-parts.tsx"
-import { Field, SectionButton } from "./field-row.tsx"
+import { AllSidesGlyph, Field, OffsetGlyph, SectionButton } from "./field-row.tsx"
 import { type LineStyle, LineStyleField } from "./line-style.tsx"
 import { NumberField } from "./number-field.tsx"
 import { Card, PreviewStage } from "./preview-card.tsx"
@@ -108,6 +108,7 @@ export function OutlineSection({ value, set }: { value: OutlineValue; set: (next
           <Field label="Width" half>
             <NumberField
               label="Outline width"
+              inner={<AllSidesGlyph />}
               whole
               min={0}
               unit="px"
@@ -131,6 +132,7 @@ export function OutlineSection({ value, set }: { value: OutlineValue; set: (next
           <Field label="Offset" half hint="Below 0 draws it inside the layer">
             <NumberField
               label="Outline offset"
+              inner={<OffsetGlyph />}
               whole
               unit="px"
               value={value.offset}

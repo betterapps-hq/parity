@@ -530,6 +530,21 @@ export function PairGlyph({ across = false }: { across?: boolean }) {
   return <SidesGlyph lit={across ? [1, 3] : [0, 2]} />
 }
 
+/** Every side at once, as one field for all four draws it: Border's and Outline's width. */
+export function AllSidesGlyph() {
+  return <SidesGlyph lit={[0, 1, 2, 3]} />
+}
+
+/** An outline drawn out from the layer's edge, with a gap between them: Outline's offset. */
+export function OffsetGlyph() {
+  return (
+    <svg aria-hidden viewBox="0 0 14 14" className="size-3.5" fill="none" stroke="currentColor" strokeLinecap="round">
+      <rect x="4.5" y="4.5" width="5" height="5" rx="1" strokeWidth="1" opacity="0.4" />
+      <rect x="1.5" y="1.5" width="11" height="11" rx="2" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
 /** One side as a field's glyph, from the top (0), clockwise. */
 export function SideGlyph({ side }: { side: number }) {
   return <SidesGlyph lit={[side]} />
