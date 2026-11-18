@@ -1,5 +1,5 @@
 import { defaultModeSettings, type ProjectRoute } from "@parity-app/core"
-import { createProjectDoc, setPosition, updateView } from "@parity-app/multiplayer"
+import { createProjectDoc, setModes, setPosition, updateView } from "@parity-app/multiplayer"
 import { loroReplicas } from "@parity-app/multiplayer-loro"
 import { describe, expect, it } from "vite-plus/test"
 import {
@@ -129,6 +129,19 @@ describe("followPageViews (PAR-1317)", () => {
     updateView(doc, `${routePagesFile}#route:/login`, "Hide modes", ({ modes: _, ...view }) => view)
 
     expect([box("/login").x, box("/pricing").x, box("/signup").x]).toEqual([login, login + 1440, signup])
+    stop()
+  })
+
+  it("measures a page with a mode added after the project opened", () => {
+    const { doc, stop, box } = opened()
+    const pricing = box("/pricing").x
+    const added = { id: "mobile-dark", name: "Mobile Dark", values: { viewport: "mobile", theme: "dark" } }
+
+    setModes(doc, { ...doc.modes(), modes: [...doc.modes().modes, added] })
+    updateView(doc, `${routePagesFile}#route:/login`, "Show modes", (view) => ({ ...view, modes: [added.id] }))
+
+    // Login's board holds a phone frame beside its main one, so Pricing moves right to make room.
+    expect(box("/pricing").x).toBeGreaterThan(pricing)
     stop()
   })
 

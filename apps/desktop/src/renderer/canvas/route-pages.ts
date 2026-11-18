@@ -429,8 +429,9 @@ export function pageViews(doc: ProjectDoc): PageViews {
  * Lays the app's pages out again when what one shows changes (PAR-1317), as when more of its modes are turned on, so it
  * takes the room its board does and the pages beside it and under it move aside, as `routePages` lays them out. Only a
  * page the new layout puts somewhere else moves, so one the person moved stays where they put it unless it has to make
- * room. The move is drawn from code, so it's neither a step to undo nor saved, as the pages' places never are.
- * `routes` gives the routes drawn as pages now. Gives back what stops it.
+ * room. The project's modes changing lays them out again too, measured with the modes the document has now, so a mode
+ * added after the project opened takes its room. The move is drawn from code, so it's neither a step to undo nor saved,
+ * as the pages' places never are. `routes` gives the routes drawn as pages now. Gives back what stops it.
  */
 export function followPageViews(
   doc: ProjectDoc,
@@ -440,19 +441,26 @@ export function followPageViews(
   const shown = () =>
     JSON.stringify(doc.file(routePagesFile)?.containers.map(({ id, view }) => [id, view ?? null]) ?? [])
 
-  const laidOutNow = () => routePagePositions({ ...info, routes: [...routes()] }, pageViews(doc))
+  const laidOutNow = () =>
+    routePagePositions(
+      { ...info, modes: { ...info.modes, settings: doc.modes() }, routes: [...routes()] },
+      pageViews(doc)
+    )
+
   let file = doc.file(routePagesFile)
-  let seen = shown()
+  let modes = doc.modes()
+  let seen = `${shown()}${JSON.stringify(modes)}`
   let laidOut = laidOutNow()
 
   return doc.subscribe(() => {
-    // Most changes are to other files, which leave the pages' file as it was.
-    if (doc.file(routePagesFile) === file) {
+    // Most changes are to other files and leave the modes alone, which lays out nothing again.
+    if (doc.file(routePagesFile) === file && doc.modes() === modes) {
       return
     }
 
     file = doc.file(routePagesFile)
-    const now = shown()
+    modes = doc.modes()
+    const now = `${shown()}${JSON.stringify(doc.modes())}`
 
     if (now === seen) {
       return

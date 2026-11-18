@@ -1524,7 +1524,10 @@ function followRouteMarks(
     drawn = marks
 
     const pages = withCodeDesigns(
-      routePages({ ...info, routes: markedRoutes(info.routes, marks) }, pageViews(doc)),
+      routePages(
+        { ...info, modes: { ...info.modes, settings: doc.modes() }, routes: markedRoutes(info.routes, marks) },
+        pageViews(doc)
+      ),
       doc.file(doc.main)?.codeDesigns
     )
 
