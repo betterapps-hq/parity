@@ -663,7 +663,7 @@ export function TitleMenu({
 }
 
 /**
- * A section title's + or −, for a section that starts empty (Fill, Stroke, Effects): Add or Remove `what`, which its
+ * A section title's + or −, for a section that starts empty (Fill, Border, Outline, Effects): Add or Remove `what`, which its
  * hint says too, or `hint` where there's more to say, as a mixed selection's Replace. It takes a trigger's props, so a
  * menu can open from it.
  */

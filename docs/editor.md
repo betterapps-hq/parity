@@ -4566,9 +4566,10 @@ does, but what's set in it isn't saved; PAR-924 to PAR-935 save them as the docu
 preset changes nothing, so it can't clear the rows it would set.
 
 The panel reads from what the layer is to how it looks: the header, Content for a text layer, Position, Size, Layout,
-Typography, Appearance, Fill, Stroke, Effects and Motion, then Export. `PanelGroup` draws a section that holds others,
-each whole under its own quieter title: Position holds Transform, Size holds Spacing, and Effects holds Filters. A held
-section with the group's own title leads it without a title of its own, and its action goes on the group's title row.
+Typography, Appearance, Fill, Border, Outline, Effects and Motion, then Export. `PanelGroup` draws a section that holds
+others, each whole under its own quieter title: Position holds Transform, Size holds Spacing, and Effects holds Filters.
+A held section with the group's own title leads it without a title of its own, and its action goes on the group's title
+row.
 
 - **Header:** the layer's kind and name, an instance's kind being Component instance, with an eye at the end of the
   name's row that hides or shows it, crossed out while hidden. Changed in a state, the eye has the change mark (see "A
@@ -4648,8 +4649,20 @@ section with the group's own title leads it without a title of its own, and its 
   it never wraps. Storybook's stories still list the stand-in project's presets. Not saved: the color's opacity.
 - **Appearance:** Opacity beside Blend mode, Radius from the project's radius tokens, and Clip content, a menu of
   Visible, Clip, Scroll and Scroll when needed. Not saved: Blend mode, Corner shape, Each corner and Scroll always.
-- **Stroke:** + adds the project's usual stroke and − removes it; then its color and one width. Not saved: the color's
-  opacity, Each side and Position.
+- **Border (PAR-932):** + adds the project's usual border, `border border-border`, and − removes it; then Width, one
+  field or each side's once Each side is pressed, Style (Solid, Dashed, Dotted or Double, one for every side) and Color,
+  in the order CSS's `border` shorthand takes them. It writes `borderWidth`, one width or `[top, right, bottom, left]`,
+  `borderStyle` and `borderColor` (`BorderSection` in `inspector/sections/BorderSection.tsx`; widths by
+  `borderSidesShown` and `borderWidthsOf` in `inspector/style-values.ts`, tested in `style-values.test.ts`; the CSS in
+  `@parity-app/style-schema`'s `declare.test.ts`; read back from code in `element-layers.test.ts`). A border is part of
+  the box, so its width also shows in Spacing's box model, as a plain ring between margin and padding, its values
+  without `px`; Box sizing, Border box or Content box, sits under the box once there's padding or a border to include.
+  Stories: Sections › Border (Border, Bottom only, Empty) and Rows › Border, Box model (With border, Border below).
+- **Outline (PAR-1308):** + adds a 2px outline in the project's border color and − removes it; then Width, Style, Color
+  and Offset, whose glyphs drag. An outline is drawn over the edge, so it never moves the layout; an offset below 0
+  draws it inside the layer. It writes `outlineWidth`, `outlineStyle`, `outlineColor` and `outlineOffset`
+  (`OutlineSection` in `inspector/sections/BorderSection.tsx`). Stories: Sections › Outline (Focus ring, Empty) and Rows
+  › Outline.
 - **Effects:** the Shadow list, then Filters.
 
 Size's Hug and Spacing's middle show the layer's size as it's drawn, read again whenever its frame draws it, so a layer
@@ -4755,10 +4768,10 @@ Tests:
 - `inspector/controls/stand-in-tokens.test.ts` (1): nothing `StyleSections` draws imports the stand-in tokens.
 - `packages/editor/src/design-colors.test.ts` (4): the colors a design writes out, most used first and each once however
   it's written; color tokens and other values left out; a limit; and none for a design with no colors.
-- `inspector/sections/*.stories.tsx` (Sections › Layout, Position, Size, Appearance, Fill, Stroke, Effects and Text):
-  each style section alone on Pricing's and Sign in's layers, with PickingAColor, PickingASpacing, PickingAWeight and
-  PickingASizing opening their pickers by name. Layers › Layout, Text, Image and video, Icon and Component instance are
-  those kinds' own panels.
+- `inspector/sections/*.stories.tsx` (Sections › Layout, Position, Size, Appearance, Fill, Border, Outline, Effects and
+  Text): each style section alone on Pricing's and Sign in's layers, with PickingAColor, PickingASpacing, PickingAWeight
+  and PickingASizing opening their pickers by name. Layers › Layout, Text, Image and video, Icon and Component instance
+  are those kinds' own panels.
 
 - `apps/desktop/e2e/fields.e2e.ts`, listed under "Typing, stepping and scrubbing" above.
 
@@ -4834,7 +4847,7 @@ a field can be used anywhere in the app; the other levels are under Parity › I
 | Panel    | Inspector, Accessibility tab, Modes tab                                                       |
 | Layers   | All kinds, Layout, Text, Kinds, Instances, Several layers, Designs                            |
 | Sections | Header, State selector, Props, Attributes, Slots, Content, Components, Modes, Export          |
-|          | Layout, Position, Size, Appearance, Fill, Stroke, Effects, Typography, CSS                    |
+|          | Layout, Position, Size, Appearance, Fill, Border, Outline, Effects, Typography, CSS           |
 | Rows     | Box model, Padding, Margin, Radius, Size and aspect ratio, and the rest of a section's rows   |
 | Lists    | Paint stack, Shadow list, Filter list, Transition list                                        |
 | Fields   | Number field, Percent field, Segments, Select, Switch, Class names, Slot picker, and the rest |
@@ -4896,17 +4909,17 @@ story puts one section in; `renderSection` in `chrome/layer-stories.tsx`.
 Layouts, text layers, images, videos, icons and component instances each have a Design panel of their own, which puts
 the style sections in that kind's order ([layer-panels.md](proposals/layer-panels.md)). After each kind's own lead,
 every kind shares one order, leaving out what it doesn't have: Size with Spacing, Position, Appearance, Typography,
-Fill, Stroke, then Effects, Motion and CSS. A layout's has Layout after Position, as Penpot and Figma put a layer's own
-size and place first. A text layer's opens with Content and Typography, with Fill, its background, after Appearance. An
-image's or a video's opens with Content, its file, alt text, fit and credit, and a video's controls, then Size,
-Position, Appearance and Stroke; it has no Typography or Fill, since the picture fills it. An icon's opens with
-Component instance, which icon it is and its set's props, and Attributes, as its accessible name, then Size, Position
-and Appearance; its color and stroke are its own, so it has no Typography, Fill or Stroke. A component instance's opens
-with Component instance, its props and the slots it fills, and Attributes, then Size, Position, Appearance, and
-Typography for the text inside it, with no Layout; when its component takes no `className`, a note stands in for its
-style sections. The capability table still leaves out what the layer can't take: a design's root has no Position, and a
-frame's root starts with its size. Typography is always open, on a layout, a component or an instance as on a text
-layer.
+Fill, Border, Outline, then Effects, Motion and CSS. A layout's has Layout after Position, as Penpot and Figma put a
+layer's own size and place first. A text layer's opens with Content and Typography, with Fill, its background, after
+Appearance. An image's or a video's opens with Content, its file, alt text, fit and credit, and a video's controls, then
+Size, Position, Appearance, Border and Outline; it has no Typography or Fill, since the picture fills it. An icon's
+opens with Component instance, which icon it is and its set's props, and Attributes, as its accessible name, then Size,
+Position and Appearance; its color and stroke are its own, so it has no Typography, Fill, Border or Outline. A component
+instance's opens with Component instance, its props and the slots it fills, and Attributes, then Size, Position,
+Appearance, and Typography for the text inside it, with no Layout; when its component takes no `className`, a note
+stands in for its style sections. The capability table still leaves out what the layer can't take: a design's root has
+no Position, and a frame's root starts with its size. Typography is always open, on a layout, a component or an instance
+as on a text layer.
 
 A layer read from a component's element (read-only viewer) shows its type's own sections, from
 `@parity-app/layer-types`, Appearance straight after Size as in the shared order, with Spacing and Position after Size,
@@ -4923,17 +4936,18 @@ for a layer read from an element; `kindOrders` and `oneKindOrder`, which `MultiL
 uses too; `StyleSections`' `order`; the fold in `inspector/sections/TypographySection.tsx`.
 
 Tests: `chrome/LayoutPanel.stories.tsx` (Layers › Layout): In A Layout, Size first, Layout after Position, Appearance
-before Typography, Fill and Stroke, and Typography open with no Add typography; Root, no Position.
+before Typography, Fill, Border and Outline, and Typography open with no Add typography; Root, no Position.
 `chrome/TextPanel.stories.tsx` (Layers › Text): Headline, Typography before Size and no Layout.
 `chrome/MediaPanel.stories.tsx` (Layers › Image and video): Image and Video, Content first, then Size, Position,
-Appearance and Stroke, with no Layout, Typography or Fill, and Video's Controls switch. `chrome/IconPanel.stories.tsx`
-(Layers › Icon): Check, Component instance first, with no Typography, Fill or Stroke. `chrome/InstancePanel.stories.tsx`
-(Layers › Component instance): Code Component, Component instance then Attributes first and no Layout; Design Instance,
-Component instance first. `chrome/MultiPanel.stories.tsx` (Layers › Several layers): Layers Of One Kind, Typography
-before Size; Layers Of Different Kinds, no Layout or Content. `chrome/ElementPanel.stories.tsx` (Layers › Element):
-Button, Typography, Size, Spacing, Position and Appearance; Section, Layout, Size, Spacing, Position and Typography.
-Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every kind's panel side by side, each column the app's
-`LayerPanel` with its own selection, to compare them while each kind's panel is built.
+Appearance, Border and Outline, with no Layout, Typography or Fill, and Video's Controls switch.
+`chrome/IconPanel.stories.tsx` (Layers › Icon): Check, Component instance first, with no Typography, Fill, Border or
+Outline. `chrome/InstancePanel.stories.tsx` (Layers › Component instance): Code Component, Component instance then
+Attributes first and no Layout; Design Instance, Component instance first. `chrome/MultiPanel.stories.tsx` (Layers ›
+Several layers): Layers Of One Kind, Typography before Size; Layers Of Different Kinds, no Layout or Content.
+`chrome/ElementPanel.stories.tsx` (Layers › Element): Button, Typography, Size, Spacing, Position and Appearance;
+Section, Layout, Size, Spacing, Position and Typography. Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every
+kind's panel side by side, each column the app's `LayerPanel` with its own selection, to compare them while each kind's
+panel is built.
 
 Tests:
 
@@ -5155,7 +5169,7 @@ them. It's the agreed table in [proposals/design-panel-sections.md](proposals/de
 - Frame size (`frame`); Position, Layer order and Transform (not `root`); Size (not `frame` or `inGrid`), with Fill in
   its menu (`inFlex`, `inGrid` or `box`) and Align self (`inFlex`); Grid placement (`inGrid`), a grid child's Size;
   Spacing, with Margin (not `root`); Layout (`box`); Text (`text` or `textInside`), with the tag, Max lines and Resizing
-  (`text`); Appearance; Fill, Stroke, Effects, Motion and Raw CSS. Every one needs `styled`.
+  (`text`); Appearance; Fill, Border, Outline, Effects, Motion and Raw CSS. Every one needs `styled`.
 - The text section is drawn as Typography, on text and on what its text inherits from. A text layer's tag is in its
   Content section, outside the style sections.
 - Transform is a section of its own in the table, for every layer but a design's root, drawn inside Position. Spacing is

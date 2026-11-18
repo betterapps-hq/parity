@@ -162,11 +162,11 @@ export const InRem: Story = {
   }
 }
 
-/** A narrow field, as a corner's or a stroke side's is: the unit still shows, and its message spans the row. */
+/** A narrow field, as a corner's or a border side's is: the unit still shows, and its message spans the row. */
 export const Narrow: Story = {
   render: () => (
     <StoryField
-      label="Top stroke width"
+      label="Top border width"
       inner="T"
       start={2}
       pixels

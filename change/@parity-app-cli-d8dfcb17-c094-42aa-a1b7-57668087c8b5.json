@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Border replaces Stroke: a width per side, Double, and its width in Spacing's box model with Box sizing; and an Outline section with width, style, color and offset",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -2,6 +2,9 @@ import type { CssDeclaration } from "./adapter.ts"
 import { filterCss, shadowCss, transformCss } from "./effects.ts"
 import {
   type BorderWidth,
+  type BorderWidths,
+  borderSidesOf,
+  type OutlineOffset,
   isHug,
   type Named,
   type NodeStyle,
@@ -138,6 +141,22 @@ function borderWidthCss(value: BorderWidth): string {
   return "step" in value ? `${value.step}px` : namedCss(value)
 }
 
+/** A border's widths as CSS, in the fewest values `border-width` takes: one, `vertical horizontal`, or four. */
+function borderWidthsCss(value: BorderWidths): string {
+  const [top, right, bottom, left] = borderSidesOf(value).map(borderWidthCss)
+
+  if (top === right && right === bottom && bottom === left) {
+    return top!
+  }
+
+  return top === bottom && right === left ? `${top} ${right}` : `${top} ${right} ${bottom} ${left}`
+}
+
+/** An outline's offset as CSS: its pixels, or as it's written. */
+function outlineOffsetCss(value: OutlineOffset): string {
+  return "step" in value ? `${value.step}px` : namedCss(value)
+}
+
 /** An opacity as CSS: a number from 0 to 1, or its token's variable. */
 function opacityCss(value: Opacity): string {
   if ("token" in value) {
@@ -266,13 +285,31 @@ function surface(css: Sheet, style: NodeStyle): void {
   }
 
   if (style.borderColor !== undefined || style.borderWidth !== undefined) {
-    css.set("border-width", borderWidthCss(style.borderWidth ?? { step: 1 }), "borderWidth")
+    css.set("border-width", borderWidthsCss(style.borderWidth ?? { step: 1 }), "borderWidth")
     css.set("border-style", style.borderStyle ?? "solid", "borderStyle")
     css.set(
       "border-color",
       style.borderColor ? colorCss(style.borderColor) : "var(--border, currentColor)",
       "borderColor"
     )
+  }
+
+  if (style.outlineColor !== undefined || style.outlineWidth !== undefined) {
+    css.set("outline-width", borderWidthCss(style.outlineWidth ?? { step: 1 }), "outlineWidth")
+    css.set("outline-style", style.outlineStyle ?? "solid", "outlineStyle")
+    css.set(
+      "outline-color",
+      style.outlineColor ? colorCss(style.outlineColor) : "var(--border, currentColor)",
+      "outlineColor"
+    )
+
+    if (style.outlineOffset !== undefined) {
+      css.set("outline-offset", outlineOffsetCss(style.outlineOffset), "outlineOffset")
+    }
+  }
+
+  if (style.boxSizing) {
+    css.set("box-sizing", style.boxSizing, "boxSizing")
   }
 
   if (style.borderRadius) {

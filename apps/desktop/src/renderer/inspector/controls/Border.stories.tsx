@@ -9,7 +9,7 @@ import type { Sides } from "./sides-writes.ts"
 /**
  * Border (PAR-932), what Stroke was when it was in layout, named as CSS names it: a title with + until it's set, which
  * adds `border border-border`, and − takes it off. Its color is a color field; its width is one field, or each side's
- * once Each side is pressed (Stroke width has the field's own stories); its style is Solid, Dashed, Dotted or Double.
+ * once Each side is pressed; its style is Solid, Dashed, Dotted or Double.
  * A border is part of the box, so the preview's card grows and the line under it moves down.
  */
 const meta = {

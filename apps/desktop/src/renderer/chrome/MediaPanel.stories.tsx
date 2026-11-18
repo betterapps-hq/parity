@@ -4,7 +4,7 @@ import { MediaPanel } from "./KindPanels.tsx"
 import { media, mediaFields, renderSection, sectionStage } from "./layer-stories.tsx"
 
 /**
- * An image's or a video's Design panel (PAR-1059, PAR-1060): its file first, then Size, Position, Appearance and Stroke.
+ * An image's or a video's Design panel (PAR-1059, PAR-1060): its file first, then Size, Position, Appearance, Border and Outline.
  * It has no Layout, Typography or Fill. Each section's own cases are in Sections.
  */
 const meta = {
@@ -18,14 +18,14 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-/** The sections both kinds get: Content first, then Size, Position, Appearance and Stroke, with nothing painted over it. */
+/** The sections both kinds get: Content first, then Size, Position, Appearance, Border and Outline, with nothing painted over it. */
 async function mediaSections(canvasElement: HTMLElement, src: string) {
   await mediaFields(canvasElement)
   const panel = within(canvasElement)
   await expect(panel.getByRole("textbox", { name: "File" })).toHaveValue(src)
   const titles = (await panel.findAllByRole("heading", { level: 3 })).map((title) => title.textContent)
   await expect(titles[0]).toBe("Content")
-  await expect(titles).toEqual(expect.arrayContaining(["Size", "Position", "Appearance", "Stroke"]))
+  await expect(titles).toEqual(expect.arrayContaining(["Size", "Position", "Appearance", "Border", "Outline"]))
   await expect(titles).not.toContain("Layout")
   await expect(titles).not.toContain("Typography")
   await expect(titles).not.toContain("Fill")

@@ -129,7 +129,6 @@ export type Unstorable =
   | "blend"
   | "alpha"
   | "eachSide"
-  | "strokePosition"
   | "preset"
   | "smallCaps"
   | "tag"

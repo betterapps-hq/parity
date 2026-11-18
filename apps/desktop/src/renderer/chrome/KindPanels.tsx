@@ -57,7 +57,7 @@ export type PanelKind = DesignNode["type"] | "icon"
 
 /**
  * The style sections every kind shares, in one order after its own lead: its size, a grid child's in Grid placement,
- * and the box around it, where it sits, how it's drawn as a whole, the text inside it, its fill and stroke, and what's
+ * and the box around it, where it sits, how it's drawn as a whole, the text inside it, its fill, border and outline, and what's
  * folded until set. Each kind leaves out what it doesn't have, and the capability table what its layers can't take.
  */
 const shared: readonly StyleSection[] = [
@@ -68,7 +68,8 @@ const shared: readonly StyleSection[] = [
   "appearance",
   "text",
   "fill",
-  "stroke",
+  "border",
+  "outline",
   ...drawn
 ]
 
@@ -110,8 +111,8 @@ export const kindOrders = {
   /** An image or a video (PAR-1059, PAR-1060): no Fill, since the picture fills it. */
   image: mediaOrder,
   video: mediaOrder,
-  /** An icon (PAR-1061): its color and stroke are its own, so it has no Typography, Fill or Stroke. */
-  icon: sharedWithout("text", "fill", "stroke"),
+  /** An icon (PAR-1061): its color and stroke are its own, so it has no Typography, Fill, Border or Outline. */
+  icon: sharedWithout("text", "fill", "border", "outline"),
   /** A component instance (PAR-1062): no Layout; Typography is for the text inside it. */
   instance: instanceOrder,
   component: instanceOrder
@@ -136,7 +137,8 @@ const typeStyleSections: Record<TypeSection, readonly StyleSection[]> = {
   typography: ["text"],
   size: ["size", "spacing", ...position],
   fill: ["fill"],
-  stroke: ["stroke"],
+  border: ["border"],
+  outline: ["outline"],
   appearance: ["appearance"]
 }
 

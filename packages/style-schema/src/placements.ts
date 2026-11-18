@@ -158,7 +158,7 @@ export const placements: readonly Placement[] = [
   {
     section: "size",
     concept: "Box sizing",
-    where: "more",
+    where: "control",
     tokens: [],
     properties: ["box-sizing"]
   },
@@ -879,7 +879,7 @@ export const placements: readonly Placement[] = [
     properties: ["background-attachment"]
   },
   {
-    section: "stroke",
+    section: "border",
     concept: "Border",
     where: "control",
     tokens: ["color", "border-width", "border", "stroke-style"],
@@ -931,14 +931,14 @@ export const placements: readonly Placement[] = [
     ]
   },
   {
-    section: "stroke",
+    section: "outline",
     concept: "Outline",
     where: "control",
     tokens: ["color", "border-width"],
     properties: ["outline", "outline-color", "outline-style", "outline-width", "outline-offset"]
   },
   {
-    section: "stroke",
+    section: "border",
     concept: "Border image",
     where: "css",
     tokens: [],
@@ -952,14 +952,14 @@ export const placements: readonly Placement[] = [
     ]
   },
   {
-    section: "stroke",
+    section: "border",
     concept: "Box decoration break",
     where: "css",
     tokens: [],
     properties: ["box-decoration-break"]
   },
   {
-    section: "stroke",
+    section: "border",
     concept: "Table borders",
     where: "css",
     tokens: [],

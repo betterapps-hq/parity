@@ -314,6 +314,10 @@ function styleValues(style: NodeStyle | undefined): StyleValue[] {
     found.push(...colorValues("borderColor", "border-color", style.borderColor))
   }
 
+  if (style.outlineColor) {
+    found.push(...colorValues("outlineColor", "outline-color", style.outlineColor))
+  }
+
   const shadowValues = (entry: Shadow, at: string) => {
     if ("token" in entry) {
       found.push({
@@ -396,13 +400,24 @@ function styleValues(style: NodeStyle | undefined): StyleValue[] {
     found.push({ name: "opacity", property: "opacity", value: style.opacity, takes: "token" })
   }
 
-  if (style.borderWidth !== undefined && !("step" in style.borderWidth)) {
-    found.push({
-      name: "borderWidth",
-      property: "border-width",
-      value: style.borderWidth,
-      takes: "token"
-    })
+  // Each side's width, where the border has one per side.
+  if (style.borderWidth !== undefined) {
+    const sides = Array.isArray(style.borderWidth) ? style.borderWidth : [style.borderWidth]
+
+    for (const [index, side] of sides.entries()) {
+      if (!("step" in side)) {
+        found.push({
+          name: Array.isArray(style.borderWidth) ? `borderWidth[${index}]` : "borderWidth",
+          property: "border-width",
+          value: side,
+          takes: "token"
+        })
+      }
+    }
+  }
+
+  if (style.outlineWidth !== undefined && !("step" in style.outlineWidth)) {
+    found.push({ name: "outlineWidth", property: "outline-width", value: style.outlineWidth, takes: "token" })
   }
 
   if (style.fontWeight !== undefined && !("value" in style.fontWeight)) {

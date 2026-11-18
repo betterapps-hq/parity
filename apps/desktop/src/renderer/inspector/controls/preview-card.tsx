@@ -4,7 +4,6 @@ import { type Draft, isLengthToken, usedColors } from "./data.ts"
 import { useTokenSets } from "./field-parts.tsx"
 import { sideNumber, type Sides } from "./sides-writes.ts"
 import { hexOf, lengthPx, type TokenSets } from "./tokens.ts"
-import type { StrokePosition } from "./writes.ts"
 
 /*
  * The card a list's or an effect's preview draws on, Plans, over shapes that show what's see-through: in a story's
@@ -61,22 +60,16 @@ export function Card({ style, children = "Plans" }: { style?: CSSProperties; chi
 /** A style's colors, radii, stroke and blurs as a preview draws them, with the project's tokens resolved. */
 const noStroke: Sides = [undefined, undefined, undefined, undefined]
 
-export function drawnStyle(
-  draft: Draft,
-  sets: TokenSets,
-  { inLayout = true, position = "inside" }: { inLayout?: boolean; position?: StrokePosition } = {}
-): CSSProperties {
+export function drawnStyle(draft: Draft, sets: TokenSets): CSSProperties {
   const radii = Array.isArray(draft.radius) ? draft.radius : [draft.radius, draft.radius, draft.radius, draft.radius]
   const widths = (draft.borderWidth ?? noStroke).map((side) => sideNumber(side, sets.borderWidth) ?? 0)
   const strokeColor = mixColor(hexOf(draft.border, sets.color), draft.borderAlpha) ?? "transparent"
-  const width = widths[0] || 1
 
-  const stroke: CSSProperties = inLayout
-    ? { borderColor: strokeColor, borderStyle: "solid", borderWidth: widths.map((px) => `${px}px`).join(" ") }
-    : {
-        outline: `${width}px solid ${strokeColor}`,
-        outlineOffset: { inside: -width, center: -width / 2, outside: 0 }[position]
-      }
+  const stroke: CSSProperties = {
+    borderColor: strokeColor,
+    borderStyle: "solid",
+    borderWidth: widths.map((px) => `${px}px`).join(" ")
+  }
 
   return {
     background: mixColor(hexOf(draft.background, sets.color), draft.backgroundAlpha) ?? "transparent",
@@ -97,17 +90,7 @@ export function drawnStyle(
  * The card drawn with the style's fill, stroke, radius and blurs, over the stage's shapes, so a translucent fill and a
  * background blur show.
  */
-export function CardPreview({
-  draft,
-  inLayout = true,
-  position = "inside",
-  cornerStyle
-}: {
-  draft: Draft
-  inLayout?: boolean
-  position?: StrokePosition
-  cornerStyle?: string
-}) {
+export function CardPreview({ draft, cornerStyle }: { draft: Draft; cornerStyle?: string }) {
   const sets = useTokenSets()
   // `corner-shape` is Chromium's only, and not in React's CSS types yet.
   // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- React's style prop names CSS's `corner-shape` this way.
@@ -115,7 +98,7 @@ export function CardPreview({
 
   return (
     <PreviewStage>
-      <Card style={{ ...drawnStyle(draft, sets, { inLayout, position }), ...corners }} />
+      <Card style={{ ...drawnStyle(draft, sets), ...corners }} />
     </PreviewStage>
   )
 }

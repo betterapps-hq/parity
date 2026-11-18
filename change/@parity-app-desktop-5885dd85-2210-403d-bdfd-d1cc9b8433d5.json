@@ -1,7 +1,7 @@
 {
-  "type": "none",
-  "comment": "Design Border and Outline rows and a Line style field in Storybook",
+  "type": "minor",
+  "comment": "Border replaces Stroke in the Design panel: a width per side, Double, and its width in Spacing's box model with Box sizing; and an Outline section with width, style, color and offset",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
+  "dependentChangeType": "patch"
 }

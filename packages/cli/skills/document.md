@@ -209,7 +209,11 @@ CSS property doesn't take gets `invalid_value`. Both are in execute.md, under Mo
 | `color`                                          | Text's color                                                                  |
 | `borderColor`                                    | A color                                                                       |
 | `borderWidth`                                    | Whole pixels, `{ "step": 2 }` (0, 1, 2, 4 or 8), or a border width token      |
-| `borderStyle`                                    | `solid`, `dashed` or `dotted`                                                 |
+|                                                  | Or one per side: `[top, right, bottom, left]`                                 |
+| `borderStyle`                                    | `solid`, `dashed`, `dotted` or `double`                                       |
+| `outlineColor`, `outlineWidth`, `outlineStyle`   | As the border's; an outline never moves the layout                            |
+| `outlineOffset`                                  | Whole pixels from the edge, `{ "step": 2 }`; below 0 draws it inside          |
+| `boxSizing`                                      | `border-box` (unset, Tailwind's default) or `content-box`                     |
 | `borderRadius`                                   | A named value, such as `{ "token": "radius-lg" }`                             |
 | `boxShadow`                                      | A list of shadows, top first; see Effects below                               |
 | `opacity`                                        | An opacity: `{ "step": 50 }` is 50%                                           |

@@ -2,9 +2,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn"
 import { createContext, type CSSProperties, type ReactNode, use, useLayoutEffect, useRef, useState } from "react"
 import { SpreadKeys } from "../../canvas/KeyHints.tsx"
 import { spacingColors } from "../../canvas/spacing-colors.ts"
+import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { sameValue, tint } from "./css-values.ts"
 import { useTokens } from "./field-parts.tsx"
-import { SideGlyph } from "./field-row.tsx"
+import { Field, SideGlyph } from "./field-row.tsx"
 import {
   type Side,
   type SideKind,
@@ -388,6 +389,43 @@ export function BoxModel({
         {side("margin", 2)}
       </fieldset>
     </ShowsPx>
+  )
+}
+
+type BoxSizing = "border-box" | "content-box"
+
+/** Box sizing's two keywords; unset is Border box, as Tailwind sets it on everything. */
+const boxSizings: { value: BoxSizing; label: string }[] = [
+  { value: "border-box", label: "Border box" },
+  { value: "content-box", label: "Content box" }
+]
+
+/**
+ * Box sizing, under the box model: whether the layer's width and height include its padding and border (Border box)
+ * or not (Content box). It's about the whole box, so it's here rather than in Border.
+ */
+export function BoxSizingField({
+  value,
+  onChange
+}: {
+  value: BoxSizing | undefined
+  onChange: (next: BoxSizing) => void
+}) {
+  return (
+    <Field label="Box sizing">
+      <AppSelect
+        variant="panel"
+        className="w-full"
+        aria-label="Box sizing"
+        value={value ?? "border-box"}
+        items={boxSizings}
+        onValueChange={(next) => {
+          if (next) {
+            onChange(next)
+          }
+        }}
+      />
+    </Field>
   )
 }
 

@@ -88,7 +88,7 @@ function Margin({
                   ? { tone: "note", text: "Pricing contains its children's margins now, with flow-root." }
                   : {
                       tone: "note",
-                      text: "This top margin passes through Pricing's top edge, which has no padding or stroke.",
+                      text: "This top margin passes through Pricing's top edge, which has no padding or border.",
                       action: { label: "Contain margins", run: () => setContained(true) }
                     }
               }

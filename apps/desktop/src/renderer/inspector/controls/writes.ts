@@ -15,8 +15,7 @@ import {
   type Radius,
   type Size
 } from "./data.ts"
-import { sideCss, sideNumber, type Sides, sideStored, sidesWrites, type SideValue } from "./sides-writes.ts"
-import type { LengthToken } from "./tokens.ts"
+import { sideCss, type Sides, sideStored, type SideValue } from "./sides-writes.ts"
 
 /**
  * A stored value as JSON holds it: text, a number, a list, or an object of them, as PAR-652's value forms are. An
@@ -145,46 +144,8 @@ export function radiusWrites(radius: Draft["radius"], cornerStyle?: string): Wri
   return { stored, css }
 }
 
-/** Where a stroke is drawn: in layout as a border, or as an outline inside, centered on or outside the edge (call 2). */
-export type StrokePosition = "inside" | "center" | "outside"
-
-/** A stroke 1px on every side, the project's usual. */
+/** A border 1px on every side, the project's usual. */
 export const oneEverySide: Sides = [{ number: 1 }, { number: 1 }, { number: 1 }, { number: 1 }]
-
-/**
- * A stroke: its width per side, its color, and where it's drawn. An outline has one width, so out of layout, sides
- * that differ are written at the widest, as taking a stroke out of layout makes them; a token side is as wide as the
- * project's border-width token says (`tokens`).
- */
-export function strokeWrites(
-  draft: Draft,
-  inLayout: boolean,
-  position: StrokePosition,
-  tokens: readonly LengthToken[]
-): Writes {
-  if (draft.border === undefined && draft.borderWidth === undefined) {
-    return { stored: undefined, css: [] }
-  }
-
-  const color = colorWrites("border", draft.border, draft.borderAlpha, draft.borderAllowed)
-  const sides = draft.borderWidth ?? oneEverySide
-  const widths = sidesWrites("border", sides)
-  const stored: StoredObject = { width: widths.stored, color: color.stored }
-
-  if (!inLayout) {
-    stored.position = { keyword: position }
-  }
-
-  if (!inLayout) {
-    const px = Math.max(...sides.map((side) => sideNumber(side, tokens) ?? 0)) || 1
-    const offset = { inside: -px, center: -px / 2, outside: 0 }[position]
-    const colorValue = color.css[0]?.replace("border-color: ", "") ?? "currentColor"
-
-    return { stored, css: [`outline: ${px}px solid ${colorValue}`, `outline-offset: ${offset}px`] }
-  }
-
-  return { stored, css: [...widths.css, ...color.css] }
-}
 
 /** A width or height: a length, a percentage, or a mode (Hug, Fill, Min content, Max content). */
 function sizeWrites(property: "width" | "height", size: Size | undefined, setBy?: string): Writes {

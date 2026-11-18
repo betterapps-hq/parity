@@ -1,10 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
-import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import { BoxModel, type Measured, SpacingPreview, type SpacingHover, ValueFill } from "./box-model.tsx"
-import { Field } from "./field-row.tsx"
+import { BoxModel, BoxSizingField, type Measured, SpacingPreview, type SpacingHover, ValueFill } from "./box-model.tsx"
 import { Playground } from "./playground.tsx"
 import { type Sides, sidesWrites } from "./sides-writes.ts"
 import { mergeWrites } from "./writes.ts"
@@ -27,12 +25,6 @@ const meta = {
 export default meta
 
 type Story = StoryObj<typeof meta>
-
-/** Box sizing's two keywords; unset is Border box, as Tailwind sets it on everything. */
-const boxSizings: { value: "border-box" | "content-box"; label: string }[] = [
-  { value: "border-box", label: "Border box" },
-  { value: "content-box", label: "Content box" }
-]
 
 const px = (number: number) => ({ number })
 const none: Sides = [undefined, undefined, undefined, undefined]
@@ -91,22 +83,7 @@ function Spacing({
             onBorder={(next) => setBorder(next)}
             onHover={setHover}
           />
-          {sizing && (
-            <Field label="Box sizing">
-              <AppSelect
-                variant="panel"
-                className="w-full"
-                aria-label="Box sizing"
-                value={boxSizing ?? "border-box"}
-                items={boxSizings}
-                onValueChange={(next) => {
-                  if (next) {
-                    setBoxSizing(next)
-                  }
-                }}
-              />
-            </Field>
-          )}
+          {sizing && <BoxSizingField value={boxSizing} onChange={setBoxSizing} />}
         </div>
       </PanelSection>
     </Playground>

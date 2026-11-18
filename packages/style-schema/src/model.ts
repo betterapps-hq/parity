@@ -139,6 +139,34 @@ const borderWidth = z.union(
 
 export type BorderWidth = z.infer<typeof borderWidth>
 
+const borderSides = "expected a border width, or [top, right, bottom, left]"
+
+/** A border's widths: one for every side, or `[top, right, bottom, left]`. */
+const borderWidths = z.union([z.tuple([borderWidth, borderWidth, borderWidth, borderWidth], borderSides), borderWidth])
+
+export type BorderWidths = z.infer<typeof borderWidths>
+
+/** Each side's width, from the top, clockwise, whichever form the widths are stored in. */
+export function borderSidesOf(value: BorderWidths): [BorderWidth, BorderWidth, BorderWidth, BorderWidth] {
+  return Array.isArray(value) ? value : [value, value, value, value]
+}
+
+/** A line's style, as a border and an outline take it. */
+const lineStyle = z.enum(["solid", "dashed", "dotted", "double"])
+
+export type LineStyle = z.infer<typeof lineStyle>
+
+/**
+ * How far an outline is drawn from the layer's edge: whole pixels as the framework's class takes them
+ * (`outline-offset-2`), below 0 inside the layer, or written out.
+ */
+const outlineOffset = z.union(
+  [stored({ step: finiteNumber }), valueForm, exprForm],
+  "expected { step } in pixels, { value } or { expr }"
+)
+
+export type OutlineOffset = z.infer<typeof outlineOffset>
+
 /** The pixels a border's width is, when it's whole pixels. */
 export function borderWidthPixels(value: BorderWidth | undefined): number | undefined {
   return value !== undefined && "step" in value ? value.step : undefined
@@ -328,10 +356,25 @@ export const nodeStyle = stored({
   fills: z.array(paint).optional(),
   /** The color of text. Set on a layout, it applies to the text inside. */
   color: color.optional(),
+  /**
+   * The border: part of the box, so it adds to the layer's size (or eats into it, with `boxSizing: "border-box"`).
+   * One pixel when it has a color and no width; the project's border color when it has a width and no color.
+   */
   borderColor: color.optional(),
-  /** One pixel when a border has a color and no width. */
-  borderWidth: borderWidth.optional(),
-  borderStyle: z.enum(["solid", "dashed", "dotted"]).optional(),
+  /** One width for every side, or `[top, right, bottom, left]`. */
+  borderWidth: borderWidths.optional(),
+  borderStyle: lineStyle.optional(),
+  /**
+   * The outline: drawn over the layer's edge, so it never moves the layout. One pixel when it has a color and no width;
+   * the project's border color when it has a width and no color.
+   */
+  outlineColor: color.optional(),
+  outlineWidth: borderWidth.optional(),
+  outlineStyle: lineStyle.optional(),
+  /** 0 draws it against the edge, outside; above 0 leaves a gap; below 0 draws it inside the layer. */
+  outlineOffset: outlineOffset.optional(),
+  /** Whether width and height include the padding and border (`border-box`, Tailwind's default) or not. */
+  boxSizing: z.enum(["border-box", "content-box"]).optional(),
   borderRadius: named.optional(),
   /** The stack of shadows, top first. */
   boxShadow: z.array(shadow).optional(),

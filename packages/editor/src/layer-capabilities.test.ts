@@ -61,7 +61,7 @@ function partsOf(container: ContainerSpec, ids: string[]) {
   return { sections: parts.sections, controls: [...parts.controls].sort() }
 }
 
-const last: StyleSection[] = ["fill", "stroke", "effects", "motion", "rawCss"]
+const last: StyleSection[] = ["fill", "border", "outline", "effects", "motion", "rawCss"]
 
 /** A layer's sections around its own: placement, layer order, transform and size before, and the rest after. */
 function nested(between: StyleSection[], text: boolean, layout = false): StyleSection[] {

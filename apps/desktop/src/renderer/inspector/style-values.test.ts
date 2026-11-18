@@ -3,6 +3,10 @@ import { describe, expect, it } from "vite-plus/test"
 import { sizeTokens } from "./controls/stand-in-tokens.ts"
 import { leadingToken, lengthToken, trackingToken } from "./controls/tokens.ts"
 import {
+  borderSidesShown,
+  borderWidthsOf,
+  lineWidthOf,
+  lineWidthShown,
   presetStyle,
   eachLength,
   eachSideOf,
@@ -200,5 +204,43 @@ describe("type values the fields write as tokens", () => {
     expect(optionOf({ option: "dashed" }, ["solid", "dashed", "dotted"])).toBe("dashed")
     expect(optionOf({ option: "double" }, ["solid", "dashed", "dotted"])).toBeUndefined()
     expect(optionOf({ custom: "groove" }, ["solid", "dashed", "dotted"])).toBeUndefined()
+  })
+})
+
+describe("border widths", () => {
+  it("shows one width on every side, each side's, a token, and pixels written out", () => {
+    expect(borderSidesShown({ step: 2 })).toEqual([{ number: 2 }, { number: 2 }, { number: 2 }, { number: 2 }])
+    expect(borderSidesShown([{ step: 0 }, { step: 0 }, { token: "border-width-thick" }, { value: "3px" }])).toEqual([
+      { number: 0 },
+      { number: 0 },
+      { token: "border-width-thick" },
+      { number: 3 }
+    ])
+    expect(borderSidesShown(undefined)).toEqual([undefined, undefined, undefined, undefined])
+    expect(lineWidthShown({ value: "thin" })).toBeUndefined()
+  })
+
+  it("stores one width when the sides agree, and each side's when they don't, changing only the sides reached", () => {
+    expect(borderWidthsOf({ step: 1 }, [{ number: 2 }, undefined, undefined, undefined], [0, 1, 2, 3])).toEqual([
+      { step: 2 },
+      { step: 0 },
+      { step: 0 },
+      { step: 0 }
+    ])
+    expect(borderWidthsOf({ step: 1 }, [undefined, undefined, { number: 4 }, undefined], [2])).toEqual([
+      { step: 1 },
+      { step: 1 },
+      { step: 4 },
+      { step: 1 }
+    ])
+    expect(
+      borderWidthsOf(
+        [{ step: 0 }, { step: 1 }, { step: 1 }, { step: 1 }],
+        [{ number: 1 }, undefined, undefined, undefined],
+        [0]
+      )
+    ).toEqual({ step: 1 })
+    expect(lineWidthOf({ token: "border-width-thick" })).toEqual({ token: "border-width-thick" })
+    expect(lineWidthOf({ number: -2 })).toEqual({ step: 0 })
   })
 })
