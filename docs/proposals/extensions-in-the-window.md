@@ -1,8 +1,10 @@
 # Extensions in the window
 
-Status: draft for review, second revision after a review panel. Follows PAR-1179 (the live room in development). It
-changes [developer-api.md](developer-api.md)'s "Drawing UI" for Parity's own extensions, and makes its canvas overlays
-and web views (PAR-1099) concrete for everyone else.
+Status: built, 2026-11-17 (PAR-1233). Every phase under [Tasks](#tasks) has landed: multiplayer and agent presence are
+internal extensions, and how they work now is in [extensions.md](../extensions.md#internal-extensions-and-window-modules)
+and [editor.md](../editor.md). External extensions' part, canvas overlays and web views (PAR-1099) and installing them
+(PAR-1098), is still backlogged. It followed PAR-1179 (the live room in development), and changes
+[developer-api.md](developer-api.md)'s "Drawing UI" for Parity's own extensions.
 
 Multiplayer should be an extension, `@parity-app/extension-multiplayer`, rather than code in the app. So should agents'
 pointers on the canvas, `@parity-app/extension-agent-presence`. Today's API can't carry either:
@@ -1353,5 +1355,5 @@ short:
 
 ## Open questions
 
-1. **Avatar stack: on the canvas or in the title bar?** This draft puts it on the canvas, in an `edge` layer.
+1. **Settled: the avatar stack is on the canvas,** in an `edge` layer, stacked beside the zoom controls (PAR-1293).
 2. **Settled: state and mode are shared** in a room and saved like any other edit (PAR-1231).

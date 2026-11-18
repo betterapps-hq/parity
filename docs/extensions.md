@@ -315,8 +315,8 @@ An extension can offer an API to other extensions, and its commands and tools to
 
 Parity's own extensions can be **internal** (PAR-1235,
 [proposals/extensions-in-the-window.md](proposals/extensions-in-the-window.md)): built and released with the app, so
-they share its React, kit and theme, and promise nothing beyond the build they ship in. Agent presence is one (below);
-multiplayer is to become one.
+they share its React, kit and theme, and promise nothing beyond the build they ship in. Agent presence and multiplayer
+are two.
 
 - **One list.** Parity's built-in extensions are listed once, in
   [`shared/built-in-extensions.ts`](../apps/desktop/src/shared/built-in-extensions.ts). The service's hosts, the bundles
