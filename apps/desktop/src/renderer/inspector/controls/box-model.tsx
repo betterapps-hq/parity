@@ -40,6 +40,12 @@ export interface SpacingHover {
  */
 const colors = spacingColors
 
+/**
+ * Border, between margin and padding, as DevTools draws it in amber between its orange margin and green padding. The
+ * canvas doesn't draw a border's ring, so it's the box model's own.
+ */
+const borderColor = "oklch(0.8 0.14 80)"
+
 /** Padding, hatched in its color as the canvas hatches it (CanvasOverlay). Margin is flat, outside the layer. */
 const hatched = (color: string) =>
   `repeating-linear-gradient(-45deg, ${tint(color, 28)} 0 1px, ${tint(color, 10)} 1px 5px)`
@@ -199,7 +205,7 @@ function BoxSide({
   onEach,
   onHover
 }: {
-  box: "padding" | "margin"
+  box: "padding" | "margin" | "border"
   index: number
   sides: Sides
   rules: SideRules
@@ -233,34 +239,42 @@ function BoxSide({
  * Spacing's box: margin's ring around padding's around the layer's size, each side's measurement and unit where the side
  * is, as DevTools' box model lays them out. Hovering a value opens its field in a popover after a moment; pressing it, or
  * Enter, opens it at once. Padding is hatched in its color, as the canvas shades it, and margin, outside it, is flat
- * in its own within a dashed edge.
+ * in its own within a dashed edge. Given a border, its ring goes between them, solid amber, as DevTools draws it: the
+ * box shows everything that adds to the layer's size.
  */
 export function BoxModel({
   padding,
   margin,
+  border,
   paddingMixed = [],
   marginMixed = [],
+  borderMixed = [],
   measuredMargin,
   size,
   rules = sideRules,
   onPadding,
   onMargin,
+  onBorder,
   onEach,
   onHover
 }: {
   padding: Sides
   /** Unset where the layer takes no margin, as a design's root doesn't: the box is padding's alone. */
   margin?: Sides
+  /** The border's width on each side; unset leaves its ring out, as the box was before Border (PAR-932). */
+  border?: Sides
   paddingMixed?: readonly boolean[]
   marginMixed?: readonly boolean[]
+  borderMixed?: readonly boolean[]
   /** What each margin side comes to, for Auto. */
   measuredMargin?: readonly (number | undefined)[]
   /** The layer's size inside its padding; unset where there's no one size to show, as for several layers. */
   size?: { width: number; height: number }
   /** What padding's and margin's sides take, where the style holds less than every form. */
-  rules?: Pick<Record<SideKind, SideRules>, "padding" | "margin">
+  rules?: Pick<Record<SideKind, SideRules>, "padding" | "margin"> & Partial<Pick<Record<SideKind, SideRules>, "border">>
   onPadding: (sides: Sides, cleared: number[]) => void
   onMargin?: (sides: Sides, cleared: number[]) => void
+  onBorder?: (sides: Sides, cleared: number[]) => void
   /**
    * Where the layers differ on a side, works out what uses the value there (`+8`, Up and Down, a scrub) from each
    * layer's own pixels on the sides it reached: that side, or with Alt and Alt+Shift the opposite one or all four.
@@ -268,16 +282,22 @@ export function BoxModel({
   onEach?: (box: "padding" | "margin", reached: number[], update: (px: number) => number) => void
   onHover?: (hover: SpacingHover | undefined) => void
 }) {
-  const side = (box: "padding" | "margin", index: number) => (
+  const boxes = {
+    padding: { sides: padding, mixed: paddingMixed, onChange: onPadding },
+    margin: { sides: margin ?? noSides, mixed: marginMixed, onChange: onMargin ?? noChange },
+    border: { sides: border ?? noSides, mixed: borderMixed, onChange: onBorder ?? noChange }
+  }
+
+  const side = (box: "padding" | "margin" | "border", index: number) => (
     <BoxSide
       box={box}
       index={index}
-      sides={box === "padding" ? padding : (margin ?? noSides)}
-      rules={box === "padding" ? rules.padding : rules.margin}
-      mixed={(box === "padding" ? paddingMixed : marginMixed)[index] ?? false}
+      sides={boxes[box].sides}
+      rules={rules[box] ?? sideRules.border}
+      mixed={boxes[box].mixed[index] ?? false}
       measured={box === "margin" ? measuredMargin?.[index] : undefined}
-      onChange={box === "padding" ? onPadding : (onMargin ?? noChange)}
-      onEach={onEach && ((update, reached) => onEach(box, reached, update))}
+      onChange={boxes[box].onChange}
+      onEach={onEach && box !== "border" ? (update, reached) => onEach(box, reached, update) : undefined}
       onHover={onHover}
     />
   )
@@ -305,10 +325,30 @@ export function BoxModel({
     </div>
   )
 
+  // The border's ring, solid, as a border is drawn, around padding's.
+  const inner =
+    border === undefined ? (
+      paddingBox
+    ) : (
+      <div
+        className="relative flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-md border p-1"
+        style={{ background: tint(borderColor, 22), borderColor: tint(borderColor, 80) }}
+      >
+        {name("Border")}
+        {side("border", 0)}
+        <div className="flex w-full items-center gap-1">
+          {side("border", 3)}
+          {paddingBox}
+          {side("border", 1)}
+        </div>
+        {side("border", 2)}
+      </div>
+    )
+
   if (margin === undefined) {
     return (
       <fieldset className="m-0 flex min-w-0 p-0" aria-label="Box model">
-        {paddingBox}
+        {inner}
       </fieldset>
     )
   }
@@ -323,7 +363,7 @@ export function BoxModel({
       {side("margin", 0)}
       <div className="flex w-full items-center gap-1">
         {side("margin", 3)}
-        {paddingBox}
+        {inner}
         {side("margin", 1)}
       </div>
       {side("margin", 2)}
@@ -360,6 +400,8 @@ export function SpacingPreview({
   layout = "flex",
   first = false,
   contained = false,
+  width,
+  boxSizing,
   onMeasure
 }: {
   padding?: Sides
@@ -372,6 +414,9 @@ export function SpacingPreview({
   first?: boolean
   /** Pricing contains its children's margins (`flow-root`), so none passes through its edge. */
   contained?: boolean
+  /** A width set on Plans, so Box sizing shows: whether padding and border go inside it or add to it. */
+  width?: number
+  boxSizing?: "border-box" | "content-box"
   onMeasure?: (measured: Measured) => void
 }) {
   const layer = useRef<HTMLDivElement>(null)
@@ -410,7 +455,7 @@ export function SpacingPreview({
 
     setBox(next)
     onMeasure?.(next)
-  }, [padding, margin, border, spacing, widths, layout, first, contained, box, onMeasure])
+  }, [padding, margin, border, spacing, widths, layout, first, contained, width, boxSizing, box, onMeasure])
 
   const inline = (sides: Sides | undefined, tokens: readonly LengthToken[]) =>
     (sides ?? [undefined, undefined, undefined, undefined]).map((side) => sideInline(side, tokens) ?? "0px")
@@ -426,10 +471,14 @@ export function SpacingPreview({
     margin: margins.join(" "),
     borderWidth: borders.join(" "),
     borderStyle: "solid",
-    borderColor: "#262626",
+    // A hovered side of the border lights up in the box model's amber.
+    borderColor: [0, 1, 2, 3]
+      .map((index) => (hover?.box === "border" && hover.sides.includes(index) ? borderColor : "#262626"))
+      .join(" "),
     // Auto margins center a layer only when it doesn't stretch.
-    width: margins[1] === "auto" || margins[3] === "auto" ? 200 : undefined,
-    alignSelf: margins[1] === "auto" || margins[3] === "auto" ? "auto" : undefined
+    width: width ?? (margins[1] === "auto" || margins[3] === "auto" ? 200 : undefined),
+    boxSizing,
+    alignSelf: width !== undefined || margins[1] === "auto" || margins[3] === "auto" ? "flex-start" : undefined
   }
 
   const strong = (which: SpacingHover["box"], index: number) => hover?.box === which && hover.sides.includes(index)
