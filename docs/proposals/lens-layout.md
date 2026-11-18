@@ -208,40 +208,62 @@ What we'd build on top, each found in the spike:
 
 ### Today's canvas in a lens's own window
 
-PAR-1242 moved Screens, with today's canvas, into a Dockview pop-out: a same-origin `window.open` child, as the shell
-makes one. The story Parity/Explorations/Lenses/Canvas window has the app's lenses with lens windows on, and the
-window's shortcuts. Each action was tried first in the main window, then in the pop-out, with Playwright driving Chrome:
-the built-in browser pane opens `window.open` in its own tab, so it can't show a pop-out.
+PAR-1242 moved Screens and Pages, each with today's canvas, into a Dockview pop-out: a same-origin `window.open` child,
+as the shell makes one. Each action was tried first in the main window, then in the lens's own window, in two places:
+
+- **The desktop app,** driven over its DevTools port, with two changes kept out of the commit: the main window's
+  `setWindowOpenHandler` allowing `lenses/popout/popout.html`, and `OpenProject` passing it to the shell as `popoutUrl`.
+  Only the app draws Pages' routes live, in iframes.
+- **Storybook,** in Parity/Explorations/Lenses/Canvas window, with Playwright driving Chrome. The built-in browser pane
+  opens `window.open` in its own tab, so it can't show a lens window.
 
 Dockview moves the group's elements into the new window rather than drawing them again. The React tree and the tldraw
 editor carry on with the same camera and selection. tldraw 5.6 reads its container's document and window when it uses
 them (`getContainerDocument`, `getOwnerWindow`), so it follows the canvas there and measures it again.
 
-| In the lens's own window                              | Result | Why                                                                                                   |
-| ----------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------- |
-| Scrolling, Ctrl+wheel zoom, the zoom buttons          | Works  | tldraw listens on its container                                                                       |
-| Resizing the window                                   | Works  | tldraw watches its container's size                                                                   |
-| Selecting a design or a layer, the outlines, brushing | Works  | tldraw and the overlays take pointer events on the canvas                                             |
-| Double-clicking into a design, editing its text       | Works  | the text editor is in the window, takes the focus and the typing                                      |
-| Moving the tab back to the main window                | Works  | the canvas goes back with its camera                                                                  |
-| How designs look                                      | Breaks | each frame's shadow root loses its stylesheets (32 of 32 in the main window, 0 in the pop-out)        |
-| Tool keys, Zoom to fit, Ctrl and a lens's number      | Breaks | the app's shortcuts, Undo's too, listen on the main window (`canvas/shortcuts.ts`, `LensWorkspace`)   |
-| Dragging a board by its title                         | Breaks | the press selects it, but `followPress` in `canvas/gesture.ts` follows the pointer on the main window |
-| The canvas's menu, the toolbar's menus, tooltips      | Breaks | Base UI draws them into the main window's document                                                    |
+| In the lens's own window                                         | Result  | Why                                                                                                |
+| ---------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
+| Scrolling, Shift+wheel, Ctrl+wheel zoom, the zoom buttons        | Works   | tldraw listens on its container                                                                    |
+| Resizing the window                                              | Works   | tldraw watches its container's size                                                                |
+| Hovering, clicking and Shift-clicking layers, brushing           | Works   | tldraw and the overlays take pointer events on the canvas                                          |
+| Picking a tool on the toolbar, dragging with Hand                | Works   | the toolbar's buttons and tldraw's own drag are on the canvas                                      |
+| Double-clicking into a design and editing its text               | Works   | the text editor is in the window, and takes the focus and the typing                               |
+| Interact: typing into a design's field                           | Works   | the field is in the window's document                                                              |
+| Pages' live routes                                               | Works   | a press makes one live, and it scrolls and takes clicks                                            |
+| The main window's Layers selecting what the lens window shows    | Works   | the selection is shared, and the lens window's camera moves to it                                  |
+| Moving the tab back to the main window                           | Works   | the canvas goes back with its camera                                                               |
+| Pages' iframes when the tab moves                                | Reloads | each move detaches every iframe and loads it again, so a live page loses its state, its scroll too |
+| How designs look                                                 | Breaks  | frames' shadow roots lose their stylesheets; the app logs "Sharing constructed stylesheets…"       |
+| Dragging a layer, a resize handle or a board's title             | Breaks  | the press lands; `followPress` in `canvas/gesture.ts` follows the pointer on the main window       |
+| Drawing a frame with Frame, placing text with Text               | Breaks  | the same: the tool is picked, but the drag or click that makes one is followed on the main window  |
+| Alt to measure between layers                                    | Breaks  | `CanvasOverlay` listens for Alt on the main window                                                 |
+| Every shortcut in the keymap: tools, selection, edit, view, file | Breaks  | `useShortcuts`, `useAppShortcuts` and the shell's Ctrl+number listen on the main window            |
+| Arrows, Tab and Esc                                              | Wrong   | with the app's listener out of reach, tldraw's own handling acts: arrows nudge the board itself    |
+| The canvas's menu, the toolbar's menus, tooltips, Search actions | Breaks  | Base UI draws them in the main window's document, at the lens window's coordinates                 |
 
-The frames' stylesheets are `CSSStyleSheet`s the main window made, which only its own document can adopt; moving a
-shadow root to another document leaves it with none. Other gestures that follow the pointer or keys on `window`, such as
-`ResizeHandles`, `layer-drag.ts` and `CanvasOverlay`, weren't tried, but listen where the board's drag does. tldraw's
-own listeners on the window and body, such as its focus handling and the window's blur, stay on the main window; nothing
-tried showed it, and remounting the canvas in its new window would move them.
+Each menu's items still act on the lens window's canvas when chosen, as Duplicate did from the canvas's menu, but they
+show in the other window. Ctrl+K and the shortcuts list don't open from the lens window at all, since they're shortcuts.
+
+The frames' stylesheets are `CSSStyleSheet`s the main window made, which only its own document can adopt. Pages' iframes
+are created with the main window's `document` (`live-frames.ts`), and moving an iframe to another document reloads it.
+`live-frames.ts` also listens for messages, presses, focus and blur on the main window. Going live still worked in the
+lens window, but a press outside the live page there won't reach the listener that closes it.
+
+Two things couldn't be tried by script. A real change of window focus mid-drag: DevTools can bring a window to the front
+without taking focus from the other. And a file dropped on the canvas: a scripted drop doesn't reach `CanvasDrop` in the
+main window either. `CanvasDrop` listens on the canvas area, which moves with the canvas, and gestures end on the main
+window's blur, so a drag in the lens window won't end when that window loses focus.
 
 What it would take, with the canvas in the main window's renderer:
 
 - **Frames:** make each frame's stylesheets in the document it's drawn in, and make them again when it moves to another.
 - **Shortcuts:** listen on each lens window as well as the main one. Dockview reports each window as it opens
   (`onDidAddPopoutGroup`), which `dock-adapter.ts` already uses for drags.
-- **Gestures:** follow the pointer and keys on the window the press came from (`event.view`), not on `window`.
+- **Gestures and Alt:** follow the pointer, keys and blur on the window the press came from (`event.view`), not on
+  `window`. `gesture.ts`, `ResizeHandles`, `layer-drag.ts`, `CanvasOverlay` and the tools' drags share the fix.
 - **Menus and tooltips:** give Base UI a portal container in each window, through a context the lens's window provides.
+- **Pages' live frames:** create iframes in the document they're shown in, and keep a live page from being moved, or
+  accept that it reloads when its tab changes window.
 - **tldraw:** nothing beyond remounting the canvas in the window it moves to, if a listener left behind turns out to
   matter.
 
