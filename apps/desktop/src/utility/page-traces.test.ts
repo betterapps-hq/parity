@@ -144,9 +144,12 @@ describe("a frozen copy's trace (PAR-1298)", () => {
 
   it("reads the project's files as they are now, so a file added since the builder started is scanned", async () => {
     const traces = pageTraces(projects([]))
+    const before = { ...page, loadedAt: Date.now() - 1000 }
+    expect((await traces.copy(before))?.files).not.toContain("src/data/prices.ts")
     await write("src/data/prices.ts", "export const prices = []\n")
     await write("src/routes/pricing.tsx", 'import { prices } from "../data/prices"\nexport const Route = {}\n')
-    expect((await traces.copy(page))?.files).toContain("src/data/prices.ts")
+    // A page that started loading after the last listing, as one frozen again for the change, takes a new one.
+    expect((await traces.copy({ ...page, loadedAt: Date.now() }))?.files).toContain("src/data/prices.ts")
   })
 
   it("is the whole project where the builder can't say, or the page didn't land on its route", async () => {

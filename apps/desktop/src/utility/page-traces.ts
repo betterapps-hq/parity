@@ -26,9 +26,6 @@ import type { OpenProjects, PageProject } from "./projects.ts"
 /** How many hex digits of each file's hash a trace keeps, as a frame's does. */
 const fileHashDigits = 16
 
-/** How long a listing of a project's files serves frozen copies' traces, in milliseconds. */
-const listingAge = 1000
-
 /** What a page trace is salted with beside the code's own salt, so it never matches a frame's. */
 const pageSalt = "page:1"
 
@@ -78,14 +75,16 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
 
   const salt = (snapshot: CodeSnapshot) => `${snapshot.salt}\0${pageSalt}`
 
-  // The project's files as they are now, by root, listed at most once a second: the served code's list is the one its
-  // builder started with, so a file added since, as a new template and what it imports, would be left out.
+  // The project's files as they are now, by root: the served code's list is the one its builder started with, so a file
+  // added since, as a new template and what it imports, would be left out. A listing serves only pages that started
+  // loading before it was taken, so a copy never takes one older than the change that made it stale; a file added after
+  // its page started loading makes it stale again.
   const listings = new Map<string, { at: number; code: Promise<CodeSnapshot> }>()
 
-  const currentCode = (root: string, served: CodeSnapshot) => {
+  const currentCode = (root: string, served: CodeSnapshot, loadedAt: number) => {
     const kept = listings.get(root)
 
-    if (kept && Date.now() - kept.at < listingAge) {
+    if (kept && kept.at >= loadedAt) {
       return kept.code
     }
 
@@ -201,7 +200,7 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
         return undefined
       }
 
-      const snapshot = await currentCode(project.root, await project.code)
+      const snapshot = await currentCode(project.root, await project.code, page.loadedAt)
       const input = await inputOf(page, project, snapshot)
       const trace = pageTrace(input)
       const changed = await changedSince(project.root, trace.files === "all" ? input.files : trace.files, page.loadedAt)
