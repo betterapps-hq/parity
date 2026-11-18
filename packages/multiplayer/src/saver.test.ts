@@ -174,6 +174,19 @@ describe("ProjectSaver in a live room", () => {
     expect(saver.state()).toEqual({ status: "saved" })
   })
 
+  it("keeps no recovery copy in a copy that doesn't write files, and keeps one once it takes over (PAR-1289)", async () => {
+    const { doc, saver } = setup({ writesFiles: false, autosave: false })
+    rename(doc, "Mine")
+    changeTokens(doc, "Change primary", [primary("red")])
+    setModes(doc, smallModes)
+
+    expect(saver.recoveryCopy()).toBeUndefined()
+
+    await saver.setWritesFiles(true)
+    rename(doc, "Mine again")
+    expect(saver.recoveryCopy()?.documents.map(({ path }) => path)).toEqual(["app.par"])
+  })
+
   it("writes every file that differs from what its files held when it takes over, and the stylesheet", async () => {
     const { saver, others, writes, tokenWrites } = setup({
       writesFiles: false,

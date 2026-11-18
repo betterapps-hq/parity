@@ -85,8 +85,9 @@ export function keepRecovery(
         stop()
       }
 
-      // Before it started, the copy from last time is still unanswered, so it stays for the next open.
-      if (keeping) {
+      // Before it started, the copy from last time is still unanswered, so it stays for the next open. So does it in a
+      // copy that joined another's room and kept nothing, which was never offered it (PAR-1289).
+      if (keeping && (kept || designs.saver.writesFiles())) {
         await keep(undefined).catch(() => undefined)
       }
     }

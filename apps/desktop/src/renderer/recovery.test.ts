@@ -87,4 +87,16 @@ describe("keepRecovery", () => {
 
     expect(kept).toEqual([undefined])
   })
+
+  it("keeps nothing in a copy that joined another's room, and leaves the copy from last time (PAR-1289)", async () => {
+    const { designs, keeper, kept, rename } = setup()
+    await designs.saver.setWritesFiles(false)
+    keeper.start()
+    rename("Home page")
+    await vi.runAllTimersAsync()
+    await keeper.settle()
+    await keeper.drop()
+
+    expect(kept).toEqual([])
+  })
 })
