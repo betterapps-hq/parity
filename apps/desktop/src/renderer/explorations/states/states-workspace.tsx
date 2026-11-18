@@ -164,11 +164,23 @@ function useRenaming<M extends States>(model: M, change: (to: (now: M) => M) => 
   }
 }
 
-/** A state copied after itself, as "Team copy". */
+/** A state copied after itself, as "Team copy", or "Team copy 2" where that's taken. */
+function copyName(model: States, name: string): string {
+  const taken = new Set(allStates(model).map((state) => state.name.toLowerCase()))
+  let count = 1
+  const named = () => (count === 1 ? `${name} copy` : `${name} copy ${count}`)
+
+  while (taken.has(named().toLowerCase())) {
+    count += 1
+  }
+
+  return named()
+}
+
 function duplicated<M extends States>(model: M, id: string, copy: string): M {
   const from = stateOf(model, id)
 
-  return from ? inserted(model, { id: copy, name: `${from.name} copy`, props: { ...from.props } }, id) : model
+  return from ? inserted(model, { id: copy, name: copyName(model, from.name), props: { ...from.props } }, id) : model
 }
 
 /**
@@ -248,8 +260,9 @@ export function ComponentWorkspace({ initial }: { initial: ComponentModel }) {
   const setProp = (key: keyof PlanCardProps, value: PropValue | undefined) =>
     change((now) => {
       const current = now.drafts[now.picked] ?? savedProps(now, now.picked)
-      // An emptied field in a state comes to Base's value; in Base, it's empty.
-      const next = value ?? (now.picked === baseId ? "" : now.base[key])
+      // An emptied field in a state comes to Base's value; in Base, a text field is empty and any other keeps Base's.
+      const text = planCardProps.find((prop) => prop.name === key)?.type === "text"
+      const next = value ?? (now.picked === baseId && text ? "" : now.base[key])
 
       return draft(now, { ...current, [key]: next })
     })
