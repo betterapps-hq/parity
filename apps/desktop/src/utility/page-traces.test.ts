@@ -130,3 +130,25 @@ describe("page traces (PAR-1200)", () => {
     expect(await pageTraces(projects([])).holds(job, traced)).toBe(false)
   })
 })
+
+describe("a frozen copy's trace (PAR-1298)", () => {
+  const page = { projectId: "shop", route: "/pricing", landed: true, loadedAt: Date.now() + 60_000 }
+
+  it("lists the route's own files, so another route's change leaves its copies as they are", async () => {
+    const trace = await pageTraces(projects([])).copy(page)
+    expect(trace).toEqual({
+      files: ["package.json", "src/data/plans.ts", "src/index.css", "src/routes/__root.tsx", "src/routes/pricing.tsx"]
+    })
+  })
+
+  it("is the whole project where the builder can't say, or the page didn't land on its route", async () => {
+    expect(await pageTraces(projects()).copy(page)).toEqual({ files: "all" })
+    expect(await pageTraces(projects([])).copy({ ...page, landed: false })).toEqual({ files: "all" })
+  })
+
+  it("says so when a file it lists changed after the page started loading", async () => {
+    expect(await pageTraces(projects([])).copy({ ...page, loadedAt: Date.now() - 60_000 })).toMatchObject({
+      changed: true
+    })
+  })
+})

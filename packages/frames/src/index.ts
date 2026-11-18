@@ -2,12 +2,15 @@ export { type BuiltCopy, buildCopy, type CopyPreparation } from "./copy.ts"
 
 export {
   type CopyKey,
+  type CopyTrace,
   copyId,
   groupLeaders,
   type MarkupGroups,
   sharedMarkup,
   staleCopies,
+  type TraceFolders,
   type TracedCopy,
+  traceHolds,
   type ViewOrder,
   withMarkup
 } from "./keys.ts"

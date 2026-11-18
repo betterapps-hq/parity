@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { appEntries, type PageTraceInput, pageTraceFiles, routeChain } from "./page-trace.ts"
+import { appEntries, type PageTraceInput, pageTrace, pageTraceFiles, routeChain } from "./page-trace.ts"
 
 const routes = [
   { id: "__root__", file: "src/routes/__root.tsx" },
@@ -109,6 +109,50 @@ describe("pageTraceFiles", () => {
 
   it("takes the whole project for a page that redirected, or drew its not-found or error page", () => {
     expect(pageTraceFiles({ ...project, loaded: [], landed: false })).toEqual(project.files)
+  })
+})
+
+describe("pageTrace", () => {
+  const next: PageTraceInput = {
+    ...project,
+    route: "/blog/[slug]",
+    routes: [
+      { id: "/", file: "app/layout.tsx" },
+      { id: "/blog/[slug]", file: "app/blog/[slug]/page.tsx", parent: "/" }
+    ],
+    folderRoutes: true,
+    scanned: [],
+    files: ["app/blog/[slug]/page.tsx", "app/blog/template.tsx", "app/layout.tsx", "app/about/page.tsx"]
+  }
+
+  it("is the whole project where the builder can't say, so a file added anywhere counts", () => {
+    expect(pageTrace(project)).toEqual({ files: "all" })
+    expect(pageTrace({ ...project, loaded: [], landed: false })).toEqual({ files: "all" })
+  })
+
+  it("lists only the route's files where the builder says what they load", () => {
+    expect(pageTrace({ ...project, loaded: [] })).toEqual({
+      files: [
+        "package.json",
+        "pnpm-lock.yaml",
+        "src/data/projects.ts",
+        "src/routes/__root.tsx",
+        "src/routes/projects.$id.tsx",
+        "src/routes/projects.tsx",
+        "src/styles.css"
+      ]
+    })
+  })
+
+  it("keeps the folders a router that names routes by folder draws the route from, for files added there", () => {
+    const trace = pageTrace(next)
+
+    expect(trace.folders).toEqual({
+      prefixes: ["app/blog/[slug]/", "app/blog/@", "app/@"],
+      folders: ["app/blog", "app"]
+    })
+    expect(trace.files).not.toContain("app/about/page.tsx")
+    expect(pageTraceFiles(next)).toEqual(trace.files)
   })
 })
 

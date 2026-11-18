@@ -1005,6 +1005,9 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
     case "frames.stored":
       // No bitmap kept, as on a first launch: a frame that sleeps draws first, or waits on its placeholder.
       return { kept: parseData(z.array(z.json()), JSON.parse(request.params.jobs)).map(() => ({})) }
+    case "pages.trace":
+      // No project service: a copy's trace is the whole project, as a builder that can't say gives.
+      return { trace: { files: "all" } }
     case "pictures.store":
       return request.params.picture
     case "pictures.read":

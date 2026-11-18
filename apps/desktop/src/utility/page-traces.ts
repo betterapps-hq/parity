@@ -8,6 +8,9 @@ import {
   folderRouteFiles,
   importedFiles,
   moduleClosure,
+  type PageTrace,
+  type PageTraceInput,
+  pageTrace,
   pageTraceFiles,
   readTsconfig,
   resolvePathAlias,
@@ -16,6 +19,7 @@ import {
   traceDigest
 } from "@parity-app/project"
 import type { PageJob } from "../shared/protocol.ts"
+import type { ServiceParams } from "../shared/service-params.ts"
 import type { OpenProjects, PageProject } from "./projects.ts"
 
 /** How many hex digits of each file's hash a trace keeps, as a frame's does. */
@@ -27,7 +31,13 @@ const pageSalt = "page:1"
 /** What page traces need of the open projects. */
 export type PageTraceProjects = Pick<OpenProjects, "pageProject" | "loadedFiles">
 
-/** What page traces do: take a page's trace before its picture is captured, and say whether a kept one still holds. */
+/** The page a frozen copy is of, which its trace is taken for. */
+export type TracedPage = ServiceParams["pages.trace"]
+
+/**
+ * What page traces do: take a page's trace before its picture is captured, say whether a kept one still holds, and give
+ * a frozen copy the trace it keeps.
+ */
 export interface PageTraces {
   /**
    * The files a route's page reads and their digest now; none when its project or code isn't known, or when one of them
@@ -39,6 +49,11 @@ export interface PageTraces {
    * file added since, such as a new layout around the route, makes it stale.
    */
   holds(job: PageJob, trace: FrameTrace): Promise<boolean>
+  /**
+   * The trace a frozen copy keeps (`pageTrace`), which says which changed files make it stale, `changed` when one of its
+   * files changed after its page started loading; none when its project or code isn't known.
+   */
+  copy(page: TracedPage): Promise<(PageTrace & { changed?: true }) | undefined>
 }
 
 /**
@@ -59,8 +74,12 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
 
   const salt = (snapshot: CodeSnapshot) => `${snapshot.salt}\0${pageSalt}`
 
-  /** The files `pageTraceFiles` chooses for a job's page now. */
-  const filesOf = async (job: PageJob, project: PageProject, snapshot: CodeSnapshot) => {
+  /** What a page's trace is chosen from now. */
+  const inputOf = async (
+    job: Pick<TracedPage, "projectId" | "route" | "landed">,
+    project: PageProject,
+    snapshot: CodeSnapshot
+  ): Promise<PageTraceInput> => {
     const { root } = project
     const tsconfig = readTsconfig(root)
     const alias = (specifier: string) => resolvePathAlias(root, tsconfig, specifier)
@@ -91,9 +110,9 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
       chain.length > 0 ? projects.loadedFiles(job.projectId, chain) : Promise.resolve(undefined)
     ])
 
-    return pageTraceFiles({
+    return {
       route: job.route,
-      landed: job.copy?.landed ?? true,
+      landed: job.landed,
       routes: project.routes,
       folderRoutes: project.folderRoutes,
       loaded,
@@ -106,8 +125,12 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
       styles,
       shared: sharedPreviewFiles(snapshot),
       files: [...snapshot.files.keys()]
-    })
+    }
   }
+
+  /** The files `pageTraceFiles` chooses for a job's page now. */
+  const filesOf = async (job: PageJob, project: PageProject, snapshot: CodeSnapshot) =>
+    pageTraceFiles(await inputOf({ ...job, landed: job.copy?.landed ?? true }, project, snapshot))
 
   return {
     async trace(job) {
@@ -148,6 +171,21 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
       const hashes = await hashesOf(project.root, Object.keys(trace.files))
 
       return traceDigest(salt(snapshot), Object.entries(hashes)) === trace.digest
+    },
+
+    async copy(page) {
+      const project = projects.pageProject(page.projectId)
+
+      if (!project) {
+        return undefined
+      }
+
+      const snapshot = await project.code
+      const input = await inputOf(page, project, snapshot)
+      const trace = pageTrace(input)
+      const changed = await changedSince(project.root, trace.files === "all" ? input.files : trace.files, page.loadedAt)
+
+      return changed ? { ...trace, changed } : trace
     }
   }
 }

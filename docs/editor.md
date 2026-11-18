@@ -8779,17 +8779,25 @@ A screen is named for the component its route draws, else its path.
   (`project.filesChanged`), 250 ms after the last, leaving out hidden folders such as `.git` and `.next`, installed
   packages, builders' output at the project's root (a `build` folder deeper down can be the app's), `.par` files and
   TypeScript's build records (`pageSourceChange`). A copy is kept by its route, mode and state (`CopyKey`) and the mode
-  as drawn, so duplicated designs at other widths or themes keep their own, with the trace it was made from; until
-  traces by builder come (step 6), every copy's trace is the whole project, so any change makes the project's copies
-  stale. A stale copy stays shown until the freezer has a new one, nearest the view first. Modes whose snapshots drew
-  the same markup form a markup group: a route frozen again takes one snapshot per group, which every copy in the group
-  shows at once with its own height, and each other mode is checked with a snapshot of its own once nothing is missing
-  or stale. Two states of a route share a copy. A page that loads again while it's frozen says hello again with the same
-  id: the freezer replaces its channel, waits for it to be ready and takes the snapshot again, three times at most. With
-  the Interact tool, when the app's files change, a project's live page under Vite or a webpack-compatible builder,
-  which keeps the modules it loaded, is loaded again where it is (`page.reload`, or at its last location when it doesn't
-  answer), and a frame still going live once it's live; its spares are closed and opened again. A page whose router is
-  Next's takes Next's hot updates in place. The webpack-compatible builders' pages no longer poll and reload themselves.
+  as drawn, so duplicated designs at other widths or themes keep their own, with the trace it was made from.
+- **Only a route's own files refreeze its copies (PAR-1298).** After each snapshot the freezer asks the project service
+  for the copy's trace (`pages.trace`), the same files as its picture's (`pageTrace`): the route's chain, what the
+  builder says it loads, Parity's scan of their imports, what mounts the app, the stylesheets, the shared config and the
+  `public` folder. A change to a file in it makes the copy stale; another route's file leaves it as it is. Where the
+  router names routes by folder, as Next's, a file added in the route's folder, directly in a folder above it or in
+  their parallel slots counts too, as a new layout or loading file does. Where the builder can't say, for a page that
+  redirected or drew its not-found or error page, and when the service doesn't answer, the trace is the whole project,
+  so any change, an added file included, makes the copy stale. A copy one of whose files changed while its page loaded
+  is frozen again at once. A stale copy stays shown until the freezer has a new one, nearest the view first. Modes whose
+  snapshots drew the same markup form a markup group: a route frozen again takes one snapshot per group, which every
+  copy in the group shows at once with its own height, and each other mode is checked with a snapshot of its own once
+  nothing is missing or stale. Two states of a route share a copy. A page that loads again while it's frozen says hello
+  again with the same id: the freezer replaces its channel, waits for it to be ready and takes the snapshot again, three
+  times at most. With the Interact tool, when the app's files change, a project's live page under Vite or a
+  webpack-compatible builder, which keeps the modules it loaded, is loaded again where it is (`page.reload`, or at its
+  last location when it doesn't answer), and a frame still going live once it's live; its spares are closed and opened
+  again. A page whose router is Next's takes Next's hot updates in place. The webpack-compatible builders' pages no
+  longer poll and reload themselves.
 - **Style previews in copies.** Token values edited and not yet saved show in every copy, in the same frame as in the
   design frames: the page's own stylesheets hold the saved values, so the project's previewed values go into one sheet
   every copy of its routes adopts after its own (`tokenPreviewCss`). A default value is declared on the copy's host and
@@ -8857,6 +8865,12 @@ copy blue in the same frame, while Desktop Dark's kept its own value; the page d
 too, and again after it loaded again for the code change. Undo put both copies back. A page that loads again while
 frozen, and a webpack-compatible project, weren't tried in the app.
 
+Copies refrozen by their own page's trace were tried in a development build on the example project (PAR-1298). After the
+freezer had frozen all seven routes, editing Profile's heading on disk froze Profile again, with Dashboard, which lands
+on `/login`, and Project detail, whose sample param draws its not-found page, as both take the whole project. Pricing,
+Login, Projects and Billing stayed as they were. Putting the heading back froze the same three again. A Next.js
+project's added layout wasn't tried in the app.
+
 Live boards were tried in a development build on the example project (PAR-1263). With Interact, two spares parked in the
 view; resting on Pricing marked it ready, and a press made it live and engaged in 94 ms, the page exactly over its copy
 and holding focus. Ctrl and the wheel over it zoomed the canvas from 55% to about 61%. Escape disengaged it, with focus
@@ -8897,25 +8911,27 @@ Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pa
 `pageFrameGuard` in `apps/desktop/src/main/page-frames.ts`; code changes and previews: `pageSourceChange` in
 `packages/project/src/open-project.ts`, the watcher's `filesChanged` in `apps/desktop/src/utility/projects.ts`,
 `page-changes.ts` (`pageFilesChanged`, `previewTokens`), the pool's `filesChanged` in `live-frames.ts`, `staleCopies`,
-`groupLeaders`, `sharedMarkup` and `withMarkup` in `packages/frames/src/keys.ts`, `tokenPreviewCss` and `updatesItself`
-in `packages/frames/src/preview.ts`, and `preview.set` and `page.reload` in `packages/page-runtime/src/runtime.ts`;
-pictures: `useBoardTier` in `RouteBoard.tsx`, `usePagePicture` in `page-bitmaps.ts`, `mountCopy` in
-`apps/desktop/src/renderer/page-copy.ts` and `copySheets` in `copy-sheets.ts`, both shared with the render window's
-`renderPage` in `render.ts`, the `pageJob` schema in `shared/service-params.ts`, `pageRenderJob` and `pageBitmapName` in
-`shared/render-job.ts`, `capturePage` and `storedPage` in `apps/desktop/src/utility/index.ts`, `pageTraces` in
-`utility/page-traces.ts`, `pageTraceFiles` in `packages/project/src/page-trace.ts`, and `boardTier` in
-`packages/frames/src/tiers.ts`; and the `routeFrame` events in `packages/telemetry/src/route-frame-events.ts`;
-`routeLines` in `apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in `packages/extension-vite/src/builder.ts`.
-The page runtime: `startPageRuntime` and the protocol in `packages/page-runtime/src/`; `PageRouter` and `PageHydration`
-in `packages/extension/src/page.ts`; `tanstackRouterPage` in `packages/extension-tanstack-router/src/page.ts`;
-`reactRouterPage` in `packages/extension-react-router/src/page.ts`, with library mode's wrapped `react-router` in
-`src/page-wrap/react-router.ts`; `nextjsPage` in `packages/extension-nextjs/src/page.ts`; `reactHydration` in
-`packages/extension-react/src/page.ts`; each manifest's `page` and `pageWraps`, carried by `pageRouters` in
-`packages/extension-host/src/hosts.ts` and `pageModules` in `apps/desktop/src/utility/projects.ts` into the project's
-config; `pageEntrySource` in `packages/project/src/page-entry.ts`, served by `appPageRuntime` in
-`packages/extension-vite/src/app-page.ts`, `pageEntry` in `packages/builder-webpack-compatible/src/guest-config.ts` and
-`copyPageModules` in `packages/next-builders/src/start.ts`; the wrapped packages, served by `appPageWraps`, which runs
-before Vite's own resolver, and by `pageWrapRules` in `guest-config.ts`; and `pageEntries` and `pageExternals` in
+`traceHolds`, `groupLeaders`, `sharedMarkup` and `withMarkup` in `packages/frames/src/keys.ts`, `tokenPreviewCss` and
+`updatesItself` in `packages/frames/src/preview.ts`, and `preview.set` and `page.reload` in
+`packages/page-runtime/src/runtime.ts`; pictures: `useBoardTier` in `RouteBoard.tsx`, `usePagePicture` in
+`page-bitmaps.ts`, `mountCopy` in `apps/desktop/src/renderer/page-copy.ts` and `copySheets` in `copy-sheets.ts`, both
+shared with the render window's `renderPage` in `render.ts`, the `pageJob` schema in `shared/service-params.ts`,
+`pageRenderJob` and `pageBitmapName` in `shared/render-job.ts`, `capturePage` and `storedPage` in
+`apps/desktop/src/utility/index.ts`, `pageTraces` in `utility/page-traces.ts`, `pageTrace` and `pageTraceFiles` in
+`packages/project/src/page-trace.ts`, `traceOf` in `freezer.ts` and the `pages.trace` handler in
+`apps/desktop/src/utility/index.ts`, and `boardTier` in `packages/frames/src/tiers.ts`; and the `routeFrame` events in
+`packages/telemetry/src/route-frame-events.ts`; `routeLines` in `apps/desktop/src/renderer/chrome/LayerTree.tsx`;
+`appPage` in `packages/extension-vite/src/builder.ts`. The page runtime: `startPageRuntime` and the protocol in
+`packages/page-runtime/src/`; `PageRouter` and `PageHydration` in `packages/extension/src/page.ts`; `tanstackRouterPage`
+in `packages/extension-tanstack-router/src/page.ts`; `reactRouterPage` in `packages/extension-react-router/src/page.ts`,
+with library mode's wrapped `react-router` in `src/page-wrap/react-router.ts`; `nextjsPage` in
+`packages/extension-nextjs/src/page.ts`; `reactHydration` in `packages/extension-react/src/page.ts`; each manifest's
+`page` and `pageWraps`, carried by `pageRouters` in `packages/extension-host/src/hosts.ts` and `pageModules` in
+`apps/desktop/src/utility/projects.ts` into the project's config; `pageEntrySource` in
+`packages/project/src/page-entry.ts`, served by `appPageRuntime` in `packages/extension-vite/src/app-page.ts`,
+`pageEntry` in `packages/builder-webpack-compatible/src/guest-config.ts` and `copyPageModules` in
+`packages/next-builders/src/start.ts`; the wrapped packages, served by `appPageWraps`, which runs before Vite's own
+resolver, and by `pageWrapRules` in `guest-config.ts`; and `pageEntries` and `pageExternals` in
 `apps/desktop/src/shared/built-in-extensions.ts`, which `apps/desktop/scripts/build.ts` bundles for a packaged app.
 
 Tests: `packages/editor/src/route-boards.test.ts` (35: each layout's pages hung from its index, the root's index at the
@@ -8951,13 +8967,15 @@ one named layer inside its `supports()`; the same markup hash for the same tree;
 made absolute; a snapshot and its sheets over the channel; a wait or too many ids refused; the snapshot's deadline),
 `packages/frames/src/freezer.test.ts` (5: nearest route first, each once; nothing with no boards; restarting after 1 s
 and 5 s, stopping after three failures in two minutes, and forgetting older ones), and for code changes and previews
-(PAR-1264): `packages/frames/src/planners.test.ts` (`groupLeaders`: one mode of each markup group and each mode not
-frozen yet, and every mode of a route frozen for the first time; `withMarkup`: a mode moved into the group of the markup
-it drew), `packages/frames/src/preview.test.ts` (5: token values on a copy's roots by theme and on the live page's root,
-unsafe values and themes left out, and a sheet a document takes; only Next's pages updating themselves),
-`packages/page-runtime/src/snapshot.test.ts` ("shows a style preview over the page, and never puts it in a snapshot"),
-`packages/core/src/frame-rules.test.ts` ("gives only what changed, under the selector asked for, for an element other
-rules draw", "marks each declaration important when asked, to win over a page's inline style"),
+(PAR-1264, PAR-1298): `packages/frames/src/planners.test.ts` (`staleCopies`: the copies whose traces hold a changed
+file, the whole project's too, and none whose trace doesn't; `traceHolds`: a file added in a route's folder, directly in
+a folder above or in a slot, not another route's folder or deeper above; `groupLeaders`: one mode of each markup group
+and each mode not frozen yet, and every mode of a route frozen for the first time; `withMarkup`: a mode moved into the
+group of the markup it drew), `packages/frames/src/preview.test.ts` (5: token values on a copy's roots by theme and on
+the live page's root, unsafe values and themes left out, and a sheet a document takes; only Next's pages updating
+themselves), `packages/page-runtime/src/snapshot.test.ts` ("shows a style preview over the page, and never puts it in a
+snapshot"), `packages/core/src/frame-rules.test.ts` ("gives only what changed, under the selector asked for, for an
+element other rules draw", "marks each declaration important when asked, to win over a page's inline style"),
 `packages/core/src/edit.test.ts` ("reaches the layers inside a route, as a page's copy draws them"),
 `packages/project/src/open-project.test.ts` (`pageSourceChange`: the app's files and lockfile, not hidden folders,
 installed packages, builders' output, `.par` files, build records or logs) and
@@ -9002,27 +9020,30 @@ app's own embeds left alone), and `e2e/route-boards.e2e.ts` (2: going live and e
 with Ctrl and the wheel, and letting go on Escape; engaging again on a press and letting go on a press outside). The
 pool itself (`live-frames.ts`) has no unit test; it was tried in the app. Pictures (PAR-1200):
 `packages/frames/src/planners.test.ts` (each tier, and the gap between them), `packages/project/src/page-trace.test.ts`
-(8: a route's file and its parents', its own first; none for an unknown route, and a loop stopped; what the builder says
-the files load, with their scan, styles and shared files; every file under the route's folder, and those directly in the
-folders above it and their parallel slots, for routes named by folder; the whole project where the builder can't say or
-the route isn't known, and for a page that didn't land), `apps/desktop/src/utility/page-traces.test.ts` (7: the route's
-files, imports, loads, stylesheets and shared config; the whole project without the builder's word; none when a file
-changed after the copy's page started loading; holding until a file it lists changes; stopping when a file it would now
-list is added; a Next template's imports scanned; what mounts the app and its imports outside the routes),
-`render.test.ts` (5, "canvasRender with a page's copy": built at the mode's width and the page's full height with
-viewport units measuring the window; sanitized again so nothing in it runs; lazy images loaded at once; clipped at the
-frame's own height; why when there's no copy), `render-job.test.ts` (3, "a page's picture's name": by path and query,
-not the builder's address; changed by the mode, state and scale; without the copy), `bitmap-store.test.ts` (2, "a page's
-picture in the store": kept while its trace holds and stale after; apart from frames' bitmaps and the page in another
-mode), `frame-bitmaps.test.ts` (a page's picture asked of the service again each time, so a stale verdict holds) and
-`copy-sheets.test.ts`, which moved from `freezer.test.ts`. Gaps: reading routes when the project opens, the page frames,
-the freezer (its stale copies, markup groups and second hello included), building and selecting copies, a board's tier
-as the camera moves, `usePagePicture`, drawing the lines, groups, landing warning and the titles' backdrop, Layers'
-route tree, and the bundling have no test of their own; all were tried in the app. The lines were checked on the example
-at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting its page's top edge. Each page frame
-was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was
-checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example opened with its own routes and Settings'
-redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and hovering Projects.
+(11: a route's file and its parents', its own first; none for an unknown route, and a loop stopped; what the builder
+says the files load, with their scan, styles and shared files; every file under the route's folder, and those directly
+in the folders above it and their parallel slots, for routes named by folder; the whole project where the builder can't
+say or the route isn't known, and for a page that didn't land; `pageTrace`: the whole project as `"all"`, the route's
+own files where the builder says, and a folder router's folders), `apps/desktop/src/utility/page-traces.test.ts` (10:
+the route's files, imports, loads, stylesheets and shared config; the whole project without the builder's word; none
+when a file changed after the copy's page started loading; holding until a file it lists changes; stopping when a file
+it would now list is added; a Next template's imports scanned; what mounts the app and its imports outside the routes; a
+copy's trace of the route's own files, the whole project without the builder's word or for a page that didn't land, and
+`changed` for a file changed while its page loaded), `render.test.ts` (5, "canvasRender with a page's copy": built at
+the mode's width and the page's full height with viewport units measuring the window; sanitized again so nothing in it
+runs; lazy images loaded at once; clipped at the frame's own height; why when there's no copy), `render-job.test.ts` (3,
+"a page's picture's name": by path and query, not the builder's address; changed by the mode, state and scale; without
+the copy), `bitmap-store.test.ts` (2, "a page's picture in the store": kept while its trace holds and stale after; apart
+from frames' bitmaps and the page in another mode), `frame-bitmaps.test.ts` (a page's picture asked of the service again
+each time, so a stale verdict holds) and `copy-sheets.test.ts`, which moved from `freezer.test.ts`. Gaps: reading routes
+when the project opens, the page frames, the freezer (its stale copies, markup groups and second hello included),
+building and selecting copies, a board's tier as the camera moves, `usePagePicture`, drawing the lines, groups, landing
+warning and the titles' backdrop, Layers' route tree, and the bundling have no test of their own; all were tried in the
+app. The lines were checked on the example at 5%, 10% and 22%: every page's name and path read clearly, with each line
+meeting its page's top edge. Each page frame was checked on the example at 1280 wide: App at 849 tall with no scrollbar,
+the rest at 800. Bringing lines forward was checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the
+example opened with its own routes and Settings' redirect) at 5% and 10%, by selecting Pricing, Settings' group and
+Billing and hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 
