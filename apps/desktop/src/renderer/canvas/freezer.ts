@@ -517,8 +517,13 @@ class Freezer {
     window.addEventListener("message", hello)
     this.frame = frame
 
+    // Fails a wait on a hold too, so the failure is heard while the pause it began is on, and counts once.
+    const closed = Promise.withResolvers<never>()
+    closed.promise.catch(() => undefined)
+
     this.closePage = (error) => {
       load.ready.reject(error)
+      closed.reject(error)
       channel.close(error)
     }
 
@@ -536,7 +541,7 @@ class Freezer {
 
           try {
             await withDeadline(load.ready.promise, freezeLoadDeadline)
-            await unheld(this.project)
+            await Promise.race([unheld(this.project), closed.promise])
             sizeFrame(frame, unit.viewport)
             await withDeadline(
               channel.request("mode.set", { mode: unit.mode, viewport: unit.viewport }),
