@@ -85,8 +85,8 @@ export async function moduleClosure(
 }
 
 /**
- * Files every preview depends on whatever it imports: the root's package.json, tsconfigs and tool configs (Vite,
- * Tailwind, PostCSS), and every lockfile, which stands for the versions of the packages components import.
+ * Files every preview depends on whatever it imports: the root's package.json, tsconfigs and jsconfigs, whose path
+ * aliases say which files its imports reach, and tool configs (Vite, Tailwind, PostCSS), and every lockfile, which stands for the versions of the packages components import.
  */
 export function sharedPreviewFiles(snapshot: CodeSnapshot): string[] {
   return [...snapshot.files.keys()].filter((path) => {
@@ -100,7 +100,7 @@ export function sharedPreviewFiles(snapshot: CodeSnapshot): string[] {
       return false
     }
 
-    return name === "package.json" || /^tsconfig.*\.json$/.test(name) || /\.config\.[cm]?[jt]s$/.test(name)
+    return name === "package.json" || /^[tj]sconfig.*\.json$/.test(name) || /\.config\.[cm]?[jt]s$/.test(name)
   })
 }
 
