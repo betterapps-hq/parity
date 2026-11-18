@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { icons } from "lucide-react"
+import { ChevronRight, icons } from "lucide-react"
 import { useDeferredValue, useState } from "react"
 import { auditedIcons } from "./audited-icons.ts"
 import { fluentModules } from "./fluent-modules.ts"
@@ -265,37 +265,59 @@ const lessConfident = new Set([
 /** Each icon with the number it's referred to by, which stays the same whatever's filtered. */
 const numbered = auditedIcons.map((icon, index) => ({ icon, number: index + 1 }))
 
+/** Fluent icons recommended for more than one Lucide icon. */
+const reusedPicks = new Set(
+  auditedIcons
+    .map((icon) => icon.fluent.name)
+    .filter((name, index, names) => names.indexOf(name) !== names.lastIndexOf(name))
+)
+
 interface AuditTableProps {
   title: string
   rows: typeof numbered
   size: Size
   filled: boolean
+  /** Rules off each run of rows that share a recommended icon. */
+  grouped?: boolean
 }
 
 /** A titled table of icons, each with its usage, recommended Fluent icon and alternatives. */
-function AuditTable({ title, rows, size, filled }: AuditTableProps) {
+function AuditTable({ title, rows, size, filled, grouped = false }: AuditTableProps) {
   if (rows.length === 0) {
     return null
   }
 
   return (
-    <section>
-      <h2 className="px-4 pt-6 pb-2 text-sm font-semibold">
-        {title} <span className="font-normal text-muted-foreground tabular-nums">{rows.length}</span>
-      </h2>
-      <table className="w-full border-collapse text-left">
-        <thead className="sticky top-[57px] z-10 bg-background text-xs text-muted-foreground">
+    <details open className="group/table">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 px-4 pt-6 pb-2 select-none">
+        <ChevronRight
+          aria-hidden
+          className="size-4 text-muted-foreground transition-transform group-open/table:rotate-90"
+        />
+        <h2 className="text-sm font-semibold">
+          {title} <span className="font-normal text-muted-foreground tabular-nums">{rows.length}</span>
+        </h2>
+      </summary>
+      <table className="w-full table-fixed border-collapse text-left">
+        <thead className="sticky top-14 z-10 bg-background text-xs text-muted-foreground">
           <tr className="border-b">
-            <th className="w-16 px-4 py-2 font-medium">#</th>
-            <th className="w-48 px-2 py-2 font-medium">Lucide</th>
-            <th className="px-2 py-2 font-medium">Used for</th>
+            <th className="w-20 px-4 py-2 font-medium">#</th>
+            <th className="w-56 px-2 py-2 font-medium">Lucide</th>
+            <th className="w-72 px-2 py-2 font-medium">Used for</th>
             <th className="w-64 px-2 py-2 font-medium">Recommended Fluent</th>
-            <th className="w-[38rem] px-2 py-2 pr-4 font-medium">Alternatives</th>
+            <th className="px-2 py-2 pr-4 font-medium">Alternatives</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map(({ icon, number }) => (
-            <tr key={icon.lucide} className="border-b align-top">
+          {rows.map(({ icon, number }, index) => (
+            <tr
+              key={icon.lucide}
+              className={
+                grouped && index > 0 && rows[index - 1].icon.fluent.name !== icon.fluent.name
+                  ? "border-t-4 border-b align-top"
+                  : "border-b align-top"
+              }
+            >
               <td className="px-4 py-3">
                 <span className="flex flex-col items-start gap-1">
                   <span className="font-mono text-sm text-muted-foreground tabular-nums">{number}</span>
@@ -312,7 +334,7 @@ function AuditTable({ title, rows, size, filled }: AuditTableProps) {
                   <span className="font-mono text-xs">{icon.lucide}</span>
                 </span>
               </td>
-              <td className="max-w-0 px-2 py-3">
+              <td className="overflow-hidden px-2 py-3 break-words">
                 <Usage icon={icon} />
               </td>
               <td className="px-2 py-3">
@@ -325,7 +347,7 @@ function AuditTable({ title, rows, size, filled }: AuditTableProps) {
           ))}
         </tbody>
       </table>
-    </section>
+    </details>
   )
 }
 
@@ -356,37 +378,48 @@ function IconAudit({ size, filled, appOnly, toVerifyOnly }: IconAuditProps) {
 
   return (
     <div className="h-screen overflow-auto bg-background text-foreground">
-      <header className="sticky top-0 z-10 flex flex-wrap items-center gap-x-6 gap-y-2 border-b bg-background px-4 py-3">
-        <h1 className="text-base font-semibold">Icon audit</h1>
-        <span className="text-sm text-muted-foreground">
-          {rows.length} of {auditedIcons.length} Lucide icons
-        </span>
-        <input
-          type="search"
-          aria-label="Find an icon by number or name"
-          placeholder="Number or name"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          className="h-8 w-56 rounded-md border bg-transparent px-2 text-sm"
+      <div className="min-w-[88rem]">
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-6 border-b bg-background px-4 whitespace-nowrap">
+          <h1 className="text-base font-semibold">Icon audit</h1>
+          <span className="text-sm text-muted-foreground">
+            {rows.length} of {auditedIcons.length} Lucide icons
+          </span>
+          <input
+            type="search"
+            aria-label="Find an icon by number or name"
+            placeholder="Number or name"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            className="h-8 w-56 rounded-md border bg-transparent px-2 text-sm"
+          />
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            Hover a Fluent icon to see it filled.
+            <span className="inline-block size-3 rounded-sm outline outline-1 outline-dashed outline-amber-500" />
+            Fluent has no drawing at that size, so a nearby one is scaled.
+          </span>
+        </header>
+        <AuditTable
+          title="Confident"
+          rows={rows.filter(({ icon }) => !reusedPicks.has(icon.fluent.name) && !lessConfident.has(icon.lucide))}
+          size={size}
+          filled={filled}
         />
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          Hover a Fluent icon to see it filled.
-          <span className="inline-block size-3 rounded-sm outline outline-1 outline-dashed outline-amber-500" />
-          Fluent has no drawing at that size, so a nearby one is scaled.
-        </span>
-      </header>
-      <AuditTable
-        title="Confident"
-        rows={rows.filter(({ icon }) => !lessConfident.has(icon.lucide))}
-        size={size}
-        filled={filled}
-      />
-      <AuditTable
-        title="Less confident"
-        rows={rows.filter(({ icon }) => lessConfident.has(icon.lucide))}
-        size={size}
-        filled={filled}
-      />
+        <AuditTable
+          title="Less confident"
+          rows={rows.filter(({ icon }) => !reusedPicks.has(icon.fluent.name) && lessConfident.has(icon.lucide))}
+          size={size}
+          filled={filled}
+        />
+        <AuditTable
+          title="Reused icons"
+          rows={rows
+            .filter(({ icon }) => reusedPicks.has(icon.fluent.name))
+            .toSorted((a, b) => a.icon.fluent.name.localeCompare(b.icon.fluent.name) || a.number - b.number)}
+          size={size}
+          filled={filled}
+          grouped
+        />
+      </div>
     </div>
   )
 }
