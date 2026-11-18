@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Components has a lens of its own: the project's component boards on a canvas of their own, with Used in links from each component to the pages, screens and stories that place it. The Screens canvas no longer draws them.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
