@@ -18,7 +18,8 @@ export type Section =
   | "image"
   | "icon"
   | "fill"
-  | "stroke"
+  | "border"
+  | "outline"
   | "effects"
   | "transform"
   | "interaction"
@@ -157,6 +158,11 @@ export const owned: Readonly<Record<StyleKey, readonly string[]>> = {
   borderColor: ["border-color"],
   borderWidth: ["border-width"],
   borderStyle: ["border-style"],
+  outlineColor: ["outline-color"],
+  outlineWidth: ["outline-width"],
+  outlineStyle: ["outline-style"],
+  outlineOffset: ["outline-offset"],
+  boxSizing: ["box-sizing"],
   borderRadius: ["border-radius"],
   boxShadow: ["box-shadow"],
   opacity: ["opacity"],

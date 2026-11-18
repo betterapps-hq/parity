@@ -188,7 +188,8 @@ export type StyleSection =
   | "appearance"
   | "text"
   | "fill"
-  | "stroke"
+  | "border"
+  | "outline"
   | "effects"
   | "motion"
   | "rawCss"
@@ -228,7 +229,8 @@ export const styleTable: readonly StylePart[] = [
   { control: "resizing", needs: (can) => can.text },
   { section: "appearance", needs: () => true },
   { section: "fill", needs: () => true },
-  { section: "stroke", needs: () => true },
+  { section: "border", needs: () => true },
+  { section: "outline", needs: () => true },
   { section: "effects", needs: () => true },
   { section: "motion", needs: () => true },
   { section: "rawCss", needs: () => true }

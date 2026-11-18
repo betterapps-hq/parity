@@ -1,10 +1,11 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn"
 import { createContext, type CSSProperties, type ReactNode, use, useLayoutEffect, useRef, useState } from "react"
-import { KeyHints } from "../../canvas/KeyHints.tsx"
+import { SpreadKeys } from "../../canvas/KeyHints.tsx"
 import { spacingColors } from "../../canvas/spacing-colors.ts"
-import { gestures as held } from "../../chrome/keymap.ts"
+import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { sameValue, tint } from "./css-values.ts"
 import { useTokens } from "./field-parts.tsx"
+import { Field, SideGlyph } from "./field-row.tsx"
 import {
   type Side,
   type SideKind,
@@ -28,6 +29,12 @@ import type { LengthToken } from "./tokens.ts"
 /** The fill a side's value rests on, which a story swaps to compare how strong it should be. */
 export const ValueFill = createContext("bg-background/60")
 
+/**
+ * Whether a side's value shows `px` after its number. The box model leaves it off to save room, as every side but a
+ * percentage or Auto is in pixels; its name for screen readers and its field still say px.
+ */
+export const ShowsPx = createContext(true)
+
 /** Which sides are hovered in a field or the widget, for the preview to highlight. */
 export interface SpacingHover {
   box: "padding" | "margin" | "border"
@@ -39,6 +46,12 @@ export interface SpacingHover {
  * (PAR-797). The canvas doesn't draw margin yet.
  */
 const colors = spacingColors
+
+/**
+ * A hovered side of the border in the preview: the focus ring's color. The canvas shades padding and margin but draws
+ * a border as the border itself, so the box model's border ring takes no color of its own.
+ */
+const borderHover = "var(--ring)"
 
 /** Padding, hatched in its color as the canvas hatches it (CanvasOverlay). Margin is flat, outside the layer. */
 const hatched = (color: string) =>
@@ -76,6 +89,7 @@ export function SideValue({
   signed = false,
   spreads = false,
   side = "top",
+  inner,
   className = "",
   onChange,
   onEach,
@@ -98,6 +112,8 @@ export function SideValue({
   spreads?: boolean
   /** Where its popover opens. */
   side?: "top" | "bottom"
+  /** Its field's glyph, which drags it: the side it is. */
+  inner?: ReactNode
   className?: string
   onChange: (value: Side, spread: Spread) => void
   /** Where the layers differ, works out what uses the value there from each one's own pixels, on the sides spread to. */
@@ -108,6 +124,7 @@ export function SideValue({
 }) {
   const [open, setOpen] = useState(false)
   const fill = use(ValueFill)
+  const showsPx = use(ShowsPx)
   const { tokens } = useTokens(rules.tokens.set)
   const tokenName = value !== undefined && value !== "auto" && "token" in value ? value.token : undefined
   const token = tokens.find((other) => other.name === tokenName)
@@ -151,7 +168,7 @@ export function SideValue({
           {plus}
           {shown.number}
         </span>
-        {shown.unit && <span className="text-muted-foreground">{shown.unit}</span>}
+        {shown.unit && (showsPx || shown.unit !== "px") && <span className="text-muted-foreground">{shown.unit}</span>}
       </PopoverTrigger>
       <PopoverContent aria-label={label} className="w-52 gap-2 p-2" side={side}>
         <div className="flex items-baseline justify-between gap-2 text-xs">
@@ -161,6 +178,7 @@ export function SideValue({
         </div>
         <SideField
           label={label}
+          inner={inner}
           rules={rules}
           value={value}
           mixed={mixed}
@@ -174,12 +192,7 @@ export function SideValue({
         />
         {spreads && (
           <span className="text-xs text-muted-foreground">
-            <KeyHints
-              rows={[
-                { keys: held.oppositePadding.keys, does: "Both sides" },
-                { keys: held.everyPadding.keys, does: "All sides" }
-              ]}
-            />
+            <SpreadKeys />
           </span>
         )}
       </PopoverContent>
@@ -199,7 +212,7 @@ function BoxSide({
   onEach,
   onHover
 }: {
-  box: "padding" | "margin"
+  box: "padding" | "margin" | "border"
   index: number
   sides: Sides
   rules: SideRules
@@ -218,6 +231,7 @@ function BoxSide({
       measured={measured}
       spreads
       side={index === 2 ? "bottom" : "top"}
+      inner={<SideGlyph side={index} />}
       onChange={(next, spread) => {
         const reached = spreadTo([index], spread)
         onChange(setSides(sides, reached, next), reached)
@@ -233,34 +247,45 @@ function BoxSide({
  * Spacing's box: margin's ring around padding's around the layer's size, each side's measurement and unit where the side
  * is, as DevTools' box model lays them out. Hovering a value opens its field in a popover after a moment; pressing it, or
  * Enter, opens it at once. Padding is hatched in its color, as the canvas shades it, and margin, outside it, is flat
- * in its own within a dashed edge.
+ * in its own within a dashed edge. Given a border, its ring goes between them, a plain solid edge on the panel's color: the
+ * canvas doesn't shade a border as it does padding and margin, so the ring takes no color of its own.
  */
 export function BoxModel({
   padding,
   margin,
+  border,
   paddingMixed = [],
   marginMixed = [],
+  borderMixed = [],
   measuredMargin,
+  px = true,
   size,
   rules = sideRules,
   onPadding,
   onMargin,
+  onBorder,
   onEach,
   onHover
 }: {
   padding: Sides
   /** Unset where the layer takes no margin, as a design's root doesn't: the box is padding's alone. */
   margin?: Sides
+  /** The border's width on each side; unset leaves its ring out, as the box was before Border (PAR-932). */
+  border?: Sides
   paddingMixed?: readonly boolean[]
   marginMixed?: readonly boolean[]
+  borderMixed?: readonly boolean[]
+  /** Whether its values show `px` after their numbers; without, the box takes less room. */
+  px?: boolean
   /** What each margin side comes to, for Auto. */
   measuredMargin?: readonly (number | undefined)[]
   /** The layer's size inside its padding; unset where there's no one size to show, as for several layers. */
   size?: { width: number; height: number }
   /** What padding's and margin's sides take, where the style holds less than every form. */
-  rules?: Pick<Record<SideKind, SideRules>, "padding" | "margin">
+  rules?: Pick<Record<SideKind, SideRules>, "padding" | "margin"> & Partial<Pick<Record<SideKind, SideRules>, "border">>
   onPadding: (sides: Sides, cleared: number[]) => void
   onMargin?: (sides: Sides, cleared: number[]) => void
+  onBorder?: (sides: Sides, cleared: number[]) => void
   /**
    * Where the layers differ on a side, works out what uses the value there (`+8`, Up and Down, a scrub) from each
    * layer's own pixels on the sides it reached: that side, or with Alt and Alt+Shift the opposite one or all four.
@@ -268,19 +293,31 @@ export function BoxModel({
   onEach?: (box: "padding" | "margin", reached: number[], update: (px: number) => number) => void
   onHover?: (hover: SpacingHover | undefined) => void
 }) {
-  const side = (box: "padding" | "margin", index: number) => (
-    <BoxSide
-      box={box}
-      index={index}
-      sides={box === "padding" ? padding : (margin ?? noSides)}
-      rules={box === "padding" ? rules.padding : rules.margin}
-      mixed={(box === "padding" ? paddingMixed : marginMixed)[index] ?? false}
-      measured={box === "margin" ? measuredMargin?.[index] : undefined}
-      onChange={box === "padding" ? onPadding : (onMargin ?? noChange)}
-      onEach={onEach && ((update, reached) => onEach(box, reached, update))}
-      onHover={onHover}
-    />
-  )
+  const boxes = {
+    padding: { sides: padding, mixed: paddingMixed, onChange: onPadding },
+    margin: { sides: margin ?? noSides, mixed: marginMixed, onChange: onMargin ?? noChange },
+    border: { sides: border ?? noSides, mixed: borderMixed, onChange: onBorder ?? noChange }
+  }
+
+  const side = (box: "padding" | "margin" | "border", index: number) => {
+    const value = (
+      <BoxSide
+        box={box}
+        index={index}
+        sides={boxes[box].sides}
+        rules={rules[box] ?? sideRules.border}
+        mixed={boxes[box].mixed[index] ?? false}
+        measured={box === "margin" ? measuredMargin?.[index] : undefined}
+        onChange={boxes[box].onChange}
+        onEach={onEach && box !== "border" ? (update, reached) => onEach(box, reached, update) : undefined}
+        onHover={onHover}
+      />
+    )
+
+    // The border's ring is the panel's own color, so a fill of that color wouldn't show: its values rest on the
+    // panel's raised color instead.
+    return box === "border" ? <ValueFill value="bg-muted">{value}</ValueFill> : value
+  }
 
   const name = (text: string) => (
     <span className="absolute top-1 left-1.5 text-2xs text-muted-foreground select-none">{text}</span>
@@ -305,29 +342,90 @@ export function BoxModel({
     </div>
   )
 
+  // The border's ring, a plain solid edge, as a border is drawn, around padding's.
+  const inner =
+    border === undefined ? (
+      paddingBox
+    ) : (
+      <div
+        className="relative flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-md border bg-background p-1"
+        style={{ borderColor: "color-mix(in oklch, var(--foreground) 18%, transparent)" }}
+      >
+        {name("Border")}
+        {side("border", 0)}
+        <div className="flex w-full items-center gap-1">
+          {side("border", 3)}
+          {paddingBox}
+          {side("border", 1)}
+        </div>
+        {side("border", 2)}
+      </div>
+    )
+
   if (margin === undefined) {
     return (
-      <fieldset className="m-0 flex min-w-0 p-0" aria-label="Box model">
-        {paddingBox}
-      </fieldset>
+      <ShowsPx value={px}>
+        <fieldset className="m-0 flex min-w-0 p-0" aria-label="Box model">
+          {inner}
+        </fieldset>
+      </ShowsPx>
     )
   }
 
   return (
-    <fieldset
-      className="relative m-0 flex min-w-0 flex-col items-center gap-0.5 rounded-md border border-dashed p-1"
-      style={{ background: tint(colors.margin, 10), borderColor: tint(colors.margin, 55) }}
-      aria-label="Box model"
-    >
-      {name("Margin")}
-      {side("margin", 0)}
-      <div className="flex w-full items-center gap-1">
-        {side("margin", 3)}
-        {paddingBox}
-        {side("margin", 1)}
-      </div>
-      {side("margin", 2)}
-    </fieldset>
+    <ShowsPx value={px}>
+      <fieldset
+        className="relative m-0 flex min-w-0 flex-col items-center gap-0.5 rounded-md border border-dashed p-1"
+        style={{ background: tint(colors.margin, 10), borderColor: tint(colors.margin, 55) }}
+        aria-label="Box model"
+      >
+        {name("Margin")}
+        {side("margin", 0)}
+        <div className="flex w-full items-center gap-1">
+          {side("margin", 3)}
+          {inner}
+          {side("margin", 1)}
+        </div>
+        {side("margin", 2)}
+      </fieldset>
+    </ShowsPx>
+  )
+}
+
+type BoxSizing = "border-box" | "content-box"
+
+/** Box sizing's two keywords; unset is Border box, as Tailwind sets it on everything. */
+const boxSizings: { value: BoxSizing; label: string }[] = [
+  { value: "border-box", label: "Border box" },
+  { value: "content-box", label: "Content box" }
+]
+
+/**
+ * Box sizing, under the box model: whether the layer's width and height include its padding and border (Border box)
+ * or not (Content box). It's about the whole box, so it's here rather than in Border.
+ */
+export function BoxSizingField({
+  value,
+  onChange
+}: {
+  value: BoxSizing | undefined
+  onChange: (next: BoxSizing) => void
+}) {
+  return (
+    <Field label="Box sizing">
+      <AppSelect
+        variant="panel"
+        className="w-full"
+        aria-label="Box sizing"
+        value={value ?? "border-box"}
+        items={boxSizings}
+        onValueChange={(next) => {
+          if (next) {
+            onChange(next)
+          }
+        }}
+      />
+    </Field>
   )
 }
 
@@ -360,6 +458,8 @@ export function SpacingPreview({
   layout = "flex",
   first = false,
   contained = false,
+  width,
+  boxSizing,
   onMeasure
 }: {
   padding?: Sides
@@ -372,6 +472,9 @@ export function SpacingPreview({
   first?: boolean
   /** Pricing contains its children's margins (`flow-root`), so none passes through its edge. */
   contained?: boolean
+  /** A width set on Plans, so Box sizing shows: whether padding and border go inside it or add to it. */
+  width?: number
+  boxSizing?: "border-box" | "content-box"
   onMeasure?: (measured: Measured) => void
 }) {
   const layer = useRef<HTMLDivElement>(null)
@@ -410,7 +513,7 @@ export function SpacingPreview({
 
     setBox(next)
     onMeasure?.(next)
-  }, [padding, margin, border, spacing, widths, layout, first, contained, box, onMeasure])
+  }, [padding, margin, border, spacing, widths, layout, first, contained, width, boxSizing, box, onMeasure])
 
   const inline = (sides: Sides | undefined, tokens: readonly LengthToken[]) =>
     (sides ?? [undefined, undefined, undefined, undefined]).map((side) => sideInline(side, tokens) ?? "0px")
@@ -426,10 +529,14 @@ export function SpacingPreview({
     margin: margins.join(" "),
     borderWidth: borders.join(" "),
     borderStyle: "solid",
-    borderColor: "#262626",
+    // A hovered side of the border lights up in the focus ring's color.
+    borderColor: [0, 1, 2, 3]
+      .map((index) => (hover?.box === "border" && hover.sides.includes(index) ? borderHover : "#262626"))
+      .join(" "),
     // Auto margins center a layer only when it doesn't stretch.
-    width: margins[1] === "auto" || margins[3] === "auto" ? 200 : undefined,
-    alignSelf: margins[1] === "auto" || margins[3] === "auto" ? "auto" : undefined
+    width: width ?? (margins[1] === "auto" || margins[3] === "auto" ? 200 : undefined),
+    boxSizing,
+    alignSelf: width !== undefined || margins[1] === "auto" || margins[3] === "auto" ? "flex-start" : undefined
   }
 
   const strong = (which: SpacingHover["box"], index: number) => hover?.box === which && hover.sides.includes(index)

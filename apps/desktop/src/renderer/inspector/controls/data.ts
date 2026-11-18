@@ -113,13 +113,8 @@ export interface Draft {
   radius?: Radius | [Radius?, Radius?, Radius?, Radius?]
   border?: string
   borderAlpha?: number
-  borderAllowed?: string
   /** One width, or each side from the top, clockwise. */
   borderWidth?: Sides
-  /** Whether the stroke counts in layout, as a border (on for a new stroke, call 2), or is drawn as an outline. */
-  strokeInLayout?: boolean
-  /** Where an outline is drawn against the edge: inside, centered on it, or outside. */
-  strokePosition?: "inside" | "center" | "outside"
   /** The corners' shape (`corner-shape`), which only Chromium draws; others draw round corners. */
   cornerStyle?: string
   opacity?: Opacity

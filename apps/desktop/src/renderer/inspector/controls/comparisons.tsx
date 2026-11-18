@@ -345,3 +345,50 @@ export const gridPlacementPoints: Point[] = [
   { ahead: true, text: "Unset alignment shows the grid's own faintly, so it's clear what the child follows." },
   { ahead: false, text: "Penpot names areas and places a child by area; ours is under More, not built yet." }
 ]
+
+const figmaStroke = "https://help.figma.com/hc/en-us/articles/360049283914"
+const penpotStroke = "https://help.penpot.app/user-guide/designing/color-stroke/"
+
+/** Border and Outline beside Figma's and Penpot's Stroke, each of which does both. */
+export const borderComparisons: Comparison[] = [
+  {
+    tool: "Figma",
+    image: "https://help.figma.com/hc/article_attachments/33073812001431",
+    source: figmaStroke,
+    shows: "Stroke: color, Position (Inside, Outside, Center), Weight, and a menu of Individual strokes per side"
+  },
+  {
+    tool: "Figma",
+    image: "https://help.figma.com/hc/article_attachments/31937331461143",
+    source: figmaStroke,
+    shows: "Advanced stroke settings: Stroke style, Dash, Gap and Dash cap"
+  },
+  {
+    tool: "Penpot",
+    image: "https://help.penpot.app/img/styling/stroke-per-side.webp",
+    source: penpotStroke,
+    shows: "Stroke with each side's width open: color, width, position and style in one row each"
+  }
+]
+
+/** Border against Penpot's Stroke drawn as a border. */
+export const borderPoints: Point[] = [
+  {
+    ahead: true,
+    text: "Named as CSS names it, so it says it takes up room; Penpot's Stroke hides that behind Position."
+  },
+  { ahead: true, text: "Width is one field with Each side beside it, as Penpot's per-side button, and takes tokens." },
+  { ahead: true, text: "Double, as CSS and Framer have it; Penpot and Figma have none." },
+  { ahead: false, text: "Penpot sets a dash's and a gap's length; CSS's dashed and dotted can't." },
+  { ahead: false, text: "Penpot stacks several strokes on a layer; a box has one border." }
+]
+
+/** Outline against Penpot's Stroke drawn outside or inside. */
+export const outlinePoints: Point[] = [
+  {
+    ahead: true,
+    text: "Offset sets the gap between the edge and the line, as a focus ring needs; Penpot and Figma have none."
+  },
+  { ahead: true, text: "It never moves the layout, and the section's name says so." },
+  { ahead: false, text: "Inside, Center and Outside are one click in Penpot; here they're an offset in pixels." }
+]

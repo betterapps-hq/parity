@@ -12,6 +12,7 @@ import { useProject } from "../canvas/context.ts"
 import { LiveEditsContext, ProjectData, type ProjectDataValue } from "../inspector/controls/field-parts.tsx"
 import { useProjectImages } from "../inspector/image-source.ts"
 import { AppearanceSection } from "../inspector/sections/AppearanceSection.tsx"
+import { BorderSection, OutlineSection } from "../inspector/sections/BorderSection.tsx"
 import { EffectsSection } from "../inspector/sections/effects.tsx"
 import { FillSection } from "../inspector/sections/FillSection.tsx"
 import { GridPlacementSection } from "../inspector/sections/GridPlacementSection.tsx"
@@ -21,7 +22,6 @@ import { PositionSection } from "../inspector/sections/PositionSection.tsx"
 import { type SectionProps, useEditSession } from "../inspector/sections/section-edits.ts"
 import { SizeSection } from "../inspector/sections/SizeSection.tsx"
 import { SpacingSection } from "../inspector/sections/SpacingSection.tsx"
-import { StrokeSection } from "../inspector/sections/StrokeSection.tsx"
 import { TransformSection } from "../inspector/sections/TransformSection.tsx"
 import { TypographySection } from "../inspector/sections/TypographySection.tsx"
 import { projectTokenSets } from "../inspector/token-sets.ts"
@@ -45,7 +45,8 @@ const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> =
   appearance: AppearanceSection,
   text: TypographySection,
   fill: FillSection,
-  stroke: StrokeSection,
+  border: BorderSection,
+  outline: OutlineSection,
   effects: EffectsSection,
   motion: MotionSection
 }

@@ -103,6 +103,15 @@ describe("styleOfElement", () => {
           "border-top-style": "solid",
           "border-top-width": "1px",
           "border-top-color": "rgb(229, 229, 229)",
+          "border-right-style": "solid",
+          "border-right-width": "1px",
+          "border-right-color": "rgb(229, 229, 229)",
+          "border-bottom-style": "solid",
+          "border-bottom-width": "1px",
+          "border-bottom-color": "rgb(229, 229, 229)",
+          "border-left-style": "solid",
+          "border-left-width": "1px",
+          "border-left-color": "rgb(229, 229, 229)",
           "border-top-left-radius": "12px",
           opacity: "1"
         }
@@ -122,6 +131,37 @@ describe("styleOfElement", () => {
       borderColor: { value: "rgb(229, 229, 229)" },
       borderStyle: "solid",
       borderRadius: { value: "12px" }
+    })
+    expect(nodeStyle.safeParse(style).success).toBe(true)
+  })
+
+  it("reads a border on one side as each side's width, an outline with its offset, and content-box sizing", () => {
+    const style = styleOfElement(
+      {
+        style: {
+          "border-bottom-style": "dashed",
+          "border-bottom-width": "2px",
+          "border-bottom-color": "rgb(229, 229, 229)",
+          "outline-style": "solid",
+          "outline-width": "2px",
+          "outline-color": "rgb(37, 99, 235)",
+          "outline-offset": "2px",
+          "box-sizing": "content-box"
+        }
+      },
+      "layout"
+    )
+
+    expect(style).toEqual({
+      flexDirection: "column",
+      borderWidth: [{ value: "0px" }, { value: "0px" }, { value: "2px" }, { value: "0px" }],
+      borderColor: { value: "rgb(229, 229, 229)" },
+      borderStyle: "dashed",
+      outlineWidth: { value: "2px" },
+      outlineColor: { value: "rgb(37, 99, 235)" },
+      outlineStyle: "solid",
+      outlineOffset: { value: "2px" },
+      boxSizing: "content-box"
     })
     expect(nodeStyle.safeParse(style).success).toBe(true)
   })

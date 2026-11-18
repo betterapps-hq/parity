@@ -223,6 +223,13 @@ function textAlignOf(value: string | undefined): NodeStyle["textAlign"] {
   return undefined
 }
 
+const boxSides = ["top", "right", "bottom", "left"] as const
+
+/** A border's or outline's computed style as a layer's: the ones it takes, and solid for any other. */
+function lineStyleOf(value: string | undefined): NodeStyle["borderStyle"] {
+  return value === "dashed" || value === "dotted" || value === "double" ? value : "solid"
+}
+
 /**
  * An element's computed styles as a layer's: its size as drawn, a layout's direction, gap, padding and alignment, its
  * fill, border, corners and opacity, and the type it sets. A value it doesn't change from the default is left out.
@@ -261,13 +268,37 @@ export function styleOfElement(element: Pick<ElementSnapshot, "style">, type: El
   const fill = paintOf(css["background-color"])
   set("fills", fill ? [{ type: "solid", color: fill }] : undefined)
 
-  const border = css["border-top-style"]
+  // Each side's border, as drawn: a side with no style draws none, whatever its width.
+  const borders = boxSides.map((side) => {
+    const lineStyle = css[`border-${side}-style`]
+    const width = lineStyle && lineStyle !== "none" ? (css[`border-${side}-width`] ?? "0px") : "0px"
 
-  if (border && border !== "none" && Number.parseFloat(css["border-top-width"] ?? "0") > 0) {
-    set("borderWidth", { value: css["border-top-width"]! })
-    set("borderColor", paintOf(css["border-top-color"]))
-    set("borderStyle", border === "dashed" || border === "dotted" ? border : "solid")
+    return { width, lineStyle, color: css[`border-${side}-color`] }
+  })
+
+  const drawn = borders.find((side) => Number.parseFloat(side.width) > 0)
+
+  if (drawn) {
+    const [top, right, bottom, left] = borders.map((side) => ({ value: side.width }))
+    set("borderWidth", borders.every((side) => side.width === drawn.width) ? top! : [top!, right!, bottom!, left!])
+    set("borderColor", paintOf(drawn.color))
+    set("borderStyle", lineStyleOf(drawn.lineStyle))
   }
+
+  const outline = css["outline-style"]
+
+  if (outline && outline !== "none" && Number.parseFloat(css["outline-width"] ?? "0") > 0) {
+    set("outlineWidth", { value: css["outline-width"]! })
+    set("outlineColor", paintOf(css["outline-color"]))
+    set("outlineStyle", lineStyleOf(outline))
+    set(
+      "outlineOffset",
+      Number.parseFloat(css["outline-offset"] ?? "0") === 0 ? undefined : { value: css["outline-offset"]! }
+    )
+  }
+
+  // Tailwind draws everything as `border-box`, so only the other is the layer's own.
+  set("boxSizing", css["box-sizing"] === "content-box" ? "content-box" : undefined)
 
   set("borderRadius", pixels(css["border-top-left-radius"]))
 
@@ -307,9 +338,12 @@ export const readStyles = [
   "padding-bottom",
   "padding-left",
   "background-color",
-  "border-top-style",
-  "border-top-width",
-  "border-top-color",
+  ...boxSides.flatMap((side) => [`border-${side}-style`, `border-${side}-width`, `border-${side}-color`] as const),
+  "outline-style",
+  "outline-width",
+  "outline-color",
+  "outline-offset",
+  "box-sizing",
   "border-top-left-radius",
   "opacity",
   "color",

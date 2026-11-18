@@ -81,7 +81,7 @@ export const sideRules: Record<SideKind, SideRules> = {
   },
   border: {
     kind: "border",
-    noun: "stroke width",
+    noun: "border width",
     tokens: { set: "borderWidth", kind: "border-width" },
     namespace: "border-width-",
     stepBy: "pixel",

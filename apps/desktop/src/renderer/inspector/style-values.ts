@@ -1,4 +1,7 @@
 import {
+  type BorderWidth,
+  type BorderWidths,
+  borderSidesOf,
   type FieldLength,
   type FontWeight,
   isFill,
@@ -16,6 +19,7 @@ import {
 } from "@parity-app/core"
 import { sidesOf, tidySides } from "@parity-app/editor"
 import { formatNumber } from "@parity-app/style-schema"
+import { sameValue } from "./controls/css-values.ts"
 import { isFixedSize, isLengthToken, isTokenSize, type Radius, type Size as ControlSize } from "./controls/data.ts"
 import type { Side, Sides } from "./controls/sides-writes.ts"
 import type { FontSize, FontValue, LetterSpacing, LineHeight, Opacity, WeightValue } from "./controls/text-writes.ts"
@@ -443,3 +447,60 @@ function presetLetterSpacing(spacing: LetterSpacing): Named {
 
   return { value: "em" in spacing ? `${formatNumber(spacing.em)}em` : `${formatNumber(spacing.px)}px` }
 }
+
+/** A border's or outline's width as a field shows it: whole pixels, or a border width token. */
+export function lineWidthShown(width: BorderWidth | undefined): Side {
+  if (width === undefined) {
+    return undefined
+  }
+
+  if ("step" in width) {
+    return { number: width.step }
+  }
+
+  if ("token" in width) {
+    return { token: width.token }
+  }
+
+  const px = "value" in width && width.value.endsWith("px") ? Number.parseFloat(width.value) : Number.NaN
+
+  return Number.isFinite(px) ? { number: px } : undefined
+}
+
+/** A side from a width field as the style holds a border's or outline's width: whole pixels, or a token. */
+export function lineWidthOf(side: Side): BorderWidth {
+  if (side !== undefined && side !== "auto" && "token" in side) {
+    return { token: side.token }
+  }
+
+  return { step: side !== undefined && side !== "auto" && "number" in side ? Math.max(0, side.number) : 0 }
+}
+
+/** A border's widths as the four sides its Width field and the box model show. */
+export function borderSidesShown(widths: BorderWidths | undefined): Sides {
+  if (widths === undefined) {
+    return [undefined, undefined, undefined, undefined]
+  }
+
+  const [top, right, bottom, left] = borderSidesOf(widths).map(lineWidthShown)
+
+  return [top, right, bottom, left]
+}
+
+/**
+ * Four sides as the style holds a border's widths, from what the layer had: only the sides an edit reached change.
+ * One width when they're all the same, else each side's.
+ */
+export function borderWidthsOf(own: BorderWidths | undefined, sides: Sides, reached: readonly number[]): BorderWidths {
+  const widths = [...(own === undefined ? oneEveryBorderSide : borderSidesOf(own))]
+
+  for (const index of reached) {
+    widths[index] = lineWidthOf(sides[index])
+  }
+
+  const [top, right, bottom, left] = widths
+
+  return widths.every((width) => sameValue(width, top)) ? top! : [top!, right!, bottom!, left!]
+}
+
+const oneEveryBorderSide: BorderWidth[] = [{ step: 1 }, { step: 1 }, { step: 1 }, { step: 1 }]

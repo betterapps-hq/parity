@@ -10,11 +10,9 @@ import {
   cursorChoices as cursorChoicesOf,
   cursorDrawer,
   cursorValue,
-  drawStrokeStyle,
   type KeywordChoice,
   KeywordMenu,
   KeywordToggles,
-  strokeStyleChoices,
   wrapChoices
 } from "./keyword-sets.tsx"
 import { Playground } from "./playground.tsx"
@@ -326,28 +324,6 @@ export const CursorToken: Story = {
       inherits
       draw={drawCursor}
       preview={cursorPreview}
-    />
-  )
-}
-
-const strokePreview = (style: Record<string, string>) => (
-  <PreviewStage>
-    <Card style={{ ...filledLayer, border: "4px solid #0a0a0a", ...style }} />
-  </PreviewStage>
-)
-
-/** Groove, from More styles, which has no utility: `[border-style:groove]`. */
-export const StrokeStyleFromMore: Story = {
-  render: () => (
-    <Menu
-      label="Style"
-      property="border-style"
-      choices={strokeStyleChoices}
-      start={{ option: "groove" }}
-      placeholder="Solid"
-      moreLabel="More styles"
-      draw={drawStrokeStyle}
-      preview={strokePreview}
     />
   )
 }

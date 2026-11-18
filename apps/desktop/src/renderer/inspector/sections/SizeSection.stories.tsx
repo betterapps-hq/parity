@@ -73,3 +73,17 @@ export const OffScaleSize: Story = {
     await expect(within(canvasElement).getByRole("textbox", { name: "Width" })).toHaveValue("281")
   }
 }
+
+/**
+ * A card with a border (PAR-932): Spacing's box model draws the border's ring between margin and padding, its values
+ * without `px`, and Box sizing under the box.
+ */
+export const WithABorder: Story = {
+  name: "With a border",
+  loaders: [
+    styled("Sign in", "Sign in card", {
+      borderColor: { token: "border" },
+      borderWidth: [{ step: 1 }, { step: 1 }, { step: 2 }, { step: 1 }]
+    })
+  ]
+}

@@ -44,7 +44,7 @@ export interface KeywordChoice extends KeywordOption {
   icon?: ReactNode
   /** Browsers that draw it, when it isn't Baseline. */
   browsers?: string
-  /** Listed under the menu's More, as Stroke's Groove, Ridge, Inset and Outset are. */
+  /** Listed under the menu's More, as a style with no utility of its own would be. */
   more?: boolean
   /** What a token comes to, shown where the other options show the value they write. */
   comesTo?: string
@@ -360,7 +360,7 @@ export function KeywordItem({
 }
 
 /**
- * A menu for a keyword set, as Wrap, Cursor and Stroke's Style are: its trigger shows the option, or what the layer has
+ * A menu for a keyword set, as Wrap and Cursor are: its trigger shows the option, or what the layer has
  * while unset, muted. Each option shows its CSS keyword and is previewed on the canvas while hovered or highlighted.
  * Tokens come first where the set has them, and a token chosen shows as its pill, as a token field's does, with Detach
  * in the menu, which keeps what it comes to; Backspace on the trigger unsets it. More holds the rarer options.
@@ -387,7 +387,7 @@ export function KeywordMenu({
   mixed?: boolean
   inherits?: boolean
   moreLabel?: string
-  /** Draws an option where words alone don't show it, as a stroke's dash or a cursor. */
+  /** Draws an option where words alone don't show it, as a cursor. */
   draw?: (choice: KeywordChoice) => ReactNode
   onChange: (value: KeywordValue | undefined) => void
   onPreview?: (value: string | undefined) => void
@@ -655,38 +655,6 @@ export const cursorDrawer = (tokens: readonly FieldToken[]) =>
   function drawCursor(choice: KeywordChoice) {
     return <TokenMark kind="cursor" value={cursorValue(choice.value, tokens)} width={16} height={16} />
   }
-
-const strokeStyle = (value: string, label: string, more = false): KeywordChoice => ({
-  value,
-  label,
-  more,
-  css: `border-style: ${value}`
-})
-
-/** Stroke's Style; Groove, Ridge, Inset and Outset under More styles, with no Tailwind utility of their own. */
-export const strokeStyleChoices: KeywordChoice[] = [
-  strokeStyle("solid", "Solid"),
-  strokeStyle("dashed", "Dashed"),
-  strokeStyle("dotted", "Dotted"),
-  strokeStyle("double", "Double"),
-  strokeStyle("groove", "Groove", true),
-  strokeStyle("ridge", "Ridge", true),
-  strokeStyle("inset", "Inset", true),
-  strokeStyle("outset", "Outset", true)
-]
-
-/** Draws a stroke style as a short line in it. */
-export function drawStrokeStyle(choice: KeywordChoice) {
-  const width = choice.value === "double" || choice.more ? 4 : 2
-
-  return (
-    <span
-      aria-hidden
-      className="block w-7 shrink-0"
-      style={{ borderTop: `${width}px ${choice.value} ${choice.more ? "#a1a1a1" : "currentColor"}` }}
-    />
-  )
-}
 
 /** Clip content's modes: Clip doesn't make a scroll container, so a sticky layer inside still sticks. */
 export const clipChoices: KeywordChoice[] = [

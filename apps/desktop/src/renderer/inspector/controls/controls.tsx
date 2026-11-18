@@ -10,13 +10,12 @@ import {
   Toggle
 } from "@buildkitgg/shadcn"
 import { formatNumber, remPx, trackSizeCss } from "@parity-app/style-schema"
-import { ChevronDown, LayoutTemplate, Link2, Monitor, Squircle } from "lucide-react"
+import { ChevronDown, Link2, Monitor, Squircle } from "lucide-react"
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import { ColorInput } from "./color-picker.tsx"
 import { sameValue, stepCount, stepSpacing } from "./css-values.ts"
 import {
   type Columns,
@@ -54,21 +53,18 @@ import {
   usePercentUnit,
   useTokens,
   useTokenSets,
-  useUsedColors,
   ValueField,
   wrappingText
 } from "./field-parts.tsx"
-import { CornerGlyph, EachToggle, Field, nameMenuButton, SectionButton } from "./field-row.tsx"
+import { CornerGlyph, EachToggle, Field, nameMenuButton } from "./field-row.tsx"
 import { HighlightOverlay } from "./highlight.tsx"
 import { ClipContentField } from "./keyword-sets.tsx"
 import { RemoveButton } from "./list-parts.tsx"
 import { OpacityRow } from "./opacity-blend.tsx"
 import { drawnStyle, PreviewStage } from "./preview-card.tsx"
-import { sideNumber, sideRules, type Sides } from "./sides-writes.ts"
-import { FourSidesField } from "./sides.tsx"
+import { sideNumber } from "./sides-writes.ts"
 import type { LengthToken } from "./tokens.ts"
 import { isBareNumber, readLength } from "./typing.ts"
-import { oneEverySide, type StrokePosition } from "./writes.ts"
 
 /*
  * The styling controls for PAR-186, each tried on its own in its story (Parity/Inspector/Rows, Fields and Lists),
@@ -1142,158 +1138,6 @@ function LengthField({
     />
   )
 }
-
-/**
- * Stroke, a title with + until it's set, as PAR-652's panel starts Fill, Stroke and Effects. + adds the project's usual
- * stroke, `border-border` at 1px, and − takes it off.
- */
-/** One width on every side, as an outline draws it. */
-const everySide = (px: number): Sides => [{ number: px }, { number: px }, { number: px }, { number: px }]
-
-export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
-  const borderWidths = useTokens("borderWidth").tokens
-  const colors = useTokens("color").tokens
-  const usedColors = useUsedColors()
-  // A new stroke takes the project's border color, as shadcn's theme names it, else its first color.
-  const newBorder = colors.find((token) => token.name === "border")?.name ?? colors[0]?.name ?? "border"
-  // A new stroke is in layout (call 2): a border. Out of layout, it's an outline at its position.
-  const inLayout = draft.strokeInLayout ?? true
-  const position: StrokePosition = inLayout ? "inside" : (draft.strokePosition ?? "inside")
-
-  const widths = draft.borderWidth ?? oneEverySide
-  const widest = Math.max(...widths.map((side) => sideNumber(side, borderWidths) ?? 0)) || 1
-  // An outline strokes every side at one width: the sides as they are where they match, a token kept, or the widest.
-  const outlined = widths.every((side) => sameValue(side, widths[0])) ? widths : everySide(widest)
-  const stroked = draft.border !== undefined || draft.borderWidth !== undefined
-
-  const action = (
-    <SectionButton
-      adds={!stroked}
-      what="stroke"
-      onClick={() => {
-        set(
-          stroked
-            ? {
-                border: undefined,
-                borderAlpha: undefined,
-                borderAllowed: undefined,
-                borderWidth: undefined,
-                strokeInLayout: undefined,
-                strokePosition: undefined
-              }
-            : { border: newBorder, borderWidth: oneEverySide }
-        )
-      }}
-    />
-  )
-
-  if (!stroked) {
-    return (
-      <PanelSection title="Stroke" action={action}>
-        {null}
-      </PanelSection>
-    )
-  }
-
-  return (
-    <PanelSection title="Stroke" action={action}>
-      <div className="flex flex-col gap-2.5">
-        <Field label="Color">
-          <ColorInput
-            label="Stroke"
-            alphaPart="alpha"
-            tokensOnly={tokensOnly}
-            used={usedColors}
-            value={draft.border}
-            alpha={draft.borderAlpha}
-            allowed={draft.borderAllowed}
-            onAllow={(borderAllowed) => set({ borderAllowed })}
-            onChange={(border, borderAlpha) => set({ border, borderAlpha, borderAllowed: undefined })}
-          />
-        </Field>
-        <FourSidesField
-          label="Width"
-          rules={sideRules.border}
-          together="one"
-          sides={widths}
-          tokensOnly={tokensOnly}
-          eachSide="eachSide"
-          onChange={(next) => {
-            const change: Partial<Draft> = { borderWidth: next }
-
-            // Only a border strokes some sides and not others, so sides that differ put the stroke in layout.
-            if (!next.every((side) => sameValue(side, next[0]))) {
-              change.strokeInLayout = undefined
-              change.strokePosition = undefined
-            }
-
-            set(change)
-          }}
-        />
-        <Field
-          label="Position"
-          hint="In layout, the stroke is a border, which takes up room. Out of it, it's an outline, drawn inside, centered on or outside the edge, and takes none."
-        >
-          <Unstored part="strokePosition">
-            <div className="flex items-center gap-1">
-              <div className="min-w-0 flex-1">
-                <AppSelect
-                  variant="panel"
-                  none="Default"
-                  aria-label="Stroke position"
-                  value={position}
-                  items={strokePositions}
-                  onValueChange={(next) => {
-                    if (!next || next === position) {
-                      return
-                    }
-
-                    // Center and Outside are outlines, which stroke every side at one width.
-                    if (next !== "inside") {
-                      set({ strokeInLayout: false, strokePosition: next, borderWidth: outlined })
-                    } else {
-                      set({ strokePosition: inLayout ? undefined : "inside" })
-                    }
-                  }}
-                />
-              </div>
-              <Hint
-                label="Include in layout"
-                detail={
-                  inLayout
-                    ? "On: a border, which takes up room in the layout"
-                    : "Off: an outline, which takes no room in the layout"
-                }
-              >
-                <Toggle
-                  size="sm"
-                  className="size-7 min-w-7 shrink-0 p-0"
-                  aria-label="Include in layout"
-                  pressed={inLayout}
-                  onPressedChange={(on) => {
-                    set(
-                      on
-                        ? { strokeInLayout: undefined, strokePosition: undefined }
-                        : { strokeInLayout: false, strokePosition: "inside", borderWidth: outlined }
-                    )
-                  }}
-                >
-                  <LayoutTemplate />
-                </Toggle>
-              </Hint>
-            </div>
-          </Unstored>
-        </Field>
-      </div>
-    </PanelSection>
-  )
-}
-
-const strokePositions = [
-  { value: "inside", label: "Inside" },
-  { value: "center", label: "Center" },
-  { value: "outside", label: "Outside" }
-] satisfies { value: StrokePosition; label: string }[]
 
 const tagOptions = [
   { value: "h1", label: "Heading 1" },

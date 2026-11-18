@@ -6,7 +6,7 @@ import { pick, renderSection, sectionStage } from "./layer-stories.tsx"
 
 /**
  * An icon's Design panel (PAR-1061): which icon it is and its set's props, then Size, Position and Appearance. Its
- * color and stroke are its own, so it has no Typography, Fill or Stroke. Each section's own cases are in Sections.
+ * color and stroke are its own, so it has no Typography, Fill, Border or Outline. Each section's own cases are in Sections.
  */
 const meta = {
   title: "Parity/Inspector/Layers/Icon",
@@ -33,6 +33,7 @@ export const Check: Story = {
     await expect(titles).toEqual(expect.arrayContaining(["Size", "Position", "Appearance"]))
     await expect(titles).not.toContain("Typography")
     await expect(titles).not.toContain("Fill")
-    await expect(titles).not.toContain("Stroke")
+    await expect(titles).not.toContain("Border")
+    await expect(titles).not.toContain("Outline")
   }
 }

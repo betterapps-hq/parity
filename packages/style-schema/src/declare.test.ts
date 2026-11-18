@@ -451,6 +451,54 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
   ],
   ["borderStyle alone writes nothing", { borderStyle: "dotted" }, component, []],
   [
+    "borderWidth per side, in the fewest values",
+    { borderWidth: [{ step: 1 }, { step: 0 }, { step: 1 }, { step: 0 }], borderStyle: "double" },
+    component,
+    [
+      ["border-width", "1px 0px", "borderWidth"],
+      ["border-style", "double", "borderStyle"],
+      ["border-color", "var(--border, currentColor)", "borderColor"]
+    ]
+  ],
+  [
+    "borderWidth on the bottom alone, a divider",
+    { borderWidth: [{ step: 0 }, { step: 0 }, { step: 2 }, { step: 0 }], borderColor: { token: "border" } },
+    component,
+    [
+      ["border-width", "0px 0px 2px 0px", "borderWidth"],
+      ["border-style", "solid", "borderStyle"],
+      ["border-color", "var(--border)", "borderColor"]
+    ]
+  ],
+  [
+    "an outline, drawn out from the edge as a focus ring is",
+    { outlineColor: { token: "ring" }, outlineWidth: { step: 2 }, outlineStyle: "dashed", outlineOffset: { step: 2 } },
+    component,
+    [
+      ["outline-width", "2px", "outlineWidth"],
+      ["outline-style", "dashed", "outlineStyle"],
+      ["outline-color", "var(--ring)", "outlineColor"],
+      ["outline-offset", "2px", "outlineOffset"]
+    ]
+  ],
+  [
+    "an outline's width alone is solid in the project's border color, against the edge",
+    { outlineWidth: { step: 1 } },
+    component,
+    [
+      ["outline-width", "1px", "outlineWidth"],
+      ["outline-style", "solid", "outlineStyle"],
+      ["outline-color", "var(--border, currentColor)", "outlineColor"]
+    ]
+  ],
+  [
+    "outlineStyle and outlineOffset alone write nothing",
+    { outlineStyle: "dotted", outlineOffset: { step: -2 } },
+    component,
+    []
+  ],
+  ["boxSizing", { boxSizing: "content-box" }, component, [["box-sizing", "content-box", "boxSizing"]]],
+  [
     "borderRadius as a token",
     { borderRadius: { token: "radius-md" } },
     component,
