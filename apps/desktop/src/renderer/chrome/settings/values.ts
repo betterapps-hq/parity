@@ -21,7 +21,8 @@ const preferenceIds = [
   "layoutGrid",
   "exportSizes",
   "performanceStats",
-  "routeFrameTiers"
+  "routeFrameTiers",
+  "routeFrameSpares"
 ] as const satisfies readonly (keyof Preferences)[]
 
 export type PreferenceId = (typeof preferenceIds)[number]
@@ -53,7 +54,14 @@ function sizesOf(value: Value): ExportSize[] {
 
 /** A preference's value as Settings shows it. */
 export function shownValue(preferences: Pick<Preferences, PreferenceId>, id: PreferenceId): Value {
-  return id === "exportSizes" ? preferences.exportSizes.map(sizeText) : preferences[id]
+  switch (id) {
+    case "exportSizes":
+      return preferences.exportSizes.map(sizeText)
+    case "routeFrameSpares":
+      return String(preferences.routeFrameSpares)
+    default:
+      return preferences[id]
+  }
 }
 
 const flag = z.boolean()
@@ -62,6 +70,7 @@ const flag = z.boolean()
 const preferenceValue = z.discriminatedUnion("id", [
   z.object({ id: z.literal("theme"), value: z.enum(["light", "dark", "system"]) }),
   z.object({ id: z.literal("componentsView"), value: z.enum(["names", "list", "grid"]) }),
+  z.object({ id: z.literal("routeFrameSpares"), value: z.enum(["0", "1", "2", "3", "4"]) }),
   z.object({ id: z.enum(["autosave", "snapping", "layoutGrid", "performanceStats", "routeFrameTiers"]), value: flag })
 ])
 
@@ -88,6 +97,8 @@ export function preferenceChange(id: PreferenceId, value: Value): Partial<Prefer
       return { theme: read.data.value }
     case "componentsView":
       return { componentsView: read.data.value }
+    case "routeFrameSpares":
+      return { routeFrameSpares: Number(read.data.value) }
     default:
       return { [read.data.id]: read.data.value }
   }

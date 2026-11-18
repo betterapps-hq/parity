@@ -8946,38 +8946,39 @@ A screen is named for the component its route draws, else its path.
   never saved (`StylePreview`, `previewRules` with `changedOnly` and `important`). Its fields start from the copy's
   drawn style (`withCopyStyles`), and the preview wins over the page's inline styles. Its other fields stay read-only.
 - **Live boards (PAR-1263).** With the Interact tool, a route board can be the app's own page, as
-  [proposals/route-frames.md](proposals/route-frames.md) sets out. Each project keeps two spare frames per window while
-  Interact is on: the app's page in an iframe on its builder's origin, in a layer in the canvas's page space above the
-  boards (`LiveLayer`), parked in the view at its mode's full size, drawn at 1% and taking no pointer, where Chromium
-  still lays it out. They load at the app's root and move with the app's own router to the routes of the boards in view,
-  nearest the middle first (`planPool`), and park again 250 ms after the view stops moving. With no page router they're
-  loaded at the route they're for. Resting the pointer on a board for 80 ms sends a spare to its route and mode. A press
-  on a board takes the quickest frame (`pickLive`): the one warming on it, a spare on its route, any spare sent there,
-  one still loading, or a new frame at the route. The page is put over the board, one mode window tall, scaled with the
-  board, and engaged: it takes the pointer, the wheel scrolls it and keys go to it. That press only does that; the next
-  one lands on the page. The runtime passes back what's Parity's when the page didn't take it: Ctrl or Cmd with the
-  wheel, or a pinch, zooms the canvas at that point (`page.zoom`), and Escape and Ctrl or Cmd shortcuts, except the ones
-  that edit or move through text, reach Parity's document (`page.key`). Escape the page didn't handle, a press anywhere
-  outside the page and leaving Interact disengage it: the frame takes no pointer again, stays live, and focus comes back
-  to Parity's document, since a page with focus keeps getting keys. Hovering a live board never takes the wheel.
-  Disengaged, the live window sits over the part of its board in view, with the page scrolled to match (`page.scroll`,
-  `liveWindowTop`); engaged, the page's own scrolling moves it down its board (`page.scrolled`). While a board is live
-  its copy hides its fixed and sticky elements, so a fixed header shows once. A link to another of the app's routes
-  moves the live page, and the board says where it went, as a redirect does. A navigation off the builder's origin is
-  stopped in main (`pageFrameGuard`, on `will-frame-navigate` and `will-redirect`), and the board says "Tried to open"
-  with the host. Live ends when another board goes live or the board has been out of view for 10 s, and its frame is
-  closed, never reused. A page still on its board's route, its path and query (`keepsLiveCopy`), first takes a snapshot
-  once it has been quiet for 150 ms, at most 3 s, and that becomes the copy of every board of its route and mode
-  (`keepLiveCopy`, PAR-1304), so a menu opened or a value typed stays on the board until a code change makes the copy
-  stale. Its frame stays where it was over the board, taking nothing, until then, so the old copy never shows between. A
-  page a link moved to another route, or that redirected, before or while it went quiet, leaves its board the copy it
-  had. A freeze queued or under way when the copy was kept leaves it be (`freezeKeeps`) unless code changed since, and
-  of two live pages' snapshots of one route and mode, the one asked for last is kept, whichever comes first. Such a copy
-  is `used`: its board's picture is captured from it again even when the one on disk is current, and kept without a
-  trace, so it never stands for the page's fresh load when the project opens again. The freezer waits while the live
-  page is in use, 2 s after each `page.used`, and while the pool refills, 1.5 s after a board goes live, since a
-  project's frames share one process. A window that isn't focused keeps no spares. `routeFrame.live` says how a board
-  went live and how long it took, and `routeFrame.miss` that no spare was there.
+  [proposals/route-frames.md](proposals/route-frames.md) sets out. Each project keeps spare frames per window while
+  Interact is on, two unless Spare route frames says otherwise (below): the app's page in an iframe on its builder's
+  origin, in a layer in the canvas's page space above the boards (`LiveLayer`), parked in the view at its mode's full
+  size, drawn at 1% and taking no pointer, where Chromium still lays it out. They load at the app's root and move with
+  the app's own router to the routes of the boards in view, nearest the middle first (`planPool`), and park again 250 ms
+  after the view stops moving. With no page router they're loaded at the route they're for. Resting the pointer on a
+  board for 80 ms sends a spare to its route and mode. A press on a board takes the quickest frame (`pickLive`): the one
+  warming on it, a spare on its route, any spare sent there, one still loading, or a new frame at the route. The page is
+  put over the board, one mode window tall, scaled with the board, and engaged: it takes the pointer, the wheel scrolls
+  it and keys go to it. That press only does that; the next one lands on the page. The runtime passes back what's
+  Parity's when the page didn't take it: Ctrl or Cmd with the wheel, or a pinch, zooms the canvas at that point
+  (`page.zoom`), and Escape and Ctrl or Cmd shortcuts, except the ones that edit or move through text, reach Parity's
+  document (`page.key`). Escape the page didn't handle, a press anywhere outside the page and leaving Interact disengage
+  it: the frame takes no pointer again, stays live, and focus comes back to Parity's document, since a page with focus
+  keeps getting keys. Hovering a live board never takes the wheel. Disengaged, the live window sits over the part of its
+  board in view, with the page scrolled to match (`page.scroll`, `liveWindowTop`); engaged, the page's own scrolling
+  moves it down its board (`page.scrolled`). While a board is live its copy hides its fixed and sticky elements, so a
+  fixed header shows once. A link to another of the app's routes moves the live page, and the board says where it went,
+  as a redirect does. A navigation off the builder's origin is stopped in main (`pageFrameGuard`, on
+  `will-frame-navigate` and `will-redirect`), and the board says "Tried to open" with the host. Live ends when another
+  board goes live or the board has been out of view for 10 s, and its frame is closed, never reused. A page still on its
+  board's route, its path and query (`keepsLiveCopy`), first takes a snapshot once it has been quiet for 150 ms, at most
+  3 s, and that becomes the copy of every board of its route and mode (`keepLiveCopy`, PAR-1304), so a menu opened or a
+  value typed stays on the board until a code change makes the copy stale. Its frame stays where it was over the board,
+  taking nothing, until then, so the old copy never shows between. A page a link moved to another route, or that
+  redirected, before or while it went quiet, leaves its board the copy it had. A freeze queued or under way when the
+  copy was kept leaves it be (`freezeKeeps`) unless code changed since, and of two live pages' snapshots of one route
+  and mode, the one asked for last is kept, whichever comes first. Such a copy is `used`: its board's picture is
+  captured from it again even when the one on disk is current, and kept without a trace, so it never stands for the
+  page's fresh load when the project opens again. The freezer waits while the live page is in use, 2 s after each
+  `page.used`, and while the pool refills, 1.5 s after a board goes live, since a project's frames share one process. A
+  window that isn't focused keeps no spares. `routeFrame.live` says how a board went live and how long it took, and
+  `routeFrame.miss` that no spare was there.
 - **Route frame tiers (PAR-1301).** With Settings › Diagnostics › Route frame tiers on, or Help › Developer › Route
   frame tiers, each route board has a dot just right of its top-right corner, where the live page can't cover it
   (`TierDot`): grey while it shows its frozen copy or picture, orange while a spare loads at or moves to its route, and
@@ -8986,6 +8987,15 @@ A screen is named for the component its route draws, else its path.
   watching the pool work. Tried in a development build on the example project. Tests: `canvas/tier-dot.test.ts` (3:
   frozen, warming and warmed, and live or ready winning over a warming spare) and `AppMenu.help.stories.tsx`'s
   `RouteFrameTiers` (the Help › Developer toggle).
+- **Spare route frames (PAR-1303).** Settings › Diagnostics › Spare route frames sets how many spares each project keeps
+  per focused window: Off, or 1 to 4, and 2 by default (`routeFrameSpares` in `settings.json`). Each is a whole copy of
+  the app, about 80 MB in dev. On a machine with less than 8 GB of memory, as Chromium's `navigator.deviceMemory` says,
+  a window keeps 1 at most whatever the setting asks for (`spareLimit`). A change takes effect at once: spares past the
+  new count close, and new ones open to make it up. A window that isn't focused still keeps none. Tried in a development
+  build on the example project with Route frame tiers on: 2 spares by default, then 4, none with Off, and 1. Tests:
+  `packages/frames/src/planners.test.ts`'s `spareLimit` (3: the setting's range, the cap under 8 GB, and no cap when the
+  memory isn't known) and `planPool` (closing spares past the count, and every spare with spares off or the window
+  unfocused).
 - **When the page process fails.** A project's pages share one renderer process. When main sees it go, it closes the
   freezer's channel, or a request misses its deadline, it's one failure: the live frame, spares and freezer close at
   once, and open again after 1 s, then 5 s, then 30 s. After three failures in two minutes Parity stops opening them for

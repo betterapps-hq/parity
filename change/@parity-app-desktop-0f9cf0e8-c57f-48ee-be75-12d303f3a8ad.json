@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Settings › Diagnostics › Spare route frames sets how many spare route frames each project keeps per focused window, from Off to 4; a machine with less than 8 GB keeps 1 at most",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -13,6 +13,7 @@ import {
   planPool,
   type PoolFrame,
   refillAfter,
+  spareLimit,
   updatesItself,
   usedPause,
   warmAfter
@@ -30,6 +31,8 @@ import {
 } from "@parity-app/page-runtime/protocol"
 import { useEffect, useRef } from "react"
 import type { Editor } from "tldraw"
+import { z } from "zod"
+import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
 import { track } from "../report-error.ts"
 import { resetWithWindow, useStore, windowStore } from "../store.ts"
 import { holdFreezer, keepLiveCopy } from "./freezer.ts"
@@ -39,9 +42,9 @@ import { onPageProcess, pageProcessOpen } from "./page-process.ts"
 
 /*
  * Live route boards from a pool of spare frames (docs/proposals/route-frames.md, "Input on a live board", "Going live"
- * and "The pool", PAR-1263). With the Interact tool, each project keeps two spare frames: the app's own page in an
- * iframe on the builder's origin, parked in view at 1% so Chromium keeps laying it out, and moved by the app's router
- * to the routes in view. Resting the pointer on a board sends a spare to its route; pressing it takes the quickest
+ * and "The pool", PAR-1263). With the Interact tool, each project keeps spare frames in a focused window, as many as
+ * Settings' Spare route frames asks for (`spareCount`, PAR-1303): the app's own page in an iframe on the builder's
+ * origin, parked in view at 1% so Chromium keeps laying it out, and moved by the app's router to the routes in view. Resting the pointer on a board sends a spare to its route; pressing it takes the quickest
  * frame and puts it over the board, engaged, so the page takes the pointer and keys. A press outside, Escape the page
  * didn't handle, or leaving Interact disengages it, and focus comes back to Parity's document. Live ends when another
  * board goes live or the board has been out of view for 10 s, and the frame is closed, never reused: a page still on
@@ -51,8 +54,20 @@ import { onPageProcess, pageProcessOpen } from "./page-process.ts"
  * (`page-process.ts`), and while it waits, or once Parity stops trying, boards keep their copies.
  */
 
-/** The spares each project keeps per window while the Interact tool is on. */
-export const spareCount = 2
+const memoryReport = z.object({ deviceMemory: z.number() })
+
+/**
+ * The machine's memory in GB, rounded, as Chromium tells it (`navigator.deviceMemory`), or nothing where it doesn't:
+ * what caps the spares on a machine short of memory.
+ */
+function deviceMemory(): number | undefined {
+  return memoryReport.safeParse(globalThis.navigator).data?.deviceMemory
+}
+
+/** The spares each project keeps per focused window while the Interact tool is on, from Settings and the memory. */
+function spareCount(): number {
+  return spareLimit(getPreferences().routeFrameSpares, deviceMemory())
+}
 
 /** How long a new frame has to load and hydrate before it counts as stuck: a route's first visit compiles. */
 const loadDeadline = 60_000
@@ -271,6 +286,22 @@ export class Pool {
       resumed: () => this.plan()
     })
 
+    let spares = getPreferences().routeFrameSpares
+
+    const unpreferences = subscribePreferences(() => {
+      const next = getPreferences().routeFrameSpares
+
+      if (next !== spares) {
+        // Fewer spares: the one warming on a hovered board is no longer kept back, so the plan can close it too.
+        if (next < spares) {
+          this.unwarm()
+        }
+
+        spares = next
+        this.plan()
+      }
+    })
+
     this.stopListening = () => {
       window.removeEventListener("message", hello)
       window.removeEventListener("pointerdown", pressed, true)
@@ -280,6 +311,7 @@ export class Pool {
       unpreviewed()
       unchanged()
       unprocess()
+      unpreferences()
     }
   }
 
@@ -1183,7 +1215,7 @@ export class Pool {
     }))
 
     const plan = planPool({
-      spares: this.interacting && !this.going && pageProcessOpen(this.project) ? spareCount : 0,
+      spares: this.interacting && !this.going && pageProcessOpen(this.project) ? spareCount() : 0,
       focused: this.focused,
       frames,
       routes: inView.map((board) => routeOf(board.url)),

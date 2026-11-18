@@ -44,7 +44,7 @@ export {
   warmAfter
 } from "./live.ts"
 
-export { planPool, type PoolFrame, type PoolPlan, type PoolView } from "./pool.ts"
+export { lowMemory, maxSpares, planPool, type PoolFrame, type PoolPlan, type PoolView, spareLimit } from "./pool.ts"
 
 export {
   removedTag,
