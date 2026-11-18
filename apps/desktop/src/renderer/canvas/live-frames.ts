@@ -282,8 +282,15 @@ export class Pool {
     let spares = getPreferences().routeFrameSpares
 
     const unpreferences = subscribePreferences(() => {
-      if (getPreferences().routeFrameSpares !== spares) {
-        spares = getPreferences().routeFrameSpares
+      const next = getPreferences().routeFrameSpares
+
+      if (next !== spares) {
+        // Fewer spares: the one warming on a hovered board is no longer kept back, so the plan can close it too.
+        if (next < spares) {
+          this.unwarm()
+        }
+
+        spares = next
         this.plan()
       }
     })
