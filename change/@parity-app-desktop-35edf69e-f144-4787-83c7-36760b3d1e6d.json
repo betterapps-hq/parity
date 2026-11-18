@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Each project reopens with its lens layout: groups, tabs, splits and lens windows where they were",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

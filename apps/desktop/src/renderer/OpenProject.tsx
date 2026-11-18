@@ -1,9 +1,10 @@
-import { useEffect } from "react"
+import type { SavedLayout } from "@parity-app/lenses"
+import { useEffect, useState } from "react"
 import { lensWindowPage } from "../shared/lens-window.ts"
 import { ProjectContext } from "./canvas/context.ts"
 import { ProjectColors } from "./canvas/project-colors.tsx"
 import { ErrorBoundary } from "./chrome/ErrorBoundary.tsx"
-import { setLayout, useLayout } from "./chrome/layout.ts"
+import { lensLayoutOf, saveLensLayout, setLayout, useLayout } from "./chrome/layout.ts"
 import { StatusBar } from "./chrome/StatusBar.tsx"
 import { startPreviews } from "./component-previews.ts"
 import { followSelection, sendRouteMarks } from "./extension-editor.ts"
@@ -12,8 +13,14 @@ import { LensWorkspace } from "./lenses/LensWorkspace.tsx"
 import { OpenProjectContext } from "./lenses/project-canvas.tsx"
 import type { Project, ProjectSession } from "./workspace.ts"
 
-/** A project opens on Screens, as it did before it had lenses; Pages draws its pages once it's shown. */
-const openingLayout = { groups: [{ where: "main", tabs: ["screens"] }] }
+/**
+ * A project opens on Screens until it has a layout of its own, as it did before it had lenses; Pages draws its pages
+ * once it's shown.
+ */
+const defaultLayout: SavedLayout<string> = { groups: [{ where: "main", tabs: ["screens"], open: "screens" }], focus: 0 }
+
+/** Where main has put each of this window's lens windows. */
+const windowPlaces = () => window.canvasHost.lensWindowPlaces()
 
 /**
  * An open project in the lens shell: the lens bar, each open lens a tab over its canvas, and the left panel and inspector
@@ -38,6 +45,8 @@ export function OpenProject({
 
   // The panels follow the window's panel layout, which Show Layers, the View menu and extensions change too.
   const { left, right } = useLayout()
+  // The lens layout the project saved, as it was when it opened (PAR-1248).
+  const [saved] = useState(() => lensLayoutOf(project.id))
 
   // Component previews are made in the background for as long as the project is open (PAR-207), and go when it closes.
   useEffect(() => startPreviews(session), [session])
@@ -50,8 +59,11 @@ export function OpenProject({
           <OpenProjectContext value={{ projectId: project.id, shown: active, reopen }}>
             <LensWorkspace
               lenses={appLenses}
-              layout={openingLayout}
+              layout={saved}
+              defaultLayout={defaultLayout}
+              onLayout={(next) => saveLensLayout(project.id, next)}
               popoutUrl={lensWindowPage}
+              windowPlaces={windowPlaces}
               title={project.title}
               panels={{ left, right }}
               onPanels={setLayout}

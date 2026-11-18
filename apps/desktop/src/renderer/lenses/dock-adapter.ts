@@ -1,11 +1,24 @@
-import type { DockOperation, Layout, Point, SavedLayout, Side, Target } from "@parity-app/lenses"
 import type {
-  AddPanelPositionOptions,
-  DockviewApi,
-  DockviewDidDropEvent,
-  DockviewGroupPanel,
-  IDockviewPanel,
-  Position
+  Arrangement,
+  Bounds,
+  DockOperation,
+  Layout,
+  Parted,
+  Point,
+  SavedLayout,
+  Side,
+  Split,
+  Target
+} from "@parity-app/lenses"
+import {
+  type AddPanelPositionOptions,
+  type DockviewApi,
+  type DockviewDidDropEvent,
+  type IDockviewPanel,
+  Orientation,
+  type Position,
+  type SerializedDockview,
+  type SerializedGridObject
 } from "dockview-react"
 import { lensWindowUrl } from "../../shared/lens-window.ts"
 import { outsideWindow } from "./popout.ts"
@@ -41,7 +54,12 @@ export interface DockEvents<Id extends string> {
 export interface Dock<Id extends string> {
   layout: () => Layout<Id>
   apply: (operations: readonly DockOperation<Id>[]) => void
-  /** Lays out a saved layout, its windows in the main window, since a window opens only from a click. */
+  /** How the main window's groups are split, and where each lens's own window is, to save with the layout. */
+  arrangement: () => Arrangement
+  /**
+   * Lays out a saved layout: the main window's groups split as they were, and each window opened where it was. Without
+   * a page for lens windows, the windows' groups join the main window at the right.
+   */
   lay: (saved: SavedLayout<Id>) => void
   /** The lens dropped from the lens bar, and where: a group's tabs or one of its sides, or nowhere named. */
   dropped: (event: DockviewDidDropEvent) => { lens: Id; to: Target | undefined } | undefined
@@ -49,10 +67,17 @@ export interface Dock<Id extends string> {
   watch: (events: DockEvents<Id>) => () => void
 }
 
+/**
+ * Where each lens window is, by the lens its page was named for, as the desktop app places them. Without it, a lens
+ * window's place is read from the window itself, which can be a few pixels off what opening it there asks for.
+ */
+export type WindowPlaces = () => Record<string, Bounds>
+
 export function dockAdapter<Id extends string>(
   api: DockviewApi,
   isLens: (id: string | undefined) => id is Id,
-  popoutUrl: string | undefined
+  popoutUrl: string | undefined,
+  places?: WindowPlaces
 ): Dock<Id> {
   const add = (lens: Id, position?: AddPanelPositionOptions): IDockviewPanel => {
     const panel = { id: lens, component: "lens", title: lens, params: { lens } }
@@ -137,33 +162,101 @@ export function dockAdapter<Id extends string>(
     }
   }
 
-  const lay = (saved: SavedLayout<Id>) => {
-    let previous: DockviewGroupPanel | undefined
+  // The main window's split, from the root down, and each window's place on the screen, by group.
+  const arrangement = (): Arrangement => {
+    const { root, orientation } = api.toJSON().grid
+    const windows: Record<string, Bounds> = {}
+    const placed = places?.() ?? {}
 
-    for (const { tabs } of saved.groups) {
-      for (const [index, lens] of tabs.entries()) {
-        let position: AddPanelPositionOptions | undefined
+    for (const group of api.groups) {
+      const location = group.api.location
 
-        if (index > 0 && previous) {
-          position = { referenceGroup: previous, direction: "within" }
-        } else if (previous) {
-          position = { referenceGroup: previous, direction: "right" }
-        }
-
-        const panel = add(lens, position)
-
-        if (index === 0) {
-          previous = panel.group
+      if (location.type === "popout") {
+        const shown = location.getWindow()
+        const lens = new URL(shown.location.href).searchParams.get("lens") ?? ""
+        windows[group.id] = placed[lens] ?? {
+          x: shown.screenX,
+          y: shown.screenY,
+          width: shown.innerWidth,
+          height: shown.innerHeight
         }
       }
     }
 
-    // Each group's front tab in front, and the focused group's in focus.
-    for (const { open } of saved.groups) {
-      api.getPanel(open ?? "")?.api.setActive()
+    return { splits: splitOf(root, orientation === Orientation.HORIZONTAL ? "row" : "column"), windows }
+  }
+
+  const lay = (saved: SavedLayout<Id>) => {
+    // Without a page for lens windows, the windows' groups join the main window at the right.
+    const inMain = (where: "main" | "window") => where === "main" || popoutUrl === undefined
+    const main = saved.groups.flatMap((group, place) => (inMain(group.where) ? [place] : []))
+    const windows = saved.groups.flatMap((group, place) => (inMain(group.where) ? [] : [place]))
+
+    if (saved.groups.length === 0) {
+      return
     }
 
-    api.getPanel(saved.groups[saved.focus ?? 0]?.open ?? "")?.api.setActive()
+    const idOf = (place: number) => `lens-group-${place}`
+
+    const stateOf = (place: number): GroupPanelViewState => {
+      const { tabs, open } = saved.groups[place]!
+
+      return open === undefined ? { id: idOf(place), views: tabs } : { id: idOf(place), views: tabs, activeView: open }
+    }
+
+    // The saved splits hold the main window's groups; windows' groups that stay in it go on the right.
+    const extra = main
+      .filter((place) => saved.groups[place]!.where === "window" || !saved.splits)
+      .map((place): Split => ({ group: place }))
+
+    // A row's parts can't be rows, so the right of a row is its own parts' right.
+    const kept = saved.splits && "across" in saved.splits && saved.splits.across === "row" ? saved.splits.parts : []
+    const parts = saved.splits && kept.length === 0 ? [saved.splits, ...extra] : [...kept, ...extra]
+    // Dockview's root is always a split, so a group on its own is a split of one.
+    const only = parts.length === 1 ? parts[0]! : undefined
+    const root: Parted = only && "across" in only ? only : { across: "row", parts }
+    const room = { width: api.width || 1200, height: api.height || 800 }
+
+    const panels = Object.fromEntries(
+      saved.groups.flatMap(({ tabs }) =>
+        tabs.map((lens) => [lens, { id: lens, contentComponent: "lens", title: lens, params: { lens } }])
+      )
+    )
+
+    const focus = saved.focus ?? 0
+
+    // Dockview opens each window itself, a moment after: where it was saved, or beside the main window.
+    const popoutGroups = windows.map((place) => {
+      const { open, tabs, bounds } = saved.groups[place]!
+
+      const position = bounds
+        ? { left: bounds.x, top: bounds.y, width: bounds.width, height: bounds.height }
+        : { left: window.screenX + 80, top: window.screenY + 80, ...windowSize }
+
+      const page = { lens: open ?? tabs[0]!, placed: false }
+
+      return {
+        data: stateOf(place),
+        position,
+        url: lensWindowUrl(popoutUrl!, bounds ? { ...page, place: bounds } : page)
+      }
+    })
+
+    const serialized: SerializedDockview = {
+      grid: {
+        root: main.length > 0 ? gridOf(root, room, stateOf) : { type: "branch", data: [] },
+        ...room,
+        orientation: root.across === "row" ? Orientation.HORIZONTAL : Orientation.VERTICAL
+      },
+      panels,
+      popoutGroups
+    }
+
+    if (main.includes(focus)) {
+      serialized.activeGroup = idOf(focus)
+    }
+
+    api.fromJSON(serialized)
   }
 
   const dropped = (event: DockviewDidDropEvent) => {
@@ -246,7 +339,60 @@ export function dockAdapter<Id extends string>(
     }
   }
 
-  return { layout, apply, lay, dropped, watch }
+  return { layout, apply, arrangement, lay, dropped, watch }
+}
+
+/** A group as Dockview's saved grid holds it: its id, its tabs' panels and the one in front. */
+interface GroupPanelViewState {
+  id: string
+  views: string[]
+  activeView?: string
+}
+
+type GridNode = SerializedGridObject<GroupPanelViewState>
+
+/** Dockview's split as the package keeps it: a part laid `across` its parent, each group by its id. */
+function splitOf(node: GridNode, across: "row" | "column"): Split<string> {
+  const sized = <S extends Split<string>>(split: S): S =>
+    node.size === undefined ? split : { ...split, size: node.size }
+
+  if (!Array.isArray(node.data)) {
+    return sized({ group: node.data.id })
+  }
+
+  // A split's parts are laid the other way to it, and the empty group a window leaves in its place isn't one.
+  const inner = across === "row" ? "column" : "row"
+  const parts = node.data.filter((part) => part.visible !== false).map((part) => splitOf(part, inner))
+
+  return sized({ across, parts })
+}
+
+/**
+ * The package's split as Dockview's, in a room of this size: each part sized along the split to its share of the
+ * room, as it shared the room it was saved in, and spanning the room the other way.
+ */
+function gridOf(
+  split: Split,
+  room: { width: number; height: number },
+  leaf: (place: number) => GroupPanelViewState
+): GridNode {
+  if ("group" in split) {
+    return { type: "leaf", data: leaf(split.group) }
+  }
+
+  const along = split.across === "row" ? "width" : "height"
+  const sizes = split.parts.map((part) => part.size)
+  const shares = sizes.every((size) => size !== undefined) ? sizes : sizes.map(() => 1)
+  const total = shares.reduce((sum, share) => sum + share, 0)
+
+  return {
+    type: "branch",
+    data: split.parts.map((part, index) => {
+      const size = Math.round((shares[index]! / total) * room[along])
+
+      return { ...gridOf(part, { ...room, [along]: size }, leaf), size }
+    })
+  }
 }
 
 /** Where Dockview adds a panel for a target. */
