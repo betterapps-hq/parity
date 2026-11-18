@@ -130,8 +130,8 @@ import { revealSelection } from "./reveal.ts"
 
 type Row = TreeRow<ContainerEntry>
 
-/** What a Layers panel lists: the app's pages, by route, or the designs, boards, stories and notes. */
-export type LayerPart = "pages" | "designs"
+/** What a Layers panel lists: the app's pages, by route, its stories, by file, or the designs, boards and notes. */
+export type LayerPart = "pages" | "stories" | "designs"
 
 /** Where dragged layers or designs would land relative to a row: just above it, just below it, or inside it. */
 type DropPosition = "before" | "after" | "inside"
@@ -341,8 +341,8 @@ function folderOfLine(line: Line): string | undefined {
  * nested inside. Selecting, hovering and renaming here act on the canvas too. Each group's heading has a + that makes a
  * new one, always showing, with its keys in the tooltip; an empty group's row is a button that makes
  * the first one (PAR-546). A search above the tree finds layers and designs by name, and Collapse all closes every
- * row. Only the rows in view are drawn (PAR-187). Pages' Layers lists the app's routes; Screens' the rest
- * (lens-layout.md).
+ * row. Only the rows in view are drawn (PAR-187). Pages' Layers lists the app's routes, Stories' its story files, and
+ * Screens' the rest (lens-layout.md).
  */
 export function LayerTree() {
   return <LayerList part="designs" />
@@ -351,6 +351,11 @@ export function LayerTree() {
 /** Pages' Layers: the app's routes, and their pages' layers. */
 export function RouteLayerTree() {
   return <LayerList part="pages" />
+}
+
+/** Stories' Layers: the project's story files, in folders by their titles, and their stories. */
+export function StoryLayerTree() {
+  return <LayerList part="stories" />
 }
 
 function LayerList({ part }: { part: LayerPart }) {
@@ -446,6 +451,23 @@ function LayerList({ part }: { part: LayerPart }) {
       return [{ id: "routes", title: "Routes", kind: "screen", none: "No routes yet.", entries: routes }]
     }
 
+    // Stories lists the project's stories, a group for each tool they're read from, named as its extension's manifest
+    // says (PAR-1131). They're read from the tool's files, so there's nothing to add.
+    if (part === "stories") {
+      const storyGroups = Map.groupBy(stories, (entry) => screensGroupId(session.info, entry.container.id))
+
+      return storyGroups.size === 0
+        ? [{ id: "stories", title: "Stories", kind: "screen", none: "No stories yet.", entries: [] }]
+        : [...storyGroups].map(([id, grouped]): Group => ({
+            id,
+            title: screensLook(session.info, grouped[0]!.container.id)?.group ?? "Stories",
+            kind: "screen",
+            none: "",
+            entries: grouped,
+            folderOf: (entry) => places.get(entry.container.id)?.folders ?? []
+          }))
+    }
+
     listed.push({
       id: "screens",
       title: "Screens",
@@ -454,21 +476,6 @@ function LayerList({ part }: { part: LayerPart }) {
       none: "No screens yet.",
       entries: screens
     })
-
-    // The project's stories are listed once it has some, a group for each tool they're read from, named as its
-    // extension's manifest says (PAR-1131). They're read from the tool's files, so there's nothing to add.
-    const storyGroups = Map.groupBy(stories, (entry) => screensGroupId(session.info, entry.container.id))
-
-    for (const [id, grouped] of storyGroups) {
-      listed.push({
-        id,
-        title: screensLook(session.info, grouped[0]!.container.id)?.group ?? "Stories",
-        kind: "screen",
-        none: "",
-        entries: grouped,
-        folderOf: (entry) => places.get(entry.container.id)?.folders ?? []
-      })
-    }
 
     // The project's components are listed once it has some, drawn from its code, so there's nothing to add.
     if (components.length > 0) {
@@ -1325,12 +1332,15 @@ function FolderLine({
   )
 }
 
-/** An empty group's row, a button that makes its first design. */
+/** An empty group's row: a button that makes its first design, or for a group read from code, that it's empty. */
 function EmptyGroup({ group }: { group: Group }) {
   const session = useProject()
 
+  // A group read from the project's code, as the routes and stories, has nothing to add, so it only says it's empty.
   if (!group.command) {
-    return null
+    return group.none ? (
+      <p className="mx-1.5 flex h-7 items-center px-1.5 text-xs text-muted-foreground">{group.none}</p>
+    ) : null
   }
 
   return (

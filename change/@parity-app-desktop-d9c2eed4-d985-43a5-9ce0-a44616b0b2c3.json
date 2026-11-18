@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Stories has a lens of its own: the project's story files on a canvas of their own, listed by file in its panel, with the selected story in the inspector. The Screens canvas no longer draws stories.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

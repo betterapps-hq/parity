@@ -54,6 +54,7 @@ import { tellGesture } from "./presence-gestures.ts"
 import { ReferenceUtil } from "./ReferenceUtil.tsx"
 import { recordRestedFar } from "./rested-far.ts"
 import { isRoutePage, routePageLinks } from "./route-pages.ts"
+import { isStoryScreen } from "./story-screens.ts"
 import { startCanvasSurface } from "./surface/index.ts"
 import { TitleLayer } from "./title-layer.tsx"
 import { withoutPatternFills } from "./tldraw-fills.ts"
@@ -81,10 +82,10 @@ export function canvasIdFor(key: string): CanvasId {
 }
 
 /**
- * What a canvas draws: the app's pages, drawn from its routes, with the lines of its page tree; or the rest, the designs,
- * boards, notes and references (lens-layout.md).
+ * What a canvas draws: the app's pages, drawn from its routes, with the lines of its page tree; the project's story files;
+ * or the rest, the designs, boards, notes and references (lens-layout.md).
  */
-export type CanvasDraws = "pages" | "designs"
+export type CanvasDraws = "pages" | "stories" | "designs"
 
 /** Where each canvas's camera was as it went, by project and what it draws, so it comes back there. */
 const keptCameras = new Map<string, { x: number; y: number; z: number }>()
@@ -106,9 +107,16 @@ export function drawsDesign(draws: CanvasDraws, key: string): boolean {
   return canvasOf(key) === draws
 }
 
-/** Which canvas draws a design, note or reference, by its key: Pages' the app's pages, and Screens' the rest. */
+/**
+ * Which canvas draws a design, note or reference, by its key: Pages' the app's pages, Stories' its story files, and
+ * Screens' the rest.
+ */
 export function canvasOf(key: string): CanvasDraws {
-  return isRoutePage(key) ? "pages" : "designs"
+  if (isRoutePage(key)) {
+    return "pages"
+  }
+
+  return isStoryScreen(key) ? "stories" : "designs"
 }
 
 /**
@@ -399,7 +407,7 @@ export function CanvasEditor({
   shown = true
 }: {
   onEditor: (editor: Editor | undefined) => void
-  /** What it draws: the app's pages, or the designs. */
+  /** What it draws: the app's pages, its story files, or the designs. */
   draws?: CanvasDraws
   /** The canvas's tab is the one showing. Hidden a while, its frames sleep; shown again, those near the view wake. */
   shown?: boolean
@@ -469,11 +477,11 @@ export function CanvasEditor({
           wanted.set(canvasIdFor(key), { type: "canvas-container", key, ...at, locked })
         }
 
-        for (const { key, note } of draws === "pages" ? [] : noteEntries(doc)) {
+        for (const { key, note } of draws === "designs" ? noteEntries(doc) : []) {
           wanted.set(canvasIdFor(key), { type: "canvas-note", key, ...note.position })
         }
 
-        for (const { key, reference } of draws === "pages" ? [] : referenceEntries(doc)) {
+        for (const { key, reference } of draws === "designs" ? referenceEntries(doc) : []) {
           const { width: w, height: h } = referenceSize(reference)
           const size = { w, h }
           wanted.set(canvasIdFor(key), {

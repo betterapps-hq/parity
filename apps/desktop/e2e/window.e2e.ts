@@ -102,7 +102,7 @@ describe("the window", () => {
 
     await expect
       .poll(() => lenses.evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label"))))
-      .toEqual(["Pages", "Screens"])
+      .toEqual(["Pages", "Screens", "Stories"])
     expect(await screens.getAttribute("aria-pressed")).toBe("true")
 
     try {
@@ -129,20 +129,7 @@ describe("the window", () => {
   it("draws the app's pages on Pages' canvas alone, keeping its camera when Screens takes its tab and gives it back", async () => {
     const { page } = app
 
-    const pages = await app.page.evaluate(() =>
-      [...window.e2e!.session().doc.files()].flatMap(([file, canvas]) =>
-        file === "(pages)" ? canvas.containers.map((container) => `${file}#${container.id}`) : []
-      )
-    )
-
-    const drawn = () =>
-      page.evaluate(() =>
-        window
-          .e2e!.session()
-          .editor!.getCurrentPageShapes()
-          .flatMap((board) => (board.type === "canvas-container" ? [String(board.props.key)] : []))
-      )
-
+    const pages = await designsIn("(pages)")
     expect(pages.length).toBeGreaterThan(0)
     // Screens draws none of them.
     expect((await drawn()).filter((key) => pages.includes(key))).toEqual([])
@@ -156,7 +143,9 @@ describe("the window", () => {
       expect(await page.locator("[role=tree][aria-label=Layers]").getByText("Screens", { exact: true }).count()).toBe(0)
 
       // Moved, then left for Screens and shown again, it's where it was.
-      await page.evaluate(() => window.e2e!.session().editor!.setCamera({ x: 120, y: 80, z: 0.2 }, { immediate: true }))
+      await page.evaluate(() => {
+        window.e2e!.session().editor!.setCamera({ x: 120, y: 80, z: 0.2 }, { immediate: true })
+      })
       await page.keyboard.press("Control+2")
       await expect.poll(async () => (await drawn()).some((key) => pages.includes(key))).toBe(false)
       await page.keyboard.press("Control+1")
@@ -168,15 +157,45 @@ describe("the window", () => {
     }
   })
 
+  // docs/editor.md, Stories, a lens of its own (PAR-1246).
+  it("draws the story files on Stories' canvas alone, listing them in its Layers, and keeps its camera", async () => {
+    const { page } = app
+    const stories = await designsIn("(stories)")
+    const layers = page.locator("[role=tree][aria-label=Layers]")
+
+    expect(stories.length).toBeGreaterThan(0)
+    // Screens draws none of them.
+    expect((await drawn()).filter((key) => stories.includes(key))).toEqual([])
+
+    try {
+      // Ctrl+4 shows Stories in Screens' place, drawing the story files and nothing else.
+      await page.keyboard.press("Control+4")
+      await expect.poll(async () => (await drawn()).toSorted()).toEqual(stories.toSorted())
+      expect(await page.locator(".dv-tab").allTextContents()).toEqual(["Stories"])
+      // Its Layers lists the story files, without Screens' groups.
+      expect(await layers.getByText("Screens", { exact: true }).count()).toBe(0)
+      expect(await layers.getByText("Components", { exact: true }).count()).toBe(0)
+
+      // Moved, then left for Screens and shown again, it's where it was.
+      await page.evaluate(() => {
+        window.e2e!.session().editor!.setCamera({ x: -90, y: 40, z: 0.3 }, { immediate: true })
+      })
+      await page.keyboard.press("Control+2")
+      await expect.poll(async () => (await drawn()).some((key) => stories.includes(key))).toBe(false)
+      await page.keyboard.press("Control+4")
+      await expect.poll(async () => (await drawn()).length).toBe(stories.length)
+      const { x, y, z } = await app.camera()
+      expect({ x: Math.round(x), y: Math.round(y), z: Math.round(z * 100) / 100 }).toEqual({ x: -90, y: 40, z: 0.3 })
+    } finally {
+      await showScreens()
+    }
+  })
+
   // docs/editor.md, Pages, a lens of its own (PAR-1244).
   it("shows Pages in Screens' place for a page selected elsewhere, and Ctrl+A there selects only the pages", async () => {
     const { page } = app
 
-    const pages = await page.evaluate(() =>
-      [...window.e2e!.session().doc.files()].flatMap(([file, canvas]) =>
-        file === "(pages)" ? canvas.containers.map((container) => `${file}#${container.id}`) : []
-      )
-    )
+    const pages = await designsIn("(pages)")
 
     try {
       // Selected as Search selects it, with Screens in front.
@@ -217,6 +236,27 @@ describe("the window", () => {
     }
   })
 })
+
+/** The keys of the designs in one of the project's generated files, such as `(pages)`. */
+function designsIn(file: string): Promise<string[]> {
+  return app.page.evaluate(
+    (wanted) =>
+      [...window.e2e!.session().doc.files()].flatMap(([path, canvas]) =>
+        path === wanted ? canvas.containers.map((container) => `${path}#${container.id}`) : []
+      ),
+    file
+  )
+}
+
+/** The keys of the boards the canvas in focus draws. */
+function drawn(): Promise<string[]> {
+  return app.page.evaluate(() =>
+    window
+      .e2e!.session()
+      .editor!.getCurrentPageShapes()
+      .flatMap((board) => (board.type === "canvas-container" ? [String(board.props.key)] : []))
+  )
+}
 
 /** Screens back in front, with its canvas and panels, as the tests after these need. */
 async function showScreens(): Promise<void> {
