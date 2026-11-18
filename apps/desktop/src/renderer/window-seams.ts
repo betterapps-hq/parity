@@ -8,6 +8,7 @@ import { firstName, signedInPerson } from "./account/account.ts"
 import { lookOf } from "./account/look.ts"
 import { presence } from "./agent/presence.ts"
 import { onGestures } from "./canvas/presence-gestures.ts"
+import { onEachWindow } from "./lens-windows.ts"
 import { track } from "./report-error.ts"
 import type { TabSlot } from "./tab-slot.ts"
 import type { ProjectSession } from "./workspace.ts"
@@ -161,13 +162,31 @@ function followPointer(session: ProjectSession, listener: (pointer: Pointer) => 
       listener({ at, over })
     }
 
-    window.addEventListener("pointermove", move)
-    document.documentElement.addEventListener("pointerleave", away)
+    // The canvas moves into a lens window and back without remounting (PAR-1247), so every window is heard and only
+    // the one the canvas is in now places the pointer.
+    const ours = (target: Window) => target === container.ownerDocument.defaultView
 
-    stopEditor = () => {
-      window.removeEventListener("pointermove", move)
-      document.documentElement.removeEventListener("pointerleave", away)
-    }
+    stopEditor = onEachWindow((target) => {
+      const moved = (event: PointerEvent) => {
+        if (ours(target)) {
+          move(event)
+        }
+      }
+
+      const left = () => {
+        if (ours(target)) {
+          away()
+        }
+      }
+
+      target.addEventListener("pointermove", moved)
+      target.document.documentElement.addEventListener("pointerleave", left)
+
+      return () => {
+        target.removeEventListener("pointermove", moved)
+        target.document.documentElement.removeEventListener("pointerleave", left)
+      }
+    })
   }
 
   attach()

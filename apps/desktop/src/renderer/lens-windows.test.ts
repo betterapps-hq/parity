@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { addLensWindow, onEachWindow, windowOf } from "./lens-windows.ts"
+import { addLensWindow, focusedClipboard, onEachWindow, windowOf } from "./lens-windows.ts"
 
 /** A window as far as listeners go: something to listen on, which says when its page goes. */
 function fakeWindow(): Window {
@@ -49,5 +49,27 @@ describe("the windows the app draws in", () => {
     const opened = fakeWindow()
 
     expect(windowOf({ view: opened })).toBe(opened)
+  })
+
+  it("copies and pastes through the focused lens window's clipboard, or else the main window's", () => {
+    // A window as far as the clipboard goes: its navigator's, and whether its document has the focus.
+    const lens = (focused: boolean): Window =>
+      Object.assign(fakeWindow(), {
+        closed: false,
+        document: { hasFocus: () => focused },
+        navigator: { clipboard: { focused } }
+      })
+
+    const unfocused = addLensWindow(lens(false))
+
+    expect(focusedClipboard()).toBe(navigator.clipboard)
+
+    const opened = lens(true)
+    const focused = addLensWindow(opened)
+
+    expect(focusedClipboard()).toBe(opened.navigator.clipboard)
+
+    focused()
+    unfocused()
   })
 })

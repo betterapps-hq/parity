@@ -33,6 +33,7 @@ import { parentLayer, siblingLayer } from "../canvas/layers.ts"
 import { frameDrawn, nudgeSelection } from "../canvas/nudge.ts"
 import { enterTarget } from "../canvas/pick.ts"
 import { adjacentDesign, inverseSelection, matchingSelection } from "../canvas/select.ts"
+import { focusedClipboard } from "../lens-windows.ts"
 import { type DocSession, mergedFile, projectLibrary, redo as redoStep, undo as undoStep } from "../project-doc.ts"
 import { getEffectivePreferences, setEffectivePreference } from "../project-settings.ts"
 import { findReferences, referenceLibrary } from "../references/find-references.ts"
@@ -281,7 +282,7 @@ async function copySelectedAsPng(
 
       if (png) {
         const blob = new Blob([Uint8Array.from(atob(png), (char) => char.charCodeAt(0))], { type: "image/png" })
-        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
+        await focusedClipboard().write([new ClipboardItem({ "image/png": blob })])
       }
 
       return { drawn: Boolean(png), warnings }

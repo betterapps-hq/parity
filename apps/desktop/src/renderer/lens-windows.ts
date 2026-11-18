@@ -19,6 +19,16 @@ export function openLensWindows(): readonly Window[] {
 }
 
 /**
+ * The system clipboard of the window with the focus: a lens window's own, or else the main one's. The clipboard is only
+ * open to a focused document, so copy and paste in a lens window go through its own.
+ */
+export function focusedClipboard(): Clipboard {
+  const focused = [...lensWindows].find((opened) => !opened.closed && opened.document.hasFocus())
+
+  return focused?.navigator.clipboard ?? navigator.clipboard
+}
+
+/**
  * Notes a lens window that opened, so `onEachWindow`'s listeners listen there too. Returns what notes it closed, which
  * is also done once its page unloads.
  */

@@ -51,6 +51,7 @@ import {
 import type { CopiedFile } from "../../shared/protocol.ts"
 import type { Attributes } from "../chrome/event-attributes.ts"
 import { shortcutOf } from "../chrome/keymap.ts"
+import { focusedClipboard } from "../lens-windows.ts"
 import { errorCode, reportError, track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
 import { list, notify } from "../toasts.tsx"
@@ -87,7 +88,7 @@ export async function copySelection(session: ProjectDesigns & Pick<ProjectSessio
   lastCopy = writeEnvelope(session.info.root, payload)
 
   try {
-    await navigator.clipboard.writeText(lastCopy.text)
+    await focusedClipboard().writeText(lastCopy.text)
   } catch (error) {
     console.warn("The system clipboard couldn't be written; pasting works in this window only", error)
   }
@@ -305,7 +306,7 @@ async function readClipboard(): Promise<ClipboardContent> {
   let text = ""
 
   try {
-    text = await navigator.clipboard.readText()
+    text = await focusedClipboard().readText()
   } catch {
     text = lastCopy?.text ?? ""
   }
@@ -669,7 +670,7 @@ async function clipboardLayers(
 /** An image on the system clipboard, such as a screenshot or an image copied from a browser. */
 async function clipboardImage(): Promise<Blob | undefined> {
   try {
-    for (const item of await navigator.clipboard.read()) {
+    for (const item of await focusedClipboard().read()) {
       const type = item.types.find((candidate) => candidate.startsWith("image/"))
 
       if (type) {
