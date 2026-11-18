@@ -10,8 +10,11 @@ const keepDelayMs = 1000
  * has been offered and answered, so nothing writes over it first.
  */
 export interface RecoveryKeeper {
-  /** Starts keeping, writing what's unsaved now. */
-  start(): void
+  /**
+   * Starts keeping, writing what's unsaved now. `unanswered` says the copy from last time wasn't offered, as in a copy
+   * that joined another's room (PAR-1289), so it stays until this one keeps its own.
+   */
+  start(options?: { unanswered?: boolean }): void
   /** Writes what's unsaved now, or removes the copy, without waiting: as the app quits. */
   settle(): Promise<void>
   /**
@@ -29,6 +32,7 @@ export function keepRecovery(
   let started = false
   let stopped = false
   let kept = false
+  let unanswered = false
   let written: string | undefined
   let timer: ReturnType<typeof setTimeout> | undefined
 
@@ -71,8 +75,9 @@ export function keepRecovery(
   const stops = [designs.doc.subscribe(changed), designs.saver.subscribe(changed)]
 
   return {
-    start() {
+    start(options) {
       started = true
+      unanswered = options?.unanswered ?? false
       void write()
     },
     settle: write,
@@ -85,9 +90,9 @@ export function keepRecovery(
         stop()
       }
 
-      // Before it started, the copy from last time is still unanswered, so it stays for the next open. So does it in a
-      // copy that joined another's room and kept nothing, which was never offered it (PAR-1289).
-      if (keeping && (kept || designs.saver.writesFiles())) {
+      // Before it started, the copy from last time is still unanswered, so it stays for the next open. So does one this
+      // keeper started without offering, until it keeps its own.
+      if (keeping && (kept || !unanswered)) {
         await keep(undefined).catch(() => undefined)
       }
     }

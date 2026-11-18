@@ -91,10 +91,21 @@ describe("keepRecovery", () => {
   it("keeps nothing in a copy that joined another's room, and leaves the copy from last time (PAR-1289)", async () => {
     const { designs, keeper, kept, rename } = setup()
     await designs.saver.setWritesFiles(false)
-    keeper.start()
+    keeper.start({ unanswered: true })
     rename("Home page")
     await vi.runAllTimersAsync()
     await keeper.settle()
+    await keeper.drop()
+
+    expect(kept).toEqual([])
+  })
+
+  it("leaves the copy from last time when a guest takes over and closes with nothing unsaved (PAR-1289)", async () => {
+    const { designs, keeper, kept } = setup()
+    await designs.saver.setWritesFiles(false)
+    keeper.start({ unanswered: true })
+    await designs.saver.setWritesFiles(true)
+    await vi.runAllTimersAsync()
     await keeper.drop()
 
     expect(kept).toEqual([])

@@ -516,11 +516,15 @@ export class Workspace {
    * Restoring puts them back over whatever its files hold now, unsaved, since an agent often changes a file in between.
    */
   private async offerRecovery(session: ProjectSession): Promise<void> {
-    // A copy that joined another's room keeps the copy for when the project opens alone, so the room's edits aren't
-    // overwritten with older ones (PAR-1289).
-    const copy = session.saver.writesFiles()
-      ? await request("recovery.read", { projectId: session.id }).catch(() => undefined)
-      : undefined
+    // A copy that joined another's room leaves the copy for when the project opens alone, so the room's edits aren't
+    // overwritten with older ones (PAR-1289). It stays even if this one takes over the room's files later.
+    if (!session.saver.writesFiles()) {
+      session.recovery.start({ unanswered: true })
+
+      return
+    }
+
+    const copy = await request("recovery.read", { projectId: session.id }).catch(() => undefined)
 
     if (copy) {
       const choice = await askToRestore({ keptAt: new Date(copy.keptAt).toISOString() })

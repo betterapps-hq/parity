@@ -6332,17 +6332,17 @@ runs build up a lot of them between the person's saves.
   kept for the project until it's answered, so the copy can't be written over first.
 - **A copy in another's live room keeps none (PAR-1289).** The copy that writes the files has the room's edits, so a
   guest that quits unexpectedly isn't offered them as its own next time, which would bring older edits back into the
-  room. A guest isn't offered the copy from last time either, and doesn't remove it: it waits for the project to open
-  alone.
+  room. A guest isn't offered the copy from last time either, and doesn't remove it, even after taking over the room's
+  files: it waits for the project to open alone, unless the guest keeps its own over it.
 
 Tests:
 
 - `packages/editor/src/recovery.test.ts` (8): nothing kept while everything's saved or undone back; each unsaved file,
   the modes and token edits kept; restoring as one unsaved undo step, tokens with what the stylesheet holds, files made
   and deleted, and over a file an agent changed since; reading a copy back, and nothing from one that isn't.
-- `apps/desktop/src/renderer/recovery.test.ts` (6): nothing written before the offer is answered, one write after a run
+- `apps/desktop/src/renderer/recovery.test.ts` (7): nothing written before the offer is answered, one write after a run
   of changes, removed after Save, brought up to date at once as the app quits, removed when discarded, and nothing kept
-  or removed in a copy that joined another's room.
+  or removed in a copy that joined another's room, nor after it takes over.
 - `apps/desktop/src/utility/recovery.test.ts` (4): a file per project outside it, removed when there's nothing to keep,
   nothing read from a copy cut short or from another version, nothing kept without a folder.
 - `apps/desktop/src/renderer/chrome/report-time.test.ts`: how the time reads ("6:35 PM today").
