@@ -323,9 +323,11 @@ show a frozen copy of the app's own page at the page's URL (see editor.md), with
 Pages draws them the first time it's shown, and its Layers lists the routes.
 
 **Pages run the page runtime (PAR-1260),** which Vite, the webpack-compatible builders and Next serve first in the app's
-page, so a page changes mode without loading again and says how tall it is and where it went. Each project's pages load
-under a `.localhost` name of its own, so they run in a process of their own; Vite, webpack-compatible builders and Next
-all serve those names. What the runtime knows of the app comes from its extensions' page modules:
+page, so a page changes mode without loading again and says how tall it is and where it went. Vite puts it in a page its
+server renders too, as TanStack Start's or React Router framework mode's, which never goes through `index.html`
+(PAR-1302). Each project's pages load under a `.localhost` name of its own, so they run in a process of their own; Vite,
+webpack-compatible builders and Next all serve those names. What the runtime knows of the app comes from its extensions'
+page modules:
 
 | Router or renderer              | Page module                                                                                                                                                                                          | Status |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
