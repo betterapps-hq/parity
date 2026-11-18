@@ -75,6 +75,7 @@ function Spacing({
           padding={padding}
           margin={margin}
           border={border}
+          px={border === undefined}
           measuredMargin={measured?.margin.map(Math.round)}
           size={measured?.content ?? { width: 0, height: 0 }}
           onPadding={(next) => setPadding(next)}

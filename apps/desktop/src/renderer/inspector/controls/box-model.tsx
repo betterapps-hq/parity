@@ -28,6 +28,12 @@ import type { LengthToken } from "./tokens.ts"
 /** The fill a side's value rests on, which a story swaps to compare how strong it should be. */
 export const ValueFill = createContext("bg-background/60")
 
+/**
+ * Whether a side's value shows `px` after its number. The box model leaves it off to save room, as every side but a
+ * percentage or Auto is in pixels; its name for screen readers and its field still say px.
+ */
+export const ShowsPx = createContext(true)
+
 /** Which sides are hovered in a field or the widget, for the preview to highlight. */
 export interface SpacingHover {
   box: "padding" | "margin" | "border"
@@ -114,6 +120,7 @@ export function SideValue({
 }) {
   const [open, setOpen] = useState(false)
   const fill = use(ValueFill)
+  const showsPx = use(ShowsPx)
   const { tokens } = useTokens(rules.tokens.set)
   const tokenName = value !== undefined && value !== "auto" && "token" in value ? value.token : undefined
   const token = tokens.find((other) => other.name === tokenName)
@@ -157,7 +164,7 @@ export function SideValue({
           {plus}
           {shown.number}
         </span>
-        {shown.unit && <span className="text-muted-foreground">{shown.unit}</span>}
+        {shown.unit && (showsPx || shown.unit !== "px") && <span className="text-muted-foreground">{shown.unit}</span>}
       </PopoverTrigger>
       <PopoverContent aria-label={label} className="w-52 gap-2 p-2" side={side}>
         <div className="flex items-baseline justify-between gap-2 text-xs">
@@ -250,6 +257,7 @@ export function BoxModel({
   marginMixed = [],
   borderMixed = [],
   measuredMargin,
+  px = true,
   size,
   rules = sideRules,
   onPadding,
@@ -266,6 +274,8 @@ export function BoxModel({
   paddingMixed?: readonly boolean[]
   marginMixed?: readonly boolean[]
   borderMixed?: readonly boolean[]
+  /** Whether its values show `px` after their numbers; without, the box takes less room. */
+  px?: boolean
   /** What each margin side comes to, for Auto. */
   measuredMargin?: readonly (number | undefined)[]
   /** The layer's size inside its padding; unset where there's no one size to show, as for several layers. */
@@ -347,27 +357,31 @@ export function BoxModel({
 
   if (margin === undefined) {
     return (
-      <fieldset className="m-0 flex min-w-0 p-0" aria-label="Box model">
-        {inner}
-      </fieldset>
+      <ShowsPx value={px}>
+        <fieldset className="m-0 flex min-w-0 p-0" aria-label="Box model">
+          {inner}
+        </fieldset>
+      </ShowsPx>
     )
   }
 
   return (
-    <fieldset
-      className="relative m-0 flex min-w-0 flex-col items-center gap-0.5 rounded-md border border-dashed p-1"
-      style={{ background: tint(colors.margin, 10), borderColor: tint(colors.margin, 55) }}
-      aria-label="Box model"
-    >
-      {name("Margin")}
-      {side("margin", 0)}
-      <div className="flex w-full items-center gap-1">
-        {side("margin", 3)}
-        {inner}
-        {side("margin", 1)}
-      </div>
-      {side("margin", 2)}
-    </fieldset>
+    <ShowsPx value={px}>
+      <fieldset
+        className="relative m-0 flex min-w-0 flex-col items-center gap-0.5 rounded-md border border-dashed p-1"
+        style={{ background: tint(colors.margin, 10), borderColor: tint(colors.margin, 55) }}
+        aria-label="Box model"
+      >
+        {name("Margin")}
+        {side("margin", 0)}
+        <div className="flex w-full items-center gap-1">
+          {side("margin", 3)}
+          {inner}
+          {side("margin", 1)}
+        </div>
+        {side("margin", 2)}
+      </fieldset>
+    </ShowsPx>
   )
 }
 
