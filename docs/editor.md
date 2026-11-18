@@ -8532,9 +8532,11 @@ same project in the same page, so the canvas, its camera and what's selected car
 - **The canvas works there as in the main window.** Designs keep their styles. The app's shortcuts work while it has the
   focus, Ctrl and a lens's number, Undo and the tool keys included. A board drags by its title, and handles, layers and
   the spacing handles drag, following the pointer in that window; the arrows, Tab and Esc are the app's there too, so
-  tldraw doesn't nudge a board. The canvas's menu, the toolbar's menus and tooltips open in that window. Pages' live
-  frames go live there, though a frame loads again when its tab moves to another window, as any frame moved between
-  documents does.
+  tldraw doesn't nudge a board. The canvas's menu, the toolbar's menus and tooltips open in that window. Copy and paste
+  use the system clipboard there, Alt's measurements show and go as Alt is pressed and let go, and the others in a live
+  room see your pointer over that canvas. Pages' live frames go live there, and stay on the builder's origin, a link off
+  it telling the board where it tried to go. A frame loads again when its tab moves to another window, as any frame
+  moved between documents does, so moving it ends the live page and the spares open again in the new window.
 - **It closes with the project.** Closing the project, or the main window, closes it, as does the main window's page
   loading again; quitting keeps it open while the main window asks about unsaved work, and closes it after. Closing it
   on its own puts its tabs back in the main window.
@@ -8548,16 +8550,23 @@ open while it quits, and keeps each lens's last place; `appWindows` leaves them 
 from them. In the window, `OpenProject.tsx` passes `lensWindowPage` as `LensWorkspace`'s `popoutUrl`, and
 `dock-adapter.ts` names the lens in the page's address (`lensWindowUrl`). `LensWorkspace` registers each lens window
 with `lens-windows.ts` (`addLensWindow`), which `onEachWindow` listens on for `useAppShortcuts`, `useShortcuts`, Ctrl
-and a lens's number, `CanvasOverlay`'s keys and the live frames' pool (`canvas/live-frames.ts`), which a frame says
-hello to in the window it's in. It draws the title bar into the window (`makeTitleBar` in `lenses/popout.ts`) and keeps
-it dressed (`dress`, `onThemeChange`). `LensContent` wraps each canvas in `WindowPortals` (`lenses/window-portals.tsx`),
-a portal that never opens whose container moves to the body of the window the lens is in, which Base UI's menus,
-tooltips and dialogs inside take as theirs. `window-sheets.ts` (`followSheetsIntoWindows`, from `main.tsx`) gives a
-shadow root or document in a lens window copies of the main window's constructed stylesheets, made in that window and
-kept in step, and `readopt` gives what moved between windows its sheets again; a token preview, which edits a rule's
-declarations in place (`previewToken` in `guest.ts`), tells the copies with `copyEdits`. Gestures follow the window the
-press came from: `followPress` in `canvas/gesture.ts` takes it from the press's `view` (`pressWindow`), as
-`ResizeHandles` and `layer-drag.ts` do (`windowOf`).
+and a lens's number, `CanvasOverlay`'s keys, the overlay scheduler, presence's pointer (`followPointer` in
+`window-seams.ts`) and the live frames' pool (`canvas/live-frames.ts`), which a frame says hello to in the window it's
+in. A hello there arrives as that window's object, so `isObject` in `@parity-app/page-runtime/protocol` reads it by
+`Object(value)` rather than `instanceof`; the pool answers through the lens window's own `postFromHere` (`postAs`), so
+the port comes from the frame's parent, as the page checks. `LiveLayer` attaches to the pool again when its lens changes
+window (`useShownIn`). Copy and paste go through the focused window's clipboard (`focusedClipboard`). In main, a lens
+window's route frames get the editor window's `pageFrameGuard` and `watchPageProcesses`, reporting to the editor window.
+It draws the title bar into the window (`makeTitleBar` in `lenses/popout.ts`) and keeps it dressed (`dress`,
+`onThemeChange`). `LensContent` wraps each canvas in `WindowPortals` (`lenses/window-portals.tsx`), a portal that never
+opens whose container moves to the body of the window the lens is in, which Base UI's menus, tooltips and dialogs inside
+take as theirs. `window-sheets.ts` (`followSheetsIntoWindows`, from `main.tsx`) gives a shadow root or document in a
+lens window copies of the main window's constructed stylesheets, made in that window and kept in step, with the lens
+window's own `ShadowRoot` and `Document` accessors patched too, for a frame mounted there, and `readopt` gives what
+moved between windows its sheets again; a token preview, which edits a rule's declarations in place (`previewToken` in
+`guest.ts`), tells the copies with `copyEdits`. Gestures follow the window the press came from: `followPress` in
+`canvas/gesture.ts` takes it from the press's `view` (`pressWindow`), as `ResizeHandles` and `layer-drag.ts` do
+(`windowOf`).
 
 Tests: `e2e/lens-windows.e2e.ts` (Screens moved to a window of its own, named Screens and the project in its title and
 title bar, the main window left with no tab; its frames each drawn with stylesheets; Ctrl+A there selecting designs; the
@@ -8565,14 +8574,21 @@ canvas's menu in its document and not the main one; the main window's theme reac
 `src/main/lens-windows.test.ts` (closing with the editor window or as its page loads again, held open while quitting
 then quitting, closing on its own, its place kept while on a screen); `src/shared/lens-window.test.ts` (the page's
 address, and only Parity's page allowed); `src/renderer/lens-windows.test.ts` (listening on each window as it opens and
-until it closes); `src/renderer/canvas/gesture.test.ts` (a press followed in the window it came from). Tried in
-`pnpm dev` on 2026-11-18 on the example, driving Electron over the DevTools protocol: Move to new window opened Screens
-— shadcn-vite with its title bar under the system's buttons, its 134 frames each drawing 7 sheets, the designs styled;
-Shift+1 zoomed to fit; the zoom button's tooltip and the canvas's menu showed in the lens window; Checkout's title
-dragged its board and Ctrl+Z put it back; Ctrl+1 showed Pages; a dark theme reached it and back; Move to main window
-brought Screens back with its frames' sheets, and moving it out again opened it where it had been moved to; arrows on a
-selected board left it where it was, as in the main window; Pages moved out drew its pages and a press selected one;
-reloading the main window closed it; closing the project closed it.
+until it closes, and the focused window's clipboard); `packages/page-runtime/src/protocol.test.ts` (a hello from another
+realm read as one from this window); `src/renderer/canvas/gesture.test.ts` (a press followed in the window it came
+from). Tried in `pnpm dev` on 2026-11-18 on the example, driving Electron over the DevTools protocol: Move to new window
+opened Screens — shadcn-vite with its title bar under the system's buttons, its 134 frames each drawing 7 sheets, the
+designs styled; Shift+1 zoomed to fit; the zoom button's tooltip and the canvas's menu showed in the lens window;
+Checkout's title dragged its board and Ctrl+Z put it back; Ctrl+1 showed Pages; a dark theme reached it and back; Move
+to main window brought Screens back with its frames' sheets, and moving it out again opened it where it had been moved
+to; arrows on a selected board left it where it was, as in the main window; Pages moved out drew its pages and a press
+selected one; reloading the main window closed it; closing the project closed it. Tried again on 2026-11-18 after the
+review's fixes: in Screens' lens window a board copied and pasted, with undo, and text copied elsewhere pasted as a text
+layer; Alt's measurement showed while moving with Alt and went on letting it go; with a second copy in a live room,
+Mia's window followed Andrew's pointer across boards in the lens window, and not over the main window's empty area; in
+Pages' lens window, Pricing and Projects went live at their routes, a link to example.com was stopped with the frame
+left on the builder's origin and the board saying "Tried to open example.com", and back in the main window a board went
+live again.
 
 ### Pages, a lens of its own (PAR-1244)
 

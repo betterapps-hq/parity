@@ -292,9 +292,13 @@ export function readViewport(value: unknown): PageViewport | undefined {
     : undefined
 }
 
-/** Whether a value that arrived is an object, whose fields can then be read by name with `in`. */
+/**
+ * Whether a value that arrived is an object, whose fields can then be read by name with `in`. A message posted to a lens's
+ * own window arrives as that window's object, which isn't an `instanceof` the main window's `Object`, so it's told by
+ * what `Object` gives back for it: the value itself.
+ */
 export function isObject(value: unknown): value is object {
-  return value instanceof Object && !Array.isArray(value)
+  return Object(value) === value && !Array.isArray(value)
 }
 
 /** Whether a value that arrived is a string: one that `String` gives back unchanged. */

@@ -4,6 +4,16 @@
  * instead, so they work in whichever window has the focus.
  */
 
+import type { PagePort } from "@parity-app/page-runtime/protocol"
+import { createContext, useContext } from "react"
+
+declare global {
+  interface Window {
+    /** A lens window's own `postMessage`, defined in its page, so what it posts comes from it (`postAs`). */
+    postFromHere?: (target: Window, message: PagePort, origin: string, transfer: Transferable[]) => void
+  }
+}
+
 /** What's called with a window, and what it returns to stop when the window goes or the caller stops. */
 type Listen = (target: Window) => (() => void) | void
 
@@ -96,4 +106,33 @@ export function onEachWindow(listen: Listen, main: Window = window): () => void 
 /** The window an event happened in: a lens's own, or the main one. */
 export function windowOf(event: { readonly view?: Window | null }): Window {
   return event.view ?? window
+}
+
+/** The window a lens's canvas is in now, the main one or a lens's own, as `WindowPortals` provides it. */
+export const ShownIn = createContext<Window | undefined>(undefined)
+
+/** The window the canvas is in now. It changes as the lens's tab moves between windows. */
+export function useShownIn(): Window {
+  return useContext(ShownIn) ?? window
+}
+
+/**
+ * Posts Parity's port message to `target`, a page in a frame in the window `from`, as `from`. A message's source is the window whose code posted it, so
+ * the main window posting to a page in a lens window would come from the main window, which the page doesn't take as
+ * Parity: it checks the message came from its parent. A lens window posts it with a function of its own page.
+ */
+export function postAs(
+  from: Window,
+  target: Window,
+  message: PagePort,
+  origin: string,
+  transfer: Transferable[] = []
+): void {
+  const post = from === window ? undefined : from.postFromHere
+
+  if (post) {
+    post(target, message, origin, transfer)
+  } else {
+    target.postMessage(message, origin, transfer)
+  }
 }

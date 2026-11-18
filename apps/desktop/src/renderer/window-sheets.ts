@@ -24,6 +24,12 @@ const lensDocuments = new Set<Document>()
 
 let native: { root: PropertyDescriptor; document: PropertyDescriptor } | undefined
 
+/**
+ * The accessors that hand out copies, which a lens window's own prototypes take too: a shadow root attached while its
+ * host is in a lens window's document, as a frame mounted there, is that window's `ShadowRoot`.
+ */
+let patched: { root: PropertyDescriptor; document: PropertyDescriptor } | undefined
+
 /** Sets up the copies. Done once for the page's whole life, so it's never undone. */
 export function followSheetsIntoWindows(): void {
   if (native) {
@@ -41,7 +47,7 @@ export function followSheetsIntoWindows(): void {
   const nativeRoot = root
   const nativePage = page
 
-  Object.defineProperty(ShadowRoot.prototype, "adoptedStyleSheets", {
+  const patchedRoot: PropertyDescriptor = {
     configurable: true,
     enumerable: root.enumerable ?? true,
     get(this: ShadowRoot) {
@@ -54,9 +60,9 @@ export function followSheetsIntoWindows(): void {
         sheets.map((sheet) => sheetIn(sheet, this.ownerDocument))
       )
     }
-  })
+  }
 
-  Object.defineProperty(Document.prototype, "adoptedStyleSheets", {
+  const patchedPage: PropertyDescriptor = {
     configurable: true,
     enumerable: page.enumerable ?? true,
     get(this: Document) {
@@ -79,14 +85,25 @@ export function followSheetsIntoWindows(): void {
         }
       }
     }
-  })
+  }
 
+  patched = { root: patchedRoot, document: patchedPage }
+  Object.defineProperty(ShadowRoot.prototype, "adoptedStyleSheets", patchedRoot)
+  Object.defineProperty(Document.prototype, "adoptedStyleSheets", patchedPage)
   followEdits()
 }
 
 /** Notes a lens window's document, which takes the main document's own sheets until the function returned is called. */
 export function addLensDocument(page: Document): () => void {
   lensDocuments.add(page)
+  // SAFETY: a window is its own realm's global object, so it carries that realm's DOM interfaces.
+  const realm = page.defaultView as (Window & typeof globalThis) | null
+
+  if (realm && patched) {
+    Object.defineProperty(realm.ShadowRoot.prototype, "adoptedStyleSheets", patched.root)
+    Object.defineProperty(realm.Document.prototype, "adoptedStyleSheets", patched.document)
+  }
+
   native?.document.set?.call(
     page,
     (given.get(document) ?? []).map((sheet) => sheetIn(sheet, page))

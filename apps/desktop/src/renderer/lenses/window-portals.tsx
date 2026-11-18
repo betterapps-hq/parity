@@ -1,5 +1,6 @@
 import { Dialog, DialogPortal } from "@buildkitgg/shadcn"
 import { type ReactNode, useEffect, useState } from "react"
+import { ShownIn } from "../lens-windows.ts"
 import { readopt } from "../window-sheets.ts"
 
 /**
@@ -7,7 +8,7 @@ import { readopt } from "../window-sheets.ts"
  * draws them in the container of the portal around them, or the main window's body without one. So `children` sit in a
  * portal that's always mounted, whose container is an element in the body of the window `shownIn`, moved there as they
  * move: moving the element, rather than portalling into another, keeps what's drawn in it mounted. The dialog it
- * belongs to never opens.
+ * belongs to never opens. What's inside hears which window it's in through `useShownIn`.
  */
 export function WindowPortals({ shownIn, children }: { shownIn: Window; children: ReactNode }) {
   const [container] = useState(() => {
@@ -28,7 +29,7 @@ export function WindowPortals({ shownIn, children }: { shownIn: Window; children
   return (
     <Dialog open={false}>
       <DialogPortal keepMounted container={container}>
-        {children}
+        <ShownIn value={shownIn}>{children}</ShownIn>
       </DialogPortal>
     </Dialog>
   )

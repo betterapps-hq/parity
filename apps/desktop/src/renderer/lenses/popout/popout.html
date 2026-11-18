@@ -9,6 +9,11 @@
         overflow: hidden;
       }
     </style>
+    <script>
+      // A message the main window posts through this to a frame here comes from this window, the frame's parent, as a
+      // page's runtime checks before it takes Parity's port (lens-windows.ts, `postAs`).
+      window.postFromHere = (target, message, origin, transfer) => target.postMessage(message, origin, transfer)
+    </script>
   </head>
   <body></body>
 </html>

@@ -29,7 +29,7 @@ import {
 } from "@parity-app/page-runtime/protocol"
 import { useEffect, useRef } from "react"
 import type { Editor } from "tldraw"
-import { onEachWindow, openLensWindows } from "../lens-windows.ts"
+import { onEachWindow, openLensWindows, postAs } from "../lens-windows.ts"
 import { track } from "../report-error.ts"
 import { resetWithWindow, useStore, windowStore } from "../store.ts"
 import { holdFreezer } from "./freezer.ts"
@@ -793,7 +793,18 @@ export class Pool {
 
     const ports = new MessageChannel()
     frame.channel.connect(domPort(ports.port1))
-    frame.iframe.contentWindow?.postMessage({ parity: "port", frame: frame.id }, frame.origin, [ports.port2])
+    const page = frame.iframe.contentWindow
+
+    // From the window the frame is in, which may be a lens's own.
+    if (page) {
+      postAs(
+        frame.iframe.ownerDocument.defaultView ?? window,
+        page,
+        { parity: "port", frame: frame.id },
+        frame.origin,
+        [ports.port2]
+      )
+    }
 
     // A live page that loaded again starts from its frame's name, which says spare and the mode it opened in: it's told
     // again that it's live, and in its board's mode.
