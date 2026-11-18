@@ -165,6 +165,11 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
       const files = await filesOf(job, project, snapshot)
       const loadedAt = job.copy?.loadedAt
 
+      // What someone left in the live page isn't what a fresh load draws, so its trace can't vouch for it.
+      if (job.copy?.used) {
+        return undefined
+      }
+
       if (loadedAt !== undefined && (await changedSince(root, files, loadedAt))) {
         return undefined
       }

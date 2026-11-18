@@ -759,8 +759,9 @@ Each is an issue, in this order.
    query, the live page's snapshot becomes the copy of every board of that route and mode, with its trace, kept as the
    freezer's would be (PAR-1304, after step 7 made copies go stale): what was done in the page stays, where the plan had
    it stand in only when nobody used the page. Its frame stays over the board, taking nothing, until the copy is kept,
-   and the snapshot leaves the markup groups be. The freezer waits 2 s after each `page.used` and 1.5 s after a board
-   goes live or spares open or move. The events are `routeFrame.live` and `routeFrame.miss`.
+   and the snapshot leaves the markup groups be. Such a copy is `used`: its picture is captured again and kept without a
+   trace, so it never stands for the page's fresh load. The freezer waits 2 s after each `page.used` and 1.5 s after a
+   board goes live or spares open or move. The events are `routeFrame.live` and `routeFrame.miss`.
 6. **Pictures** (PAR-1200), done: page jobs in the render pool built from copies, `RenderJob` as a union, page bitmap
    names, traces by builder, and tiers by size on screen. Built: the page job is
    `{ kind: "page", projectId, route, path, state, mode, scale }`, with `route` the route's id for its trace and `path`

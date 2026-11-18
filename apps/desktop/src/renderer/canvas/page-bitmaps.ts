@@ -39,18 +39,21 @@ function copyNumber(copy: FrozenCopy): number {
 
 /** A page's job with its copy, which capturing it carries: the copy's body and root, and its sheets' text in order. */
 export function withCopy(job: PageJob, copy: FrozenCopy): PageJob {
-  return {
-    ...job,
-    copy: {
-      origin: copy.origin,
-      loadedAt: copy.loadedAt,
-      landed: copy.location.outcome === "landed",
-      pageHeight: copy.pageHeight,
-      root: copy.root,
-      body: copy.body,
-      sheets: copy.sheets.map((id) => ({ id, text: sheetTexts.get(id) ?? "" }))
-    }
+  const carried: NonNullable<PageJob["copy"]> = {
+    origin: copy.origin,
+    loadedAt: copy.loadedAt,
+    landed: copy.location.outcome === "landed",
+    pageHeight: copy.pageHeight,
+    root: copy.root,
+    body: copy.body,
+    sheets: copy.sheets.map((id) => ({ id, text: sheetTexts.get(id) ?? "" }))
   }
+
+  if (copy.used) {
+    carried.used = true
+  }
+
+  return { ...job, copy: carried }
 }
 
 /** What `usePagePicture` read from disk for a page, by its picture's name. */
@@ -103,7 +106,8 @@ export function usePagePicture(job: PageJob, copy: FrozenCopy | undefined, rank:
   }, [name, copied])
 
   const known = read?.name === name ? read : undefined
-  const current = known?.kept && !known.kept.stale
+  // What the disk kept is of the page as it loads, so it never stands for a copy of what someone left in the live page.
+  const current = known?.kept && !known.kept.stale && !copy?.used
   // Captured only once the disk has answered, and only when what it kept isn't current, from a copy checked in its own
   // mode: one standing in from another mode's snapshot (`unchecked`) would be kept as current for this one.
   const key = copy && !copy.unchecked && known && !current ? `${name}\n${copyNumber(copy)}` : undefined

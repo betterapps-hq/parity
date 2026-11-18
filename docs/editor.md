@@ -8970,10 +8970,12 @@ A screen is named for the component its route draws, else its path.
   once it has been quiet for 150 ms, at most 3 s, and that becomes the copy of every board of its route and mode
   (`keepLiveCopy`, PAR-1304), so a menu opened or a value typed stays on the board until a code change makes the copy
   stale. Its frame stays where it was over the board, taking nothing, until then, so the old copy never shows between. A
-  page a link moved to another route, or that redirected, leaves its board the copy it had. The freezer waits while the
-  live page is in use, 2 s after each `page.used`, and while the pool refills, 1.5 s after a board goes live, since a
-  project's frames share one process. A window that isn't focused keeps no spares. `routeFrame.live` says how a board
-  went live and how long it took, and `routeFrame.miss` that no spare was there.
+  page a link moved to another route, or that redirected, leaves its board the copy it had. Such a copy is `used`: its
+  board's picture is captured from it again even when the one on disk is current, and kept without a trace, so it never
+  stands for the page's fresh load when the project opens again. The freezer waits while the live page is in use, 2 s
+  after each `page.used`, and while the pool refills, 1.5 s after a board goes live, since a project's frames share one
+  process. A window that isn't focused keeps no spares. `routeFrame.live` says how a board went live and how long it
+  took, and `routeFrame.miss` that no spare was there.
 - **Route frame tiers (PAR-1301).** With Settings › Diagnostics › Route frame tiers on, or Help › Developer › Route
   frame tiers, each route board has a dot just right of its top-right corner, where the live page can't cover it
   (`TierDot`): grey while it shows its frozen copy or picture, orange while a spare loads at or moves to its route, and
@@ -9180,26 +9182,26 @@ first; none for an unknown route, and a loop stopped; what the builder says the 
 shared files; every file under the route's folder, and those directly in the folders above it and their parallel slots,
 for routes named by folder; the whole project where the builder can't say or the route isn't known, and for a page that
 didn't land; `pageTrace`: the whole project as `"all"`, the route's own files where the builder says, and a folder
-router's folders), `apps/desktop/src/utility/page-traces.test.ts` (11: the route's files, imports, loads, stylesheets
+router's folders), `apps/desktop/src/utility/page-traces.test.ts` (12: the route's files, imports, loads, stylesheets
 and shared config; the whole project without the builder's word; none when a file changed after the copy's page started
-loading; holding until a file it lists changes; stopping when a file it would now list is added; a Next template's
-imports scanned; what mounts the app and its imports outside the routes; a copy's trace of the route's own files, the
-whole project without the builder's word or for a page that didn't land, `changed` for a file changed while its page
-loaded, and a file added since the builder started), `render.test.ts` (5, "canvasRender with a page's copy": built at
-the mode's width and the page's full height with viewport units measuring the window; sanitized again so nothing in it
-runs; lazy images loaded at once; clipped at the frame's own height; why when there's no copy), `render-job.test.ts` (3,
-"a page's picture's name": by path and query, not the builder's address; changed by the mode, state and scale; without
-the copy), `bitmap-store.test.ts` (2, "a page's picture in the store": kept while its trace holds and stale after; apart
-from frames' bitmaps and the page in another mode), `frame-bitmaps.test.ts` (a page's picture asked of the service again
-each time, so a stale verdict holds) and `copy-sheets.test.ts`, which moved from `freezer.test.ts`. Gaps: reading routes
-when the project opens, the page frames, the freezer (its stale copies, markup groups and second hello included),
-building and selecting copies, a board's tier as the camera moves, `usePagePicture`, drawing the lines, groups, landing
-warning and the titles' backdrop, Layers' route tree, and the bundling have no test of their own; all were tried in the
-app. The lines were checked on the example at 5%, 10% and 22%: every page's name and path read clearly, with each line
-meeting its page's top edge. Each page frame was checked on the example at 1280 wide: App at 849 tall with no scrollbar,
-the rest at 800. Bringing lines forward was checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the
-example opened with its own routes and Settings' redirect) at 5% and 10%, by selecting Pricing, Settings' group and
-Billing and hovering Projects.
+loading; none for a copy of what someone left in the live page (PAR-1304); holding until a file it lists changes;
+stopping when a file it would now list is added; a Next template's imports scanned; what mounts the app and its imports
+outside the routes; a copy's trace of the route's own files, the whole project without the builder's word or for a page
+that didn't land, `changed` for a file changed while its page loaded, and a file added since the builder started),
+`render.test.ts` (5, "canvasRender with a page's copy": built at the mode's width and the page's full height with
+viewport units measuring the window; sanitized again so nothing in it runs; lazy images loaded at once; clipped at the
+frame's own height; why when there's no copy), `render-job.test.ts` (3, "a page's picture's name": by path and query,
+not the builder's address; changed by the mode, state and scale; without the copy), `bitmap-store.test.ts` (2, "a page's
+picture in the store": kept while its trace holds and stale after; apart from frames' bitmaps and the page in another
+mode), `frame-bitmaps.test.ts` (a page's picture asked of the service again each time, so a stale verdict holds) and
+`copy-sheets.test.ts`, which moved from `freezer.test.ts`. Gaps: reading routes when the project opens, the page frames,
+the freezer (its stale copies, markup groups and second hello included), building and selecting copies, a board's tier
+as the camera moves, `usePagePicture`, drawing the lines, groups, landing warning and the titles' backdrop, Layers'
+route tree, and the bundling have no test of their own; all were tried in the app. The lines were checked on the example
+at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting its page's top edge. Each page frame
+was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was
+checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example opened with its own routes and Settings'
+redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 

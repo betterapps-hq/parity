@@ -90,6 +90,8 @@ export interface FrozenCopy {
   trace: CopyTrace
   /** Whether it was made from another mode's snapshot in its markup group and is still to be checked in its own. */
   unchecked?: true
+  /** Whether it's the live page's snapshot when live ends: what someone left in it, not the page as it loads (PAR-1304). */
+  used?: true
 }
 
 /** Every copy the window has, by `copyStoreKey`. */
@@ -338,6 +340,9 @@ class Freezer {
     } catch {
       // A live page that's stuck or gone when live ends leaves its board the copy it has.
     }
+
+    // A file it was made from may have changed since its page loaded, which makes it stale: the queue runs again.
+    this.poke()
   }
 
   /**
@@ -703,6 +708,10 @@ class Freezer {
       drawn: unit.drawn,
       changes,
       trace
+    }
+
+    if (from === "live") {
+      copy.used = true
     }
 
     if (from === "freezer") {
