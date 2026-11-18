@@ -13,6 +13,7 @@ const rules = {
 }
 
 const everySide = [true, true, true, true]
+const noSides: Sides = [undefined, undefined, undefined, undefined]
 
 /**
  * Spacing, the approved box model (PAR-186) as Storybook has it: margin's ring around padding's around the layer's
@@ -27,8 +28,11 @@ export function SpacingSection({ editor, edit, shows }: SectionProps) {
   const spacing = useTokens("spacing").tokens
   const margin = shows("margin")
   const padding = sidesShown(style.padding, unit)
-  const bordered = style.borderColor !== undefined || style.borderWidth !== undefined
-  const border = bordered ? borderSidesShown(style.borderWidth ?? { step: 1 }) : undefined
+  // Widths that differ across the selected layers still draw the ring, each side saying Mixed.
+  const borderMixed = mixed("borderWidth")
+  const bordered = style.borderColor !== undefined || style.borderWidth !== undefined || borderMixed
+  const shownSides = borderMixed ? noSides : borderSidesShown(style.borderWidth ?? { step: 1 })
+  const border = bordered ? shownSides : undefined
   const borderWidths = useTokens("borderWidth").tokens
   const width = editor.measure("width", (exact) => exact)
   const height = editor.measure("height", (exact) => exact)
@@ -70,7 +74,7 @@ export function SpacingSection({ editor, edit, shows }: SectionProps) {
           px={border === undefined}
           paddingMixed={mixed("padding") ? everySide : []}
           marginMixed={mixed("margin") ? everySide : []}
-          borderMixed={mixed("borderWidth") ? everySide : []}
+          borderMixed={borderMixed ? everySide : []}
           size={size}
           rules={rules}
           onPadding={sidesEdit("padding")}
