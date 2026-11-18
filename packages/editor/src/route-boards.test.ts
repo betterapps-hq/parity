@@ -453,6 +453,14 @@ describe("pageLinkPieces", () => {
       .split(" L ")
       .map((pair) => pair.split(" ").map(Number))
 
+  // How far a point is from a segment.
+  const fromSegment = ([px, py]: number[], [ax, ay]: number[], [bx, by]: number[]) => {
+    const [dx, dy] = [bx - ax, by - ay]
+    const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)))
+
+    return Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+  }
+
   const length = (piece: { path: string }) =>
     points(piece).reduce(
       (sum, [x, y], i, all) => (i === 0 ? 0 : sum + Math.hypot(x - all[i - 1][0], y - all[i - 1][1])),
@@ -496,21 +504,9 @@ describe("pageLinkPieces", () => {
   it("follows the curve within half a screen pixel", () => {
     // The cubic's middle, by symmetry, is halfway across and halfway down its bend.
     const [piece] = pageLinkPieces(above, near, 1)
-    const middle = { x: 1360, y: 1325 }
-
-    const closest = Math.min(
-      ...points(piece)
-        .slice(1)
-        .map(([x, y], i) => {
-          const [fx, fy] = points(piece)[i]
-          const t = Math.max(
-            0,
-            Math.min(1, ((middle.x - fx) * (x - fx) + (middle.y - fy) * (y - fy)) / ((x - fx) ** 2 + (y - fy) ** 2))
-          )
-
-          return Math.hypot(middle.x - (fx + t * (x - fx)), middle.y - (fy + t * (y - fy)))
-        })
-    )
+    const corners = points(piece)
+    const middle = [1360, 1325]
+    const closest = Math.min(...corners.slice(1).map((to, i) => fromSegment(middle, corners[i], to)))
 
     expect(closest).toBeLessThan(0.5)
   })
