@@ -1,5 +1,6 @@
 import type { NodeRef } from "@parity-app/extension"
-import type { CaretAt, Gesture, Palette, Point, Rect, Viewing } from "@parity-app/extension/internal"
+import type { CaretAt, Gesture, Palette, Point, Rect, Self, Viewing } from "@parity-app/extension/internal"
+import type { Member } from "@parity-app/presence-ui"
 import type { PersonPresence } from "./protocol.ts"
 
 /*
@@ -51,6 +52,25 @@ export function assignColors(peers: readonly string[], before: ReadonlyMap<strin
   }
 
   return assigned
+}
+
+/**
+ * You, as your own window draws you: as your account avatar shows you while you're signed in (your picture, or your
+ * initials on your own color), else in the palette the room assigned you. Only this window sees it; the room is told
+ * your name alone, so everyone else sees you in your palette.
+ */
+export function yourMember(peer: string, self: Self, palette: Palette): Member {
+  const you: Member = { id: peer, name: self.name, palette }
+
+  if (self.own) {
+    you.own = { initials: self.own.initials, color: self.own.color }
+
+    if (self.own.photo) {
+      you.photo = self.own.photo
+    }
+  }
+
+  return you
 }
 
 /** Who else is here, for layers, the same array until something changes. */

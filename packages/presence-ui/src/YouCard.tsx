@@ -15,15 +15,16 @@ interface YouCardProps {
 }
 
 /**
- * Your own card, from your face at the end of the stack: you as everyone else sees you, in your color, a way to ask
- * everyone to follow you, and whether to show their pointers to you.
+ * Your own card, from your face at the start of the stack: you as your account avatar shows you when you're signed in,
+ * else as everyone else sees you, in your color; a way to ask everyone to follow you; and whether to show their pointers
+ * to you.
  */
 export function YouCard({ you, others = 0, onPresent, showPointers, onShowPointersChange }: YouCardProps) {
   const pointers = useId()
 
   return (
     <div className="flex flex-col text-popover-foreground [--face-cutout:var(--popover)]">
-      <CardHeader member={you} line="You, as everyone sees you" />
+      <CardHeader member={you} line={you.own ? "You" : "You, as everyone sees you"} />
       <div className="flex flex-col gap-3 px-3 pb-3">
         <Button size="sm" className="w-full" disabled={others === 0} onClick={onPresent}>
           <MonitorPlay /> Present to everyone

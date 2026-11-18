@@ -358,10 +358,29 @@ export interface Viewing {
   mode?: string
 }
 
+/** The person signed in (`presence.self`). */
+export interface Self {
+  name: string
+  avatar?: string
+  /**
+   * How their account avatar shows them in this window, while they're signed in: their provider's picture, or their
+   * initials on their own color. Only for drawing them to themselves; never send it to anyone else.
+   */
+  own?: OwnLook
+}
+
+/** How someone's account avatar looks: their provider's picture, when there is one, else their initials on a color. */
+export interface OwnLook {
+  photo?: string
+  initials: string
+  /** A CSS color their initials sit on, in white. */
+  color: string
+}
+
 /** What this person is doing (`presence` capability). Only about this person: showing others is the extension's job. */
 export interface Presence {
-  /** The person signed in, as others should see them. */
-  readonly self: { name: string; avatar?: string }
+  /** The person signed in, as others should see them, and as their account avatar shows them to themselves. */
+  readonly self: Self
   /**
    * Told where the pointer is on the page, at most once a frame with the latest. Its leaving the canvas (`over: false`)
    * is never dropped.
