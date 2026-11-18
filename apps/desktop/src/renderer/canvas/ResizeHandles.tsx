@@ -4,6 +4,7 @@ import { type CSSProperties, type PointerEvent as ReactPointerEvent, useState } 
 import { Hint } from "../chrome/Hint.tsx"
 import { gestures as held } from "../chrome/keymap.ts"
 import { formatKeys, holds } from "../chrome/keys.ts"
+import { windowOf } from "../lens-windows.ts"
 import { KeyHints } from "./KeyHints.tsx"
 
 export const resizeCursors: Record<Edge, string> = {
@@ -85,14 +86,17 @@ export function ResizeHandles({ handles, onStart, onReset }: ResizeHandlesProps)
             setHint(undefined)
             setPressed(true)
 
+            // The window the handle is in, the main one or a lens's own, which hears the release.
+            const from = windowOf(event.nativeEvent)
+
             const release = () => {
               setPressed(false)
-              window.removeEventListener("pointerup", release, true)
-              window.removeEventListener("pointercancel", release, true)
+              from.removeEventListener("pointerup", release, true)
+              from.removeEventListener("pointercancel", release, true)
             }
 
-            window.addEventListener("pointerup", release, true)
-            window.addEventListener("pointercancel", release, true)
+            from.addEventListener("pointerup", release, true)
+            from.addEventListener("pointercancel", release, true)
             onStart(edge, event)
           }}
           onDoubleClick={(event) => {

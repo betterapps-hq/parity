@@ -29,13 +29,17 @@ import {
   type IDockviewPanelProps
 } from "dockview-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
+import { createPortal } from "react-dom"
+import { addLensWindow, onEachWindow } from "../lens-windows.ts"
+import { addLensDocument, readopt } from "../window-sheets.ts"
 import { type Dock, dockAdapter } from "./dock-adapter.ts"
 import { GroupActions } from "./GroupActions.tsx"
 import { LensBar } from "./LensBar.tsx"
 import { LensTab } from "./LensTab.tsx"
-import { dress } from "./popout.ts"
+import { dress, makeTitleBar, onThemeChange } from "./popout.ts"
 import type { LensView } from "./registry.ts"
 import { type LensActions, ShellContext, useShell } from "./shell.ts"
+import { WindowPortals } from "./window-portals.tsx"
 
 const theme: DockviewTheme = { name: "parity", className: "dockview-theme-parity" }
 
@@ -70,6 +74,14 @@ export interface Panels {
   right: boolean
 }
 
+/** A lens's own window that's open: the window, the group it holds, its title bar's element, and what closes it. */
+interface LensWindow {
+  window: Window
+  group: string
+  titleBar: HTMLElement
+  close: () => void
+}
+
 /**
  * A project's lenses in a window, laid out by Dockview: the lens bar down the left, the left panel and the inspector
  * for the lens in focus, and each open lens a tab over its canvas, in this window or one of its own. The left panel
@@ -92,6 +104,7 @@ export function LensWorkspace<Id extends string>({
   // The lens the panels show before Dockview has laid the window out.
   const [last, setLast] = useState(() => opening.groups[opening.focus ?? 0]?.open ?? barOrder(lenses)[0]?.id)
   const [kept, setKept] = useState<Panels>({ left: true, right: true })
+  const [windows, setWindows] = useState<readonly LensWindow[]>([])
   const panels = given ?? kept
   const setPanels = (change: (before: Panels) => Panels) => (onPanels ?? setKept)(change(panels))
 
@@ -106,7 +119,10 @@ export function LensWorkspace<Id extends string>({
       return
     }
 
-    return dock.watch({
+    // The lens windows open now, which the title bars are drawn for.
+    const open = new Set<LensWindow>()
+
+    const stop = dock.watch({
       change: (next) => {
         const focused = inFocus(next)
         setLayout(next)
@@ -121,14 +137,57 @@ export function LensWorkspace<Id extends string>({
           dock.apply(toWindow(dock.layout(), lens, at))
         }
       },
-      opened: (opened, lens) => {
-        const name = lens === undefined ? undefined : known.get(lens)?.name
-        dress(opened, name ? `${name} — ${title}` : title)
+      // The window's shortcuts and stylesheets reach it, and it gets a title bar of its own.
+      opened: (opened, group) => {
+        const stops = [addLensWindow(opened), addLensDocument(opened.document), followMoves(opened.document)]
+        readopt(opened.document.body)
+
+        const close = () => {
+          for (const stop of stops) {
+            stop()
+          }
+        }
+
+        const lensWindow = { window: opened, group, titleBar: makeTitleBar(opened), close }
+        open.add(lensWindow)
+        setWindows([...open])
+      },
+      closed: (group) => {
+        for (const each of [...open].filter((lensWindow) => lensWindow.group === group)) {
+          each.close()
+          open.delete(each)
+        }
+
+        setWindows([...open])
       }
     })
-  }, [dock, known, title, popoutUrl])
 
-  // Ctrl and a lens's number shows it, as clicking it in the lens bar does.
+    return () => {
+      stop()
+
+      for (const each of open) {
+        each.close()
+      }
+
+      setWindows([])
+    }
+  }, [dock, popoutUrl])
+
+  // Each lens window is named for the lens in front of it and the project, and takes the main window's theme as it
+  // changes.
+  useEffect(() => {
+    const dressAll = () => {
+      for (const { window: opened, group } of windows) {
+        dress(opened, lensWindowTitle(frontName(layout, group, known), title))
+      }
+    }
+
+    dressAll()
+
+    return onThemeChange(dressAll)
+  }, [windows, layout, known, title])
+
+  // Ctrl and a lens's number shows it, as clicking it in the lens bar does, in any window.
   useEffect(() => {
     const keydown = (event: globalThis.KeyboardEvent) => {
       const lens = event.ctrlKey || event.metaKey ? lensForShortcut(lenses, `Ctrl+${event.key}`) : undefined
@@ -141,9 +200,11 @@ export function LensWorkspace<Id extends string>({
       event.preventDefault()
     }
 
-    window.addEventListener("keydown", keydown)
+    return onEachWindow((target) => {
+      target.addEventListener("keydown", keydown)
 
-    return () => window.removeEventListener("keydown", keydown)
+      return () => target.removeEventListener("keydown", keydown)
+    })
   }, [dock, lenses])
 
   const onReady = ({ api }: DockviewReadyEvent) => {
@@ -190,6 +251,13 @@ export function LensWorkspace<Id extends string>({
         </div>
         {statusBar}
       </div>
+      {windows.map(({ group, titleBar }) =>
+        createPortal(
+          <LensWindowTitleBar title={lensWindowTitle(frontName(layout, group, known), title)} />,
+          titleBar,
+          group
+        )
+      )}
     </ShellContext>
   )
 }
@@ -260,20 +328,97 @@ function lensActions<Id extends string>({
   }
 }
 
-/** A lens's canvas, as its tab's content. */
+/** The name of the lens in front of a group. */
+function frontName(layout: Layout<string>, group: string, known: ReadonlyMap<string, { name: string }>) {
+  const front = layout.groups.find((each) => each.id === group)?.open
+
+  return front === undefined ? undefined : known.get(front)?.name
+}
+
+/** What a lens window is titled: the lens in front of it, then the project. */
+function lensWindowTitle(lens: string | undefined, project: string): string {
+  return lens ? `${lens} — ${project}` : project
+}
+
+/**
+ * A lens window's title bar: the window's name, which drags the window, with the system's window buttons over its end
+ * as they are over the main window's.
+ */
+function LensWindowTitleBar({ title }: { title: string }) {
+  return (
+    <header className="flex size-full items-center justify-center border-b bg-neutral-100 px-[150px] [-webkit-app-region:drag] dark:bg-[#0a0a0a]">
+      <span className="truncate text-sm font-medium">{title}</span>
+    </header>
+  )
+}
+
+/**
+ * Gives what's added to a lens window its stylesheets in that window, as a layer's picture made for a drag is, until the
+ * function returned is called.
+ */
+function followMoves(page: Document): () => void {
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        readopt(node)
+      }
+    }
+  })
+
+  observer.observe(page.body, { childList: true, subtree: true })
+
+  return () => observer.disconnect()
+}
+
+/** The window a lens's tab is in: a lens window of its own, or the main one. */
+function windowOfPanel(api: IDockviewPanelProps["api"]): Window {
+  const location = api.group.api.location
+
+  return location.type === "popout" ? location.getWindow() : window
+}
+
+/**
+ * A lens's canvas, as its tab's content. Its menus and tooltips show in the window it's in, and as it moves between
+ * windows its frames and icons take their stylesheets there.
+ */
 function LensContent({ params, api }: IDockviewPanelProps<{ lens: string }>) {
   const lens = useShell().lenses.get(params.lens)
   const [visible, setVisible] = useState(api.isVisible)
+  const [content, setContent] = useState<HTMLDivElement | null>(null)
+  const [shownIn, setShownIn] = useState(() => windowOfPanel(api))
 
   useEffect(() => {
-    const subscription = api.onDidVisibilityChange(({ isVisible }) => setVisible(isVisible))
+    const subscriptions = [
+      api.onDidVisibilityChange(({ isVisible }) => setVisible(isVisible)),
+      api.onDidLocationChange(() => setShownIn(windowOfPanel(api)))
+    ]
 
-    return () => subscription.dispose()
+    return () => {
+      for (const subscription of subscriptions) {
+        subscription.dispose()
+      }
+    }
   }, [api])
 
+  // Dockview moves the tab's elements to the other window, rather than drawing them again.
+  useEffect(() => {
+    if (!content) {
+      return
+    }
+
+    readopt(content)
+    const frame = shownIn.requestAnimationFrame(() => readopt(content))
+
+    return () => shownIn.cancelAnimationFrame(frame)
+  }, [content, shownIn])
+
   return lens ? (
-    <div className="flex size-full flex-col">
-      <lens.Canvas lens={lens.id} visible={visible} />
+    <div ref={setContent} className="flex size-full flex-col">
+      {content && (
+        <WindowPortals shownIn={shownIn}>
+          {createPortal(<lens.Canvas lens={lens.id} visible={visible} />, content)}
+        </WindowPortals>
+      )}
     </div>
   ) : null
 }

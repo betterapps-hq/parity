@@ -29,6 +29,7 @@ import {
 } from "@parity-app/page-runtime/protocol"
 import { useEffect, useRef } from "react"
 import type { Editor } from "tldraw"
+import { onEachWindow, openLensWindows } from "../lens-windows.ts"
 import { track } from "../report-error.ts"
 import { resetWithWindow, useStore, windowStore } from "../store.ts"
 import { holdFreezer } from "./freezer.ts"
@@ -201,6 +202,11 @@ function withDeadline<T>(request: Promise<T>, ms: number): Promise<T> {
   ]).finally(() => window.clearTimeout(timer))
 }
 
+/** Whether the main window or a lens's own has the focus. */
+function anyWindowFocused(): boolean {
+  return [window, ...openLensWindows()].some((each) => each.document.hasFocus())
+}
+
 /** A URL's route, as the pool keeps it: its path and query. */
 function routeOf(url: string): string {
   const { pathname, search } = new URL(url)
@@ -242,11 +248,22 @@ export class Pool {
     const pressed = (event: PointerEvent) => this.pressedOutside(event)
     const focus = () => this.focusChanged()
 
-    window.addEventListener("message", hello)
-    // In the capture phase, before the board under it engages again.
-    window.addEventListener("pointerdown", pressed, true)
-    window.addEventListener("focus", focus)
-    window.addEventListener("blur", focus)
+    // In each window the canvas may be in, the main one or a lens's own: a frame says hello to the window it's in.
+    const stopWindows = onEachWindow((target) => {
+      target.addEventListener("message", hello)
+      // In the capture phase, before the board under it engages again.
+      target.addEventListener("pointerdown", pressed, true)
+      target.addEventListener("focus", focus)
+      target.addEventListener("blur", focus)
+
+      return () => {
+        target.removeEventListener("message", hello)
+        target.removeEventListener("pointerdown", pressed, true)
+        target.removeEventListener("focus", focus)
+        target.removeEventListener("blur", focus)
+      }
+    })
+
     const unstopped = window.canvasHost?.pages.onStopped((stop) => this.stopped(stop.frame, stop.url))
 
     const unpreviewed = showTokenPreview(project, (css) => {
@@ -265,10 +282,7 @@ export class Pool {
     })
 
     this.stopListening = () => {
-      window.removeEventListener("message", hello)
-      window.removeEventListener("pointerdown", pressed, true)
-      window.removeEventListener("focus", focus)
-      window.removeEventListener("blur", focus)
+      stopWindows()
       unstopped?.()
       unpreviewed()
       unchanged()
@@ -543,7 +557,7 @@ export class Pool {
   }
 
   private takeFocusBack(iframe: HTMLIFrameElement): void {
-    if (document.activeElement === iframe) {
+    if (iframe.ownerDocument.activeElement === iframe) {
       iframe.blur()
     }
 
@@ -567,7 +581,7 @@ export class Pool {
   private focusChanged(): void {
     // Focus in a frame is still the window's; the check waits a moment, as it moves there through the window's blur.
     window.setTimeout(() => {
-      const focused = document.hasFocus()
+      const focused = anyWindowFocused()
 
       if (focused !== this.focused) {
         this.focused = focused

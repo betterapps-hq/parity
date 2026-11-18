@@ -376,7 +376,8 @@ function ContainerContent({ container }: { container: ContainerRecord }) {
     followPress(
       gestures.titleDrag,
       doc,
-      event,
+      // Followed in the window the title was pressed in, the main one or a lens's own.
+      event.nativeEvent,
       telling(
         session,
         {

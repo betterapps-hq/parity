@@ -30,6 +30,7 @@ import {
 import type { AccountState } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
 import { connectorFind, connectorPlaced } from "../shared/connectors.ts"
+import { readLensWindowUrl } from "../shared/lens-window.ts"
 import { logNote } from "../shared/log.ts"
 import { killTree } from "../shared/process-tree.ts"
 import type { ConnectMessage } from "../shared/service.ts"
@@ -49,6 +50,7 @@ import { readEnvironment } from "./environment.ts"
 import { hostHandlers } from "./host-handlers.ts"
 import { answerWindows, fromParityPage } from "./host-methods.ts"
 import { keybindingsFile } from "./keybindings.ts"
+import { lensWindows } from "./lens-windows.ts"
 import { readLogEvents } from "./log-files.ts"
 import { listenOnLoopback } from "./loopback.ts"
 import { isPackaged } from "./packaged.ts"
@@ -247,6 +249,74 @@ let updates: UpdateSession | undefined
 
 /** Closing windows and quitting, which each window's page decides on, and restarting to install an update. */
 const closeFlow = createCloseFlow({ quit: () => app.quit(), updates: () => updates, quitCancelled })
+
+/** Each editor window's lens windows, which close with it, and where each lens's window was last (lens-layout.md). */
+const lensWindowList = lensWindows<LensWindow>({ quitting: () => closeFlow.quitting(), quit: () => app.quit() })
+
+/** A window as lens windows take it, with the window itself, which the rest of main tells apart. */
+interface LensWindow {
+  readonly window: BrowserWindow
+  destroyed(): boolean
+  bounds(): Electron.Rectangle
+  close(): void
+  onClose(listener: (keepOpen: () => void) => void): void
+  onClosed(listener: () => void): void
+}
+
+/** The parts of a window lens windows use, made once for each window, so it's the same one each time. */
+const asLensWindow = (() => {
+  const made = new WeakMap<BrowserWindow, LensWindow>()
+
+  return (window: BrowserWindow): LensWindow => {
+    let parts = made.get(window)
+
+    if (!parts) {
+      parts = {
+        window,
+        destroyed: () => window.isDestroyed(),
+        bounds: () => window.getNormalBounds(),
+        close: () => window.close(),
+        onClose: (listener) => void window.on("close", (event) => listener(() => event.preventDefault())),
+        onClosed: (listener) => void window.on("closed", listener)
+      }
+      made.set(window, parts)
+    }
+
+    return parts
+  }
+})()
+
+/** Whether a window is one of an editor window's lens windows. */
+function isLensWindow(window: BrowserWindow): boolean {
+  return lensWindowList.has(asLensWindow(window))
+}
+
+/**
+ * How a lens's own window opens: with the app's title bar, as the editor window has it, the page drawing the rest, and
+ * where that lens's window last was, unless its tab was let go somewhere else.
+ */
+function lensWindowOptions(lens: string, placed: boolean): Electron.BrowserWindowConstructorOptions {
+  const mac = process.platform === "darwin"
+  const { background, symbols } = titleBarColors()
+
+  const place = placed
+    ? undefined
+    : lensWindowList.placeOf(
+        lens,
+        screen.getAllDisplays().map((display) => display.workArea)
+      )
+
+  return {
+    ...place,
+    minWidth: 480,
+    minHeight: 320,
+    icon: join(import.meta.dirname, "resources", process.platform === "win32" ? "icon.ico" : "icon.png"),
+    backgroundColor: background,
+    autoHideMenuBar: true,
+    titleBarStyle: mac ? "hiddenInset" : "hidden",
+    titleBarOverlay: !mac && { color: background, symbolColor: symbols, height: 40 }
+  }
+}
 
 /** Extensions' app settings as the service last heard them, which it also asks for as it starts. */
 let sentExtensions = settings.state().extensions
@@ -605,13 +675,53 @@ function createWindow(): void {
     onClose: (listener) => void window.on("close", (event) => listener(() => event.preventDefault())),
     onClosed: (listener) => void window.on("closed", listener)
   })
-  // Links open in the person's browser, never in a new app window.
+  // Links open in the person's browser, never in a new app window. The one window the page may open is a lens's own,
+  // on Parity's page, which the page draws into (lens-layout.md).
   window.webContents.setWindowOpenHandler(({ url }) => {
+    const lens = readLensWindowUrl(url, rendererUrl)
+
+    if (lens) {
+      return { action: "allow", overrideBrowserWindowOptions: lensWindowOptions(lens.lens, lens.placed) }
+    }
+
     if (opensInBrowser(url)) {
       void shell.openExternal(url)
     }
 
     return { action: "deny" }
+  })
+  // A lens window shows what the page draws into it, so the page loading again leaves it with nothing.
+  window.webContents.on("did-navigate", () => lensWindowList.closeOf(asLensWindow(window)))
+  window.webContents.on("did-create-window", (child, { url }) => {
+    const lens = readLensWindowUrl(url, rendererUrl)
+
+    if (!lens) {
+      return
+    }
+
+    lensWindowList.add(asLensWindow(child), asLensWindow(window), lens.lens)
+    // A key pressed there is the person's, as in the editor window.
+    child.webContents.on("before-input-event", () => personActed())
+    // Nothing loads in it but the page the editor window draws into; a link that would take it elsewhere opens in the
+    // person's browser.
+    child.webContents.on("will-navigate", (event) => {
+      if (readLensWindowUrl(event.url, rendererUrl)) {
+        return
+      }
+
+      event.preventDefault()
+
+      if (opensInBrowser(event.url)) {
+        void shell.openExternal(event.url)
+      }
+    })
+    child.webContents.setWindowOpenHandler(({ url: opened }) => {
+      if (opensInBrowser(opened)) {
+        void shell.openExternal(opened)
+      }
+
+      return { action: "deny" }
+    })
   })
   // The hidden render windows would otherwise keep the app running.
   window.on("closed", () => {
@@ -652,11 +762,11 @@ function applicationMenu(): Menu {
         {
           label: "Check for updates",
           click: () => {
-            let window = BrowserWindow.getAllWindows().find((candidate) => !isRenderWindow(candidate))
+            let window = appWindows()[0]
 
             if (!window) {
               createWindow()
-              window = BrowserWindow.getAllWindows().find((candidate) => !isRenderWindow(candidate))
+              window = appWindows()[0]
             }
 
             if (!window) {
@@ -717,7 +827,7 @@ function appWindowOf(event: HostEvent): BrowserWindow | undefined {
   }
 
   const page = {
-    render: isRenderWindow(window) || browserWindows.has(window),
+    render: isRenderWindow(window) || browserWindows.has(window) || isLensWindow(window),
     mainFrame,
     url: event.sender.getURL()
   }
@@ -725,9 +835,11 @@ function appWindowOf(event: HostEvent): BrowserWindow | undefined {
   return fromParityPage(page, rendererUrl) ? window : undefined
 }
 
-/** The app's windows, as against the offscreen renderers and the windows Parity opens for a page. */
+/** The app's windows, as against the offscreen renderers, lens windows and the windows Parity opens for a page. */
 function appWindows(): BrowserWindow[] {
-  return BrowserWindow.getAllWindows().filter((window) => !isRenderWindow(window) && !browserWindows.has(window))
+  return BrowserWindow.getAllWindows().filter(
+    (window) => !isRenderWindow(window) && !browserWindows.has(window) && !isLensWindow(window)
+  )
 }
 
 /**

@@ -17,8 +17,12 @@ import { watchExtensionSettings } from "./settings-project.ts"
 import { caughtEventId, reactErrorHandlers, startTelemetry } from "./telemetry.ts"
 import { startTheme } from "./theme.ts"
 import { currentTraceHeaders, traceWith } from "./tracing.ts"
+import { followSheetsIntoWindows } from "./window-sheets.ts"
 import "tldraw/tldraw.css"
 import "./styles.css"
+
+// Before anything adopts a stylesheet, so a frame or icon drawn in a lens's own window takes that window's copies.
+followSheetsIntoWindows()
 
 // The editor window is recorded with Session Replay while diagnostics are on, once main says whether they are; the
 // offscreen renderers aren't recorded (PAR-624).

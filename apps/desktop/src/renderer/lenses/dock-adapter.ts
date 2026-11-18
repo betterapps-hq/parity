@@ -7,6 +7,7 @@ import type {
   IDockviewPanel,
   Position
 } from "dockview-react"
+import { lensWindowUrl } from "../../shared/lens-window.ts"
 import { outsideWindow } from "./popout.ts"
 
 /** What a lens dragged from the lens bar carries, so a group's tabs take it as a new tab and a canvas's side splits. */
@@ -27,8 +28,10 @@ export interface DockEvents<Id extends string> {
   change: (layout: Layout<Id>) => void
   /** A tab was let go outside its window, where nothing took it, at a point on the screen. */
   letGo: (lens: Id, at: Point) => void
-  /** A lens's own window opened with its group in, and the lens in front of it. */
-  opened: (window: Window, lens: Id | undefined) => void
+  /** A lens's own window opened with a group in, the group's id given. */
+  opened: (window: Window, group: string) => void
+  /** The lens window holding a group closed, its group back in the main window or gone. */
+  closed: (group: string) => void
 }
 
 /**
@@ -76,13 +79,19 @@ export function dockAdapter<Id extends string>(
     return focus === undefined ? { groups } : { groups, focus }
   }
 
-  // Opens a lens, or a group of them, in a window of its own: where a tab was let go, or beside the main window.
+  // Opens a lens, or a group of them, in a window of its own: where a tab was let go, or beside the main window. The
+  // page is named for the lens, so the desktop app can put the window back where it was, unless it was let go somewhere.
   const popOut = (panel: IDockviewPanel, at?: Point) => {
     const position = at
       ? { left: Math.round(at.x - 120), top: Math.round(at.y - 18), ...windowSize }
       : { left: window.screenX + 80, top: window.screenY + 80, ...windowSize }
 
-    return api.addPopoutGroup(panel, popoutUrl === undefined ? { position } : { position, popoutUrl })
+    return api.addPopoutGroup(
+      panel,
+      popoutUrl === undefined
+        ? { position }
+        : { position, popoutUrl: lensWindowUrl(popoutUrl, { lens: panel.id, placed: !!at }) }
+    )
   }
 
   // Moves an open lens's tab. With no group named, its group joins the main window at the right.
@@ -208,15 +217,21 @@ export function dockAdapter<Id extends string>(
       }
     }
 
-    const documents = new Set([document])
+    // Each window's document, by the group in it; the main window's has none.
+    const documents = new Map<string | undefined, Document>([[undefined, document]])
     document.addEventListener("dragend", end, true)
 
     subscriptions.push(
       api.onDidAddPopoutGroup(({ window: opened, group }) => {
-        const front = group.activePanel?.id
-        events.opened(opened, isLens(front) ? front : undefined)
-        documents.add(opened.document)
+        events.opened(opened, group.id)
+        documents.set(group.id, opened.document)
         opened.document.addEventListener("dragend", end, true)
+      }),
+      // The window has gone by now.
+      api.onDidRemovePopoutGroup(({ group }) => {
+        documents.get(group.id)?.removeEventListener("dragend", end, true)
+        documents.delete(group.id)
+        events.closed(group.id)
       })
     )
 
@@ -225,7 +240,7 @@ export function dockAdapter<Id extends string>(
         subscription.dispose()
       }
 
-      for (const each of documents) {
+      for (const each of documents.values()) {
         each.removeEventListener("dragend", end, true)
       }
     }

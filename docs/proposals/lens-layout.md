@@ -151,8 +151,9 @@ links, act through `useLensWorkspace`. The exploration's story renders `LensWork
 layout's windows open in the main window until PAR-1248 restores them. The app renders it with `appLenses`, the lenses
 that are built: Screens, today's canvas, Layers and inspector in `lenses/screens.tsx`, Pages in `lenses/pages.tsx`, and
 Stories in `lenses/stories.tsx`. Each lens's canvas is a tldraw editor of its own (`lenses/project-canvas.tsx`), and the
-project holds the one in focus, which the panels, menus and shortcuts act on. It passes no `popoutUrl`, so lenses stay
-in the main window until lens windows come to the desktop app (PAR-1247).
+project holds the one in focus, which the panels, menus and shortcuts act on. It passes the lens window page as
+`popoutUrl`, so lenses move to windows of their own (PAR-1247, in
+[editor.md](../editor.md#lens-windows-par-1247-par-1242)).
 
 **The lens registry is where the two meet.** A lens is its data from the package and three components: a canvas, a left
 panel and an inspector. The exploration's lenses become test lenses for the same `LensWorkspace` the app renders, so its
@@ -171,9 +172,10 @@ The steps go in this order, each after the one before:
 | Screens holding only designs (built)                                     | PAR-1251 |
 | Components as a lens of its own                                          | PAR-1245 |
 
-Today's canvas has been tried in a lens's own window (PAR-1242, in [On Dockview](#on-dockview)). Once Components lands,
-the rest follow: lens windows in the desktop app (PAR-1247), and each project's layout saved and restored (PAR-1248).
-Data's canvas, the ERD, comes with the Data lens's own work (PAR-40).
+Today's canvas has been tried in a lens's own window (PAR-1242, in [On Dockview](#on-dockview)), and lens windows are
+built in the desktop app (PAR-1247), with the fixes the spike found. Each project's layout saved and restored, its lens
+windows reopened where they were, follows (PAR-1248). Data's canvas, the ERD, comes with the Data lens's own work
+(PAR-40).
 
 ## On Dockview
 
@@ -205,6 +207,8 @@ What we'd build on top, each found in the spike:
 - **Electron allowing the window.** The main window's `setWindowOpenHandler` denies every `window.open` today; it would
   allow the pop-out page and set the window's frame and title bar.
 - **The real canvas in a lens's own window.** Tried in PAR-1242, below: tldraw follows it, and what breaks is Parity's.
+
+PAR-1247 built each of these in the desktop app, as editor.md's Lens windows describes.
 
 ### Today's canvas in a lens's own window
 
@@ -266,6 +270,10 @@ What it would take, with the canvas in the main window's renderer:
   accept that it reloads when its tab changes window.
 - **tldraw:** nothing beyond remounting the canvas in the window it moves to, if a listener left behind turns out to
   matter.
+
+PAR-1247 made these fixes, and nothing tried in the lens window needed tldraw remounted. Pages' live frames are heard in
+each window, and a live page still loads again when its tab changes window. Undo, which the spike didn't try, works
+there with the shortcuts.
 
 The other two routes cost more. A renderer of its own for each lens window would need the open project, its store and
 its code kept in step between processes. Keeping canvases in the main window would leave lens windows for panels and

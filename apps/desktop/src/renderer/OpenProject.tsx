@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { lensWindowPage } from "../shared/lens-window.ts"
 import { ProjectContext } from "./canvas/context.ts"
 import { ProjectColors } from "./canvas/project-colors.tsx"
 import { ErrorBoundary } from "./chrome/ErrorBoundary.tsx"
@@ -50,6 +51,7 @@ export function OpenProject({
             <LensWorkspace
               lenses={appLenses}
               layout={openingLayout}
+              popoutUrl={lensWindowPage}
               title={project.title}
               panels={{ left, right }}
               onPanels={setLayout}

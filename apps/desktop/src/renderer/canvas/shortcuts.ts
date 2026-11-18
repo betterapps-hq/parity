@@ -2,6 +2,7 @@ import { useEffect } from "react"
 import { actions, commandsFor } from "../chrome/actions.ts"
 import { type Command, keymap, shortcutFor } from "../chrome/keymap.ts"
 import { runExtensionKey } from "../extension-editor.ts"
+import { onEachWindow } from "../lens-windows.ts"
 import type { SelectionStore } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { escapeOnCanvas } from "./surface/index.ts"
@@ -12,8 +13,8 @@ const appCommands = commands.filter((command) => actions[command].scope === "app
 const canvasCommands = commands.filter((command) => actions[command].scope !== "app")
 
 /**
- * Shortcuts for the File and Help menus, the panels and the tabs. They work anywhere in the window, even in a text
- * field, and with no project open.
+ * Shortcuts for the File and Help menus, the panels and the tabs. They work anywhere in the window, a lens's own window
+ * included, even in a text field, and with no project open.
  */
 export function useAppShortcuts(): void {
   useEffect(() => {
@@ -30,14 +31,16 @@ export function useAppShortcuts(): void {
       void actions[command].run("key", { event })
     }
 
-    window.addEventListener("keydown", onKeyDown, { capture: true })
+    return onEachWindow((target) => {
+      target.addEventListener("keydown", onKeyDown, { capture: true })
 
-    return () => window.removeEventListener("keydown", onKeyDown, { capture: true })
+      return () => target.removeEventListener("keydown", onKeyDown, { capture: true })
+    })
   }, [])
 }
 
 /**
- * Keyboard shortcuts for the active tab, from the keymap. They're handled before tldraw sees them, because the design
+ * Keyboard shortcuts for the active tab, from the keymap, in the main window and each lens's own. They're handled before tldraw sees them, because the design
  * store, not tldraw, owns undo, deletion and the selection inside designs; tldraw's own shortcuts are off.
  */
 export function useShortcuts(selection: SelectionStore | undefined, active: boolean, session?: ProjectSession): void {
@@ -53,9 +56,8 @@ export function useShortcuts(selection: SelectionStore | undefined, active: bool
     const onKeyDown = (event: KeyboardEvent) => {
       // Keys typed into a design, as when interacting with it, are the design's. Shadow DOM hands this listener the
       // frame instead of the element inside it, so the frame is found on the event's path.
-      if (
-        event.composedPath().some((element) => element instanceof HTMLElement && element.hasAttribute("data-frame"))
-      ) {
+      // A lens's own window has elements of its own, which aren't this window's `HTMLElement`s.
+      if (event.composedPath().some((element) => isElement(element) && element.hasAttribute("data-frame"))) {
         return
       }
 
@@ -86,7 +88,7 @@ export function useShortcuts(selection: SelectionStore | undefined, active: bool
       const control =
         !!target &&
         !closing &&
-        target !== document.body &&
+        target !== target.ownerDocument.body &&
         (!target.closest(".tl-container") || !!target.closest("[data-canvas-control]")) &&
         !!target.closest("button, a[href], [role], [tabindex]")
 
@@ -171,21 +173,28 @@ export function useShortcuts(selection: SelectionStore | undefined, active: bool
       pointerHeld = false
     }
 
-    window.addEventListener("keydown", onKeyDown, { capture: true })
-    window.addEventListener("keyup", onKeyUp, { capture: true })
-    window.addEventListener("pointerdown", onPointerDown, { capture: true })
-    window.addEventListener("pointerup", onPointerUp, { capture: true })
-    window.addEventListener("pointercancel", onPointerUp, { capture: true })
-    // A release outside the window never arrives, so leaving it ends the hold too.
-    window.addEventListener("blur", onPointerUp)
+    return onEachWindow((target) => {
+      target.addEventListener("keydown", onKeyDown, { capture: true })
+      target.addEventListener("keyup", onKeyUp, { capture: true })
+      target.addEventListener("pointerdown", onPointerDown, { capture: true })
+      target.addEventListener("pointerup", onPointerUp, { capture: true })
+      target.addEventListener("pointercancel", onPointerUp, { capture: true })
+      // A release outside the window never arrives, so leaving it ends the hold too.
+      target.addEventListener("blur", onPointerUp)
 
-    return () => {
-      window.removeEventListener("blur", onPointerUp)
-      window.removeEventListener("keydown", onKeyDown, { capture: true })
-      window.removeEventListener("keyup", onKeyUp, { capture: true })
-      window.removeEventListener("pointerdown", onPointerDown, { capture: true })
-      window.removeEventListener("pointerup", onPointerUp, { capture: true })
-      window.removeEventListener("pointercancel", onPointerUp, { capture: true })
-    }
+      return () => {
+        target.removeEventListener("blur", onPointerUp)
+        target.removeEventListener("keydown", onKeyDown, { capture: true })
+        target.removeEventListener("keyup", onKeyUp, { capture: true })
+        target.removeEventListener("pointerdown", onPointerDown, { capture: true })
+        target.removeEventListener("pointerup", onPointerUp, { capture: true })
+        target.removeEventListener("pointercancel", onPointerUp, { capture: true })
+      }
+    })
   }, [selection, active, session])
+}
+
+/** Whether an event's target is an element, in this window's document or a lens window's. */
+function isElement(target: EventTarget): target is Element {
+  return "hasAttribute" in target && "closest" in target
 }
