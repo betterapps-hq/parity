@@ -96,13 +96,13 @@ describe("parity.presence", () => {
     person.signIn({ name: "Mia" })
     expect(presence.self).toBe(before)
 
-    person.signIn({ name: "Andrew", own: { initials: "AC", color: "#3b82f6" } })
-    person.signIn({ name: "Andrew", own: { initials: "AC", color: "#3b82f6" } })
+    person.signIn({ name: "Grace", own: { initials: "GH", color: "#3b82f6" } })
+    person.signIn({ name: "Grace", own: { initials: "GH", color: "#3b82f6" } })
     person.signIn({ name: "Guest" })
     listening.dispose()
     person.signIn({ name: "Mia" })
 
-    expect(heard).toEqual(["Andrew AC", "Guest"])
+    expect(heard).toEqual(["Grace GH", "Guest"])
     expect(presence.self).toEqual({ name: "Mia" })
     await stop()
   })
