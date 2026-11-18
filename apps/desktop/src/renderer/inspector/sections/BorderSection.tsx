@@ -1,4 +1,4 @@
-import type { Color, OutlineOffset } from "@parity-app/core"
+import { alphaPercent, type Color, type OutlineOffset, withAlpha } from "@parity-app/core"
 import { listColor, storedColors } from "../color-values.ts"
 import {
   type BorderValue,
@@ -16,14 +16,19 @@ function colorShown(color: Color | undefined): Pick<BorderValue, "color" | "alph
   return color === undefined ? {} : listColor(color)
 }
 
-/** The Color field's color back as the style holds it, keeping the layer's when it didn't change. */
+/**
+ * The Color field's color back as the style holds it, keeping the layer's when it didn't change, and the layer's own
+ * alpha when the field gave none, as it doesn't for layers whose alphas differ.
+ */
 function colorStored(next: Pick<BorderValue, "color" | "alpha">, was: Color | undefined): Color | undefined {
   if (next.color === undefined) {
     return undefined
   }
 
+  const alpha = next.alpha ?? (was === undefined ? undefined : alphaPercent(was))
+
   return storedColors(was === undefined ? [] : [was])(
-    next.alpha === undefined ? { color: next.color } : { color: next.color, alpha: next.alpha }
+    alpha === undefined ? { color: next.color } : { color: next.color, alpha }
   )
 }
 
@@ -36,9 +41,7 @@ function alphaStored(was: Color | undefined, alpha: number | undefined): Color |
     return undefined
   }
 
-  const { color } = listColor(was)
-
-  return storedColors([was])(alpha === undefined ? { color } : { color, alpha })
+  return withAlpha(was, alpha)
 }
 
 /** A border's or an outline's fields, each optional, so one label reads either. */
