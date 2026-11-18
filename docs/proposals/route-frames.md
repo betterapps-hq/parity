@@ -7,6 +7,7 @@ extensions, what the desktop app keeps, and the contracts between them. Revised 
 reviews: the live board's input, invalidation, the sanitizer, selection on copies, pictures at full height and failure
 of the page process are specified. Step 1's checks were run in Electron on 2026-11-17 (PAR-1259); their results are
 under Evidence, and the sections they changed say so. A content security policy for Parity's window is left to PAR-1255.
+The built app was measured on copacker against the demo on 2026-11-18 (PAR-1302), also under Evidence.
 
 ## In one line
 
@@ -689,6 +690,52 @@ on builders' loopback ports. Input went through Chromium's input router (`Input.
 | A plain TanStack app's router                                                    | `window.__TSR_ROUTER__`, since about 1.121                                                                           | Every TanStack app has a page router                           |
 | React Router library mode's router                                               | No global; framework mode has `__reactRouterDataRouter`                                                              | The builder wraps `createBrowserRouter` and `createHashRouter` |
 
+### In the app, on copacker (PAR-1302)
+
+Measured on 2026-11-18 in `pnpm dev:prod`, with the window shown on screen at 1440×900. Copacker has 41 routes and 4
+modes (Desktop Light and Dark at 1280, Tablet Light at 768, Mobile Light at 390): 41 boards with one mode each, 164 with
+all four. Frame times are each animation frame's interval while the camera moves every frame for 4 s, as `pnpm perf`
+moves it. Hover and press went through Chromium's input, timed from the event to the board's `data-ready` or
+`data-live`.
+
+Copacker drew no copy at first. TanStack Start renders its pages on the server, and that HTML never went through Vite's
+`transformIndexHtml`, so the page runtime wasn't in it: boards kept placeholders and spares were never ready. Vite's
+builder now puts the runtime in server-rendered pages too (`serverPageEntry`, PR #855).
+
+| What                                                      | In the app                                                                                           | The demo                       |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Pages shown in a new window, 41 boards                    | every board's kept picture in 3.9 s                                                                  | none                           |
+| Three more modes turned on, 105 new boards                | each with a copy and a picture in 66 s, about 0.6 s a board; 6 s once their pictures are kept        | 36 pairs frozen in 7–26 s      |
+| Hover to Ready, with Interact                             | 93–253 ms, the 80 ms rest included; 540 ms for a portal route that redirects                         | none                           |
+| Press to Live, from Ready                                 | 22–52 ms                                                                                             | parked 20–157, sent 222–486 ms |
+| Copies drawn at once                                      | 2 to 4: only boards wider than 440 px near the view; pictures elsewhere                              | all 102                        |
+| Pan, 164 boards, at fit, 20%, 45% and 60%                 | 60 fps, no long tasks                                                                                | none                           |
+| Zoom, 164 boards, at fit                                  | 56–59 fps                                                                                            | none                           |
+| Zoom, 164 boards, at 20%                                  | 39–47 fps, no long tasks                                                                             | none                           |
+| Zoom, 164 boards, at 45–60%                               | 21–28 fps; 40–47 fps with out-of-view boards' contents skipped                                       | none                           |
+| Memory, 164 boards                                        | window 650–900 MB, pages' process 170–250 MB with freezer, spares and live frame, builder 710–770 MB | about 80 MB a frame            |
+| For comparison: Components, 390 boards drawn by the guest | pan 20–30 fps, zoom 14–34 fps, 28–60 long tasks in 4 s; window 1.3–1.5 GB                            | none                           |
+
+What it found:
+
+1. **Route frames do what the demo did, or better.** Going live from Ready takes about 30 ms, since hover already moved
+   a spare to the route. Panning never drops a frame, and a canvas of pictures with a few copies needs far less of the
+   window than the demo's 102 copies, or than Components' 390 frames drawn by the guest.
+2. **Zooming is slower, and route frames aren't why.** Hiding every picture, every copy or every board's content left
+   zoom at 25 fps at 60%; hiding whole boards gave 59 fps. Each zoom frame restyles every board's labels and gutters,
+   about 900 elements across 41 routes, 37 of them out of view. Skipping out-of-view boards' contents with
+   `content-visibility` took 60% from 25 to 47 fps and 20% from 44 to 57 fps, but the measuring service reads frames in
+   those boards too (PAR-1314).
+3. **Session Replay builds up over a long session.** After about an hour, zooming spent about 1.8 s of every 4 s in
+   JavaScript, with Replay's mutation handling at the top though it was held for the zoom; a fresh Replay spent 1.0 s
+   (PAR-1315).
+4. **A copy plays the page's entrance animations each time it mounts.** Copacker's login form fades in over 0.5 s
+   whenever its board turns from picture to copy (PAR-1316).
+5. **Copies are kept only in the window.** After a reload, boards show their kept pictures, and each turns into a copy
+   once the freezer has frozen its route again, nearest the view first.
+6. **Turning on more modes on Pages draws a route's boards on top of each other** (PAR-1317). It doesn't change the
+   counts or tiers above.
+
 ## Risks
 
 - **Each frame is a whole copy of the app,** about 80 MB in dev. Per project and window, the live frame, two spares and
@@ -715,7 +762,8 @@ on builders' loopback ports. Input went through Chromium's input router (`Input.
 The tiers, the snapshot and the channel don't depend on routes. A story's page, or a component's case page from
 [visual-tests.md](visual-tests.md), is a page that draws something at a URL, and could be live, frozen or a picture the
 same way, with a page module that changes the story instead of the route. Components and stories keep the guest until
-that's tried.
+that's tried. [frozen-copies-beyond-routes.md](frozen-copies-beyond-routes.md) proposes it for stories and then
+components, from what the app measured on copacker.
 
 ## Build steps
 
