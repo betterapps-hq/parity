@@ -27,6 +27,20 @@ function colorStored(next: Pick<BorderValue, "color" | "alpha">, was: Color | un
   )
 }
 
+/**
+ * A layer's own color with a new alpha, so an alpha edit across layers whose colors differ keeps each color and only
+ * an edit to the color itself replaces it.
+ */
+function alphaStored(was: Color | undefined, alpha: number | undefined): Color | undefined {
+  if (was === undefined) {
+    return undefined
+  }
+
+  const { color } = listColor(was)
+
+  return storedColors([was])(alpha === undefined ? { color } : { color, alpha })
+}
+
 /** A border's or an outline's fields, each optional, so one label reads either. */
 type LineValue = BorderValue & OutlineValue
 
@@ -124,7 +138,9 @@ export function BorderSection({ editor, edit }: SectionProps) {
     } else {
       const field = changedField(value, next)
 
-      if (field === "color" || field === "alpha") {
+      if (field === "alpha") {
+        edit("borderColor", (layer) => ({ borderColor: alphaStored(layer.borderColor, next.alpha) }), label)
+      } else if (field === "color") {
         edit("borderColor", (layer) => ({ borderColor: colorStored(next, layer.borderColor) }), label)
       } else if (field === "widths") {
         const reached = sidesChanged(value.widths, next.widths)
@@ -181,7 +197,9 @@ export function OutlineSection({ editor, edit }: SectionProps) {
     } else {
       const field = changedField(value, next)
 
-      if (field === "color" || field === "alpha") {
+      if (field === "alpha") {
+        edit("outlineColor", (layer) => ({ outlineColor: alphaStored(layer.outlineColor, next.alpha) }), label)
+      } else if (field === "color") {
         edit("outlineColor", (layer) => ({ outlineColor: colorStored(next, layer.outlineColor) }), label)
       } else if (field === "width") {
         const stored = next.width === undefined ? undefined : lineWidthOf({ number: next.width })
