@@ -31,6 +31,15 @@ function nearestSize(choice: FluentChoice, px: number) {
   )
 }
 
+/** The size in a Fluent export's name: the one wanted when it's drawn, else the nearest, and none for unsized. */
+function exportSize(size: Size, drawn: boolean, from: number | undefined) {
+  if (!drawn) {
+    return from ?? ""
+  }
+
+  return size === "unsized" ? "" : size
+}
+
 /**
  * A Fluent icon at a size and in a style. When Fluent has no drawing at that size, the nearest drawing is scaled to it
  * and outlined, with a tooltip that says which size it came from.
@@ -38,13 +47,11 @@ function nearestSize(choice: FluentChoice, px: number) {
 function FluentGlyph({ choice, size, style }: { choice: FluentChoice; size: Size; style: Style }) {
   const module = fluentModules.get(choice.file) ?? {}
   const px = size === "unsized" ? 20 : size
-  const drawn = size === "unsized" || choice.sizes.includes(size)
+  const drawn = size === "unsized" ? choice.unsized : choice.sizes.includes(size)
   const from = drawn ? undefined : nearestSize(choice, px)
 
   const Icon =
-    (size === "unsized"
-      ? module[`${choice.name}${style}`]
-      : module[`${choice.name}${drawn ? size : (from ?? "")}${style}`]) ??
+    module[`${choice.name}${exportSize(size, drawn, from)}${style}`] ??
     module[`${choice.name}${style}`] ??
     module[`${choice.name}${choice.sizes.at(-1) ?? ""}${style}`]
 
@@ -61,7 +68,7 @@ function FluentGlyph({ choice, size, style }: { choice: FluentChoice; size: Size
   return (
     <span
       className="inline-flex rounded-sm outline outline-1 outline-dashed outline-amber-500"
-      title={`No ${px}px drawing. Scaled from ${from ? `${from}px` : "the unsized icon"}.`}
+      title={`No ${size === "unsized" ? "unsized" : `${px}px`} drawing. Scaled from ${from ? `${from}px` : "the unsized icon"}.`}
     >
       {glyph}
     </span>
