@@ -6,9 +6,18 @@
 //   - arrived: how far apart those pointers reach the watching copy, from its stream of server-sent events
 //   - drawn: in the watching copy, every frame's length and how far the mover's pointer moved on screen in it, so frames
 //     where it stood still while positions kept coming ("stalls") and its biggest single-frame jump show
+// Then, with the guest editing and the host watching (PAR-1325):
+//   - edits: edit to screen, from the guest's edit to the first frame the host draws with it, for a board drag, a style
+//     change, typing and a token change, each made 20 times through the guest's document, and the host's share of it,
+//     from the change arriving to that frame
+//   - drag: the host's frames and long tasks while the guest drags a board for --seconds, a write every frame in one
+//     gesture, as a drag writes it
+//   - join: how long the guest takes to open the project again on the host's snapshot, and the snapshot's size
 // Both copies close afterwards. Results go to .inspect/room-perf/<label>.json, with each frame's length and step in
 // <label>.<mover>.frames.json; --compare prints another run's beside them.
 // Usage: node scripts/room-perf.ts [--label name] [--compare name] [--seconds 8] [--busy 0] [--project root] [--keep]
+//                                   [--runs "pointer, edits, drag, join"]
+//   --runs  only these measurements, by name; all of them unless given
 //   --busy  keeps the moving copy's main thread busy for this many milliseconds every 250 ms, as rendering or an edit
 //           does, which holds back the positions it sends
 //   --keep  leaves both copies running afterwards, until the script is stopped
@@ -19,6 +28,7 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { print } from "../../../scripts/output.ts"
+import { editsToScreen, joinAgain, remoteDrag, withDocs } from "./room-edits.ts"
 
 const appDir = resolve(import.meta.dirname, "..")
 const repoDir = resolve(appDir, "../..")
@@ -37,6 +47,7 @@ const seconds = Number(option("seconds") ?? 8)
 const busyMs = Number(option("busy") ?? 0)
 const project = resolve(option("project") ?? join(repoDir, "examples/shadcn-vite"))
 const keep = args.includes("--keep")
+const runs = new Set((option("runs") ?? "pointer, edits, drag, join").split(",").map((each) => each.trim()))
 const [firstUi, firstDebug] = (process.env.PARITY_ROOM_PERF_PORTS ?? "5330,9350").split(",").map(Number)
 const profileDir = join(tmpdir(), `parity-room-perf-${firstUi}`)
 const windowSize = { width: 940, height: 880 }
@@ -87,6 +98,12 @@ interface Result {
   seconds: number
   busyMs: number
   directions: Direction[]
+  /** Edit to screen, by edit, and the watcher's own share, from the change arriving to its frame. */
+  edits?: { edit: string; toScreen: Spread; arrivedToScreen: Spread }[]
+  /** The watcher's frames and long tasks while the mover dragged a board. */
+  drag?: { frames: Spread; longTasks: number; longTaskMs: number; longestTaskMs: number; changes: number }
+  /** The guest opening the project again on the host's snapshot. */
+  join?: { ms: number; snapshotBytes: number }
 }
 
 await mkdir(outDir, { recursive: true })
@@ -113,8 +130,42 @@ try {
   // Each sees the other's pointer once it's moved over the canvas.
   await guest.page!.waitForTimeout(3000)
 
-  const directions = [await measured(guest, host, 1), await measured(host, guest, 0)]
+  const directions = runs.has("pointer") ? [await measured(guest, host, 1), await measured(host, guest, 0)] : []
   const result: Result = { label, date: new Date().toISOString(), seconds, busyMs, directions }
+
+  if (runs.has("edits") || runs.has("drag") || runs.has("join")) {
+    await withDocs([host.page!, guest.page!])
+  }
+
+  // The guest edits and the host watches.
+  if (runs.has("edits")) {
+    print(`\n${guest.name} edits, ${host.name} watches`)
+    const edits = await editsToScreen(guest.page!, host.page!)
+    result.edits = edits.map((each) => ({
+      edit: each.edit,
+      toScreen: spread(each.toScreen),
+      arrivedToScreen: spread(each.arrivedToScreen)
+    }))
+  }
+
+  if (runs.has("drag")) {
+    print(`\n${guest.name} drags a board, ${host.name} watches`)
+    const drag = await remoteDrag(guest.page!, host.page!, seconds)
+    result.drag = {
+      frames: spread(drag.frames),
+      longTasks: drag.longTasks.length,
+      longTaskMs: round(drag.longTasks.reduce((total, each) => total + each, 0)),
+      longestTaskMs: round(Math.max(0, ...drag.longTasks)),
+      changes: drag.changes
+    }
+  }
+
+  if (runs.has("join")) {
+    print(`\n${guest.name} opens the project again`)
+    const join = await joinAgain(guest.page!)
+    result.join = { ms: round(join.ms), snapshotBytes: join.snapshotBytes }
+  }
+
   await writeFile(join(outDir, `${label}.json`), JSON.stringify(result, null, 2))
   // SAFETY: the file is an earlier run's result, which this script wrote from a `Result` as it writes this one.
   const previous = compare ? (JSON.parse(await readFile(join(outDir, `${compare}.json`), "utf8")) as Result) : undefined
@@ -484,6 +535,22 @@ function spread(values: number[]): Spread {
 }
 
 function report(result: Result, previous: Result | undefined): void {
+  const ms = (each: Spread) => `p50 ${each.p50} ms, p95 ${each.p95} ms, max ${each.max} ms`
+
+  for (const each of result.edits ?? []) {
+    print(`\n${each.edit}: edit to screen ${ms(each.toScreen)}; arriving to screen ${ms(each.arrivedToScreen)}`)
+  }
+
+  if (result.drag) {
+    const { frames, longTasks, longTaskMs, longestTaskMs, changes } = result.drag
+    print(`\nRemote drag, ${changes} changes drawn: frames ${ms(frames)}`)
+    print(`  ${longTasks} long tasks, ${longTaskMs} ms in all, the longest ${longestTaskMs} ms`)
+  }
+
+  if (result.join) {
+    print(`\nJoining again: ${result.join.ms} ms, on a snapshot of ${Math.round(result.join.snapshotBytes / 1024)} KB`)
+  }
+
   for (const each of result.directions) {
     const before = previous?.directions.find((other) => other.mover === each.mover)
     const was = (value: number | undefined) => (value === undefined ? "" : `  (was ${value})`)

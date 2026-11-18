@@ -64,8 +64,11 @@ Across all of them:
 - **A live room says how smoothly others arrive** (PAR-1307). Once a minute in a room, `room.latency` has its round
   trips, the presence it sent and received, how far apart others' presence arrived (median, 95th percentile and longest,
   leaving out pauses of a second or more) and how many of their pointer positions came too late to be drawn on time. It
-  carries no names or positions. Frame times while someone moves aren't recorded; `apps/desktop/scripts/room-perf.ts`
-  measures those by hand.
+  also has how many of others' changes this copy took in and how long each took from arriving to the first frame drawn
+  with it (median, 95th percentile and slowest; PAR-1325). With the round trip, that's most of edit to screen: the rest
+  is the sender's wait for the batch before it and half a round trip on the way. It carries no names, positions or
+  content. Frame times while someone moves aren't recorded; `apps/desktop/scripts/room-perf.ts` measures those, and edit
+  to screen end to end, by hand.
 - **Almost nothing is sampled.** No process sets `tracesSampleRate` or a sampler, so the SDKs make no spans of their
   own, and every span Parity makes is sent. No registered event uses `defineEvent`'s `sample` option. Three events thin
   themselves: `dragPreview.settled` records one in ten previews of others' drags that end by their write, and every
