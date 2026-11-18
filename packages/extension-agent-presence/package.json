@@ -13,8 +13,7 @@
   "dependencies": {
     "@parity-app/canvas-layer": "workspace:*",
     "@parity-app/extension": "workspace:*",
-    "@parity-app/presence-ui": "workspace:*",
-    "lucide-react": "^1.66.0"
+    "@parity-app/presence-ui": "workspace:*"
   },
   "peerDependencies": {
     "react": "^19.3.1"
