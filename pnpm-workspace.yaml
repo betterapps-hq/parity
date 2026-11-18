@@ -43,6 +43,7 @@ catalog:
   "@buildkitgg/oxlint-config": 0.1.0
   "@buildkitgg/shadcn-sync": 0.1.4
   "@buildkitgg/storybook-config": 0.2.0
+  "@fluentui/react-icons": 2.0.346
   "@sentry/cli": 3.8.2
   "@sentry/electron": 8.4.0
   "@sentry/node": 11.8.0
