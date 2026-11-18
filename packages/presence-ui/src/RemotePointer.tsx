@@ -98,6 +98,8 @@ export function RemotePointer({
     () => () => {
       if (frame.current !== undefined) {
         cancelAnimationFrame(frame.current)
+        // Mounted again, as StrictMode does, it starts drawing afresh.
+        frame.current = undefined
       }
     },
     []

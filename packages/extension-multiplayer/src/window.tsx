@@ -252,6 +252,7 @@ export default defineWindowModule({
         follow.left(gone)
         previews.get(gone)?.dispose()
         previews.delete(gone)
+        heldForWrite.delete(gone)
         people.remove(gone)
 
         if (held.delete(gone)) {
@@ -288,6 +289,7 @@ export default defineWindowModule({
       },
       presence(presence, from) {
         people.presence(from, presence)
+        heldForWrite.delete(from)
 
         if (previews.has(from)) {
           drawDrags()
@@ -300,6 +302,12 @@ export default defineWindowModule({
       event(event, from) {
         switch (event.kind) {
           case "changes":
+            // Likely their drop's write, which their drag settles on when it ends: until they move again, frames
+            // drawn between positions leave the drag be, since an update makes it forget a write that came first.
+            if (previews.has(from)) {
+              heldForWrite.add(from)
+            }
+
             void parity.sync.receive(fromBase64(event.bytes)).then(
               ({ pending }) => {
                 if (pending) {
@@ -348,8 +356,9 @@ export default defineWindowModule({
       }
     })
 
-    // Someone's drag follows their pointer as it's drawn, on every frame while it's on its way.
+    // Someone's drag follows their pointer as it's drawn, on every frame while it's on its way, unless held for a write.
     let dragFrame: number | undefined
+    const heldForWrite = new Set<string>()
 
     const drawDrags = () => {
       dragFrame ??= requestAnimationFrame((now) => {
@@ -357,6 +366,10 @@ export default defineWindowModule({
         let moving = false
 
         for (const [from, preview] of previews) {
+          if (heldForWrite.has(from)) {
+            continue
+          }
+
           const gesture = people.person(from)?.gesture
           const pointer = people.pointerAt(from, now)
 
