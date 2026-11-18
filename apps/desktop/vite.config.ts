@@ -69,7 +69,9 @@ export default defineConfig(({ mode }) => {
           index: resolve(import.meta.dirname, "src/renderer/index.html"),
           render: resolve(import.meta.dirname, "src/renderer/render.html"),
           // Settings' own page, which main shows over the window and which loads no project code (PAR-1090).
-          settings: resolve(import.meta.dirname, "src/renderer/settings.html")
+          settings: resolve(import.meta.dirname, "src/renderer/settings.html"),
+          // The page a lens's own window opens on, before the lens is moved into it (lens-layout.md).
+          lensWindow: resolve(import.meta.dirname, "src/renderer/lenses/popout/popout.html")
         },
         output: {
           // A window module's chunk is named after its package, so a long frame can be put down to its extension

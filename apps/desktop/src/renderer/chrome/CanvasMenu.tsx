@@ -22,6 +22,7 @@ import { DesignIcon, designColor, kindColors, NodeIcon, nodeColor } from "../can
 import { pickLayer } from "../canvas/pick.ts"
 import { useExtensions } from "../extensions.ts"
 import { allFrames } from "../frame.ts"
+import { isElement, isMouseEvent, isNode, windowOf } from "../lens-windows.ts"
 import { useContainerEntries, useNotes } from "../project-doc.ts"
 import { useInteracting, useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -116,7 +117,7 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
     const before = pressed?.selection ?? session.selection.get()
     const under = designUnder(session, event.currentTarget, point, before, { deep: pressed?.deep ?? false })
     // A selected layer's resize handle is part of the selection, though it reaches a little past the layer's box.
-    const handle = from instanceof Element && !!from.closest(".resize-handle")
+    const handle = isElement(from) && !!from.closest(".resize-handle")
 
     if (under) {
       session.selection.set(handle ? before : rightClickSelection(before, under.target, under.clicked, under.root))
@@ -131,7 +132,7 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
   // under the backdrop gets the `contextmenu` tldraw would have sent, which moves the menu to the press. Anywhere else,
   // the press closes the menu.
   const reopensOnCanvas = (event: Event): boolean => {
-    if (!(event instanceof MouseEvent) || event.button !== 2 || !area) {
+    if (!isMouseEvent(event) || event.button !== 2 || !area) {
       return false
     }
 
@@ -143,7 +144,8 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
 
     const selection = session.selection.get()
     const deep = event.ctrlKey || event.metaKey
-    onGestureEnd(window, (how) => {
+    // The press's own window, the main one or a lens's.
+    onGestureEnd(windowOf(event), (how) => {
       if (how !== "release") {
         return
       }
@@ -204,8 +206,10 @@ function elementSourceAt(area: Element, point: Point): ElementSource | undefined
  * pointer. Undefined when the press wasn't on something hit testing finds there.
  */
 function underBackdrop(event: MouseEvent): Element | undefined {
-  const stack = document.elementsFromPoint(event.clientX, event.clientY)
-  const at = event.target instanceof Element ? stack.indexOf(event.target) : -1
+  // In the document the menu opened in, the main window's or a lens window's.
+  const page = isNode(event.target) ? (event.target.ownerDocument ?? document) : document
+  const stack = page.elementsFromPoint(event.clientX, event.clientY)
+  const at = isElement(event.target) ? stack.indexOf(event.target) : -1
 
   return at === -1 ? undefined : stack[at + 1]
 }
@@ -342,7 +346,7 @@ function run(session: ProjectSession, action: MenuAction, point: Point): void {
  */
 function onCanvas(target: EventTarget): boolean {
   return (
-    target instanceof Element &&
+    isElement(target) &&
     !!target.closest(".tl-container, .resize-handle") &&
     !target.closest(
       "button, input, textarea, select, a[href], [role=menuitem], [role=option], .design-title, .state-label, .text-editor"

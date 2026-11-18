@@ -1,5 +1,6 @@
 import type { Point, Rect, SnapBox } from "@parity-app/editor"
 import { findNodeElement, nodeBox } from "../frame.ts"
+import { isHTMLElement } from "../lens-windows.ts"
 
 /**
  * Where a frame and what it draws are on screen, and how big a pixel of the design is there. Everything the canvas
@@ -236,7 +237,7 @@ function laidOut(element: Element, style: CSSStyleDeclaration): LaidOut | undefi
     }
   }
 
-  return element instanceof HTMLElement ? { width: element.offsetWidth, height: element.offsetHeight } : undefined
+  return isHTMLElement(element) ? { width: element.offsetWidth, height: element.offsetHeight } : undefined
 }
 
 class DrawnFrame implements FrameGeometry {
@@ -377,9 +378,9 @@ class DrawnNode extends DrawnElement implements NodeGeometry {
    */
   private offsetParent(): ElementGeometry | undefined {
     const { drawn } = this
-    const around = drawn instanceof HTMLElement ? drawn.offsetParent : undefined
+    const around = isHTMLElement(drawn) ? drawn.offsetParent : undefined
 
-    if (!drawn || !(around instanceof HTMLElement)) {
+    if (!drawn || !isHTMLElement(around)) {
       return undefined
     }
 

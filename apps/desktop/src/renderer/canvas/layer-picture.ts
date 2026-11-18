@@ -1,4 +1,5 @@
 import { bodyAttribute } from "@parity-app/core"
+import { isHTMLElement, isSVGElement } from "../lens-windows.ts"
 import { unrecordedShadow } from "../shadow.ts"
 
 /** How the frame's body is drawn in a picture: where the layers are placed from, and nothing of its own. */
@@ -77,15 +78,15 @@ const reach = 100
  */
 function laidOut(element: Element, scale: number): LaidOut {
   const byBox = (rect: DOMRect): LaidOut => {
-    const width = element instanceof HTMLElement ? element.offsetWidth : rect.width / scale
-    const height = element instanceof HTMLElement ? element.offsetHeight : rect.height / scale
+    const width = isHTMLElement(element) ? element.offsetWidth : rect.width / scale
+    const height = isHTMLElement(element) ? element.offsetHeight : rect.height / scale
     const across = width > 0 ? rect.width / width : scale
     const down = height > 0 ? rect.height / height : scale
 
     return { width, height, toScreen: new DOMMatrix([across, 0, 0, down, rect.left, rect.top]) }
   }
 
-  if (!(element instanceof HTMLElement || element instanceof SVGElement)) {
+  if (!(isHTMLElement(element) || isSVGElement(element))) {
     return byBox(element.getBoundingClientRect())
   }
 
@@ -113,7 +114,7 @@ function laidOut(element: Element, scale: number): LaidOut {
 
   // A transform that moves nothing, so the points put in it are placed from its own box.
   style.setProperty("transform", "translate(0px)", "important")
-  const laid = (element instanceof HTMLElement && byPoints(element)) || byBox(element.getBoundingClientRect())
+  const laid = (isHTMLElement(element) && byPoints(element)) || byBox(element.getBoundingClientRect())
   saved.slice(1).forEach(put)
   // Drawn transformed again before its transition comes back.
   element.getBoundingClientRect()
@@ -227,7 +228,7 @@ export function layerPicture(
   }
 
   const body = frame.querySelector(`[${bodyAttribute}]`)?.cloneNode(false)
-  const stand = body instanceof HTMLElement ? body : document.createElement("div")
+  const stand = isHTMLElement(body) ? body : document.createElement("div")
 
   // Only the layers show: the body's own background, border and padding are left out.
   for (const [name, value] of Object.entries(standIn)) {
@@ -300,7 +301,7 @@ export function layerPicture(
  * that transforms itself is what they're placed against already, in its copy too.
  */
 function keepPlaced(layer: Element, copy: Element, toScreen: DOMMatrix): void {
-  if (!(layer instanceof HTMLElement || layer instanceof SVGElement)) {
+  if (!(isHTMLElement(layer) || isSVGElement(layer))) {
     return
   }
 
@@ -368,7 +369,7 @@ function keepPlaced(layer: Element, copy: Element, toScreen: DOMMatrix): void {
   const parts = [...copy.querySelectorAll("*")]
 
   // What's fixed is placed against the copy too, as it was measured against the layer, not against what holds it.
-  if (copy instanceof HTMLElement && placed.some(({ fixed }) => fixed)) {
+  if (isHTMLElement(copy) && placed.some(({ fixed }) => fixed)) {
     copy.style.setProperty("transform", "translate(0px)", "important")
   }
 
@@ -378,7 +379,7 @@ function keepPlaced(layer: Element, copy: Element, toScreen: DOMMatrix): void {
     const by = back.transformPoint(move)
 
     if (
-      !(part instanceof HTMLElement || part instanceof SVGElement) ||
+      !(isHTMLElement(part) || isSVGElement(part)) ||
       (Math.abs(move.x) < 0.01 && Math.abs(move.y) < 0.01) ||
       ![by.x, by.y, left, top].every(Number.isFinite)
     ) {

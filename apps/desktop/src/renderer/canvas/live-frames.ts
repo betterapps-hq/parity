@@ -33,6 +33,7 @@ import { useEffect, useRef } from "react"
 import type { Editor } from "tldraw"
 import { z } from "zod"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
+import { isNode, onEachWindow, openLensWindows, postAs } from "../lens-windows.ts"
 import { track } from "../report-error.ts"
 import { resetWithWindow, useStore, windowStore } from "../store.ts"
 import { holdFreezer, keepLiveCopy } from "./freezer.ts"
@@ -221,6 +222,11 @@ function withDeadline<T>(request: Promise<T>, ms: number): Promise<T> {
   ]).finally(() => window.clearTimeout(timer))
 }
 
+/** Whether the main window or a lens's own has the focus. */
+function anyWindowFocused(): boolean {
+  return [window, ...openLensWindows()].some((each) => each.document.hasFocus())
+}
+
 /** A URL's route, as the pool keeps it: its path and query. */
 export function routeOf(url: string): string {
   const { pathname, search } = new URL(url)
@@ -264,11 +270,22 @@ export class Pool {
     const pressed = (event: PointerEvent) => this.pressedOutside(event)
     const focus = () => this.focusChanged()
 
-    window.addEventListener("message", hello)
-    // In the capture phase, before the board under it engages again.
-    window.addEventListener("pointerdown", pressed, true)
-    window.addEventListener("focus", focus)
-    window.addEventListener("blur", focus)
+    // In each window the canvas may be in, the main one or a lens's own: a frame says hello to the window it's in.
+    const stopWindows = onEachWindow((target) => {
+      target.addEventListener("message", hello)
+      // In the capture phase, before the board under it engages again.
+      target.addEventListener("pointerdown", pressed, true)
+      target.addEventListener("focus", focus)
+      target.addEventListener("blur", focus)
+
+      return () => {
+        target.removeEventListener("message", hello)
+        target.removeEventListener("pointerdown", pressed, true)
+        target.removeEventListener("focus", focus)
+        target.removeEventListener("blur", focus)
+      }
+    })
+
     const unstopped = window.canvasHost?.pages.onStopped((stop) => this.stopped(stop.frame, stop.url))
 
     const unpreviewed = showTokenPreview(project, (css) => {
@@ -303,10 +320,7 @@ export class Pool {
     })
 
     this.stopListening = () => {
-      window.removeEventListener("message", hello)
-      window.removeEventListener("pointerdown", pressed, true)
-      window.removeEventListener("focus", focus)
-      window.removeEventListener("blur", focus)
+      stopWindows()
       unstopped?.()
       unpreviewed()
       unchanged()
@@ -584,7 +598,7 @@ export class Pool {
   }
 
   private takeFocusBack(iframe: HTMLIFrameElement): void {
-    if (document.activeElement === iframe) {
+    if (iframe.ownerDocument.activeElement === iframe) {
       iframe.blur()
     }
 
@@ -600,7 +614,7 @@ export class Pool {
     // A press anywhere but the board on its way to going live moves on from it: it's closed once ready, never engaged.
     const pending = this.going && this.boards.get(this.going.board)?.().element()
 
-    if (this.going && !(event.target instanceof Node && pending?.contains(event.target))) {
+    if (this.going && !(isNode(event.target) && pending?.contains(event.target))) {
       this.going = undefined
     }
   }
@@ -608,7 +622,7 @@ export class Pool {
   private focusChanged(): void {
     // Focus in a frame is still the window's; the check waits a moment, as it moves there through the window's blur.
     window.setTimeout(() => {
-      const focused = document.hasFocus()
+      const focused = anyWindowFocused()
 
       if (focused !== this.focused) {
         this.focused = focused
@@ -821,7 +835,18 @@ export class Pool {
 
     const ports = new MessageChannel()
     frame.channel.connect(domPort(ports.port1))
-    frame.iframe.contentWindow?.postMessage({ parity: "port", frame: frame.id }, frame.origin, [ports.port2])
+    const page = frame.iframe.contentWindow
+
+    // From the window the frame is in, which may be a lens's own.
+    if (page) {
+      postAs(
+        frame.iframe.ownerDocument.defaultView ?? window,
+        page,
+        { parity: "port", frame: frame.id },
+        frame.origin,
+        [ports.port2]
+      )
+    }
 
     // A live page that loaded again starts from its frame's name, which says spare and the mode it opened in: it's told
     // again that it's live, and in its board's mode.

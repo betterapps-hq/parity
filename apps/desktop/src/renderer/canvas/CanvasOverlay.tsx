@@ -34,6 +34,7 @@ import { gestures as held } from "../chrome/keymap.ts"
 import { holds } from "../chrome/keys.ts"
 import { Name } from "../chrome/Name.tsx"
 import { allFrames, findFrames, findNodeElement, nodeBox } from "../frame.ts"
+import { isElement, onEachWindow } from "../lens-windows.ts"
 import { type DocSession, projectLibrary } from "../project-doc.ts"
 import { getEffectivePreferences } from "../project-settings.ts"
 import { type SelectionStore, useEditing } from "../selection.ts"
@@ -44,7 +45,7 @@ import { useProject } from "./context.ts"
 import { liftOf } from "./element-lift.ts"
 import { areaSpace, frameGeometry } from "./frame-geometry.ts"
 import { drawFrame, useFrameDrawing } from "./frame-tool.ts"
-import { followPress, type GestureDoc, gestures, type Press } from "./gesture.ts"
+import { followPress, type GestureDoc, gestures, type Press, type PressStart } from "./gesture.ts"
 import {
   frameAt,
   type Hit,
@@ -111,7 +112,7 @@ export function CanvasOverlay() {
     const { doc, selection } = session
 
     const interactive = (target: EventTarget | null) =>
-      target instanceof Element &&
+      isElement(target) &&
       !!target.closest(
         "button, input, textarea, [role=menuitem], [role=option], [data-canvas-control], .design-title, .state-label, .text-editor, .resize-handle, .spacing-handle"
       )
@@ -289,16 +290,24 @@ export function CanvasOverlay() {
     area.addEventListener("dblclick", onDoubleClick, { capture: true })
     area.addEventListener("pointermove", onPointerMove)
     area.addEventListener("pointerleave", onPointerLeave)
-    window.addEventListener("keydown", onKey)
-    window.addEventListener("keyup", onKey)
+
+    // The keys are heard in whichever window the canvas is in, the main one or a lens's own.
+    const stopKeys = onEachWindow((target) => {
+      target.addEventListener("keydown", onKey)
+      target.addEventListener("keyup", onKey)
+
+      return () => {
+        target.removeEventListener("keydown", onKey)
+        target.removeEventListener("keyup", onKey)
+      }
+    })
 
     return () => {
       area.removeEventListener("pointerdown", onPointerDown, { capture: true })
       area.removeEventListener("dblclick", onDoubleClick, { capture: true })
       area.removeEventListener("pointermove", onPointerMove)
       area.removeEventListener("pointerleave", onPointerLeave)
-      window.removeEventListener("keydown", onKey)
-      window.removeEventListener("keyup", onKey)
+      stopKeys()
     }
   }, [session])
 
@@ -706,7 +715,7 @@ function followResize(
   session: GestureProject,
   said: () => Started | undefined,
   doc: GestureDoc,
-  start: { clientX: number; clientY: number },
+  start: PressStart,
   press: Press
 ): void {
   followPress(gestures.resize, doc, start, telling(session, press, said))
@@ -737,7 +746,7 @@ function startResize(
   // The frame as it's drawn when the drag begins: its scale and every box are read from the same place.
   const drawn = frameGeometry(host)
   const { scale } = drawn
-  const start = { clientX: event.clientX, clientY: event.clientY }
+  const start = { clientX: event.clientX, clientY: event.clientY, view: event.nativeEvent.view }
 
   const pointer = (moveEvent: PointerEvent) => ({
     dx: moveEvent.clientX - start.clientX,
@@ -922,7 +931,7 @@ function resizeLayers(
     union
   )
 
-  const start = { clientX: event.clientX, clientY: event.clientY }
+  const start = { clientX: event.clientX, clientY: event.clientY, view: event.nativeEvent.view }
   let last = ""
   followResize(
     session,

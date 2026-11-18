@@ -1,5 +1,6 @@
 import { type PointerEvent as ReactPointerEvent, type ReactNode, useRef, useState } from "react"
 import { createPortal } from "react-dom"
+import { useShownIn } from "../lens-windows.ts"
 
 /** How far a press moves before it carries what it pressed, in screen pixels. */
 const carryAfter = 4
@@ -48,6 +49,7 @@ export function useCarry({
 }): Carry {
   const [landing, setLanding] = useState<Landing>()
   const moved = useRef(false)
+  const shownIn = useShownIn()
 
   const onPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     event.stopPropagation()
@@ -118,7 +120,8 @@ export function useCarry({
           background: color
         }}
       />,
-      document.body
+      // The window the canvas is in, the main one or a lens's own, where the marker was measured.
+      shownIn.document.body
     )
 
   return {

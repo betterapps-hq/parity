@@ -1,3 +1,4 @@
+import { isHTMLElement, isSVGElement } from "../lens-windows.ts"
 import { makeRoomMs, settle, translated } from "./drag-motion.ts"
 import { styleElements } from "./element-lift.ts"
 import { asTranslate, type Point, translateOnScreen } from "./screen-moves.ts"
@@ -67,9 +68,9 @@ export function slideElements(elements: Iterable<Element>, change: () => void, r
 
     // A slide is a translate, which moves the element along whatever it's in, scaled and turned with it: the move on
     // screen goes back through what a translate does there.
-    const styled = element instanceof HTMLElement || element instanceof SVGElement ? element : undefined
+    const styled = isHTMLElement(element) || isSVGElement(element) ? element : undefined
     const own = getComputedStyle(element).translate
-    const ratio = element instanceof HTMLElement && element.offsetWidth > 0 ? now.width / element.offsetWidth : 1
+    const ratio = isHTMLElement(element) && element.offsetWidth > 0 ? now.width / element.offsetWidth : 1
     const from = translated(own, asTranslate(away, styled && translateOnScreen(styled, own), ratio))
 
     if (!from) {
@@ -91,7 +92,7 @@ export function slideElements(elements: Iterable<Element>, change: () => void, r
   slides[0]?.element.getBoundingClientRect()
 
   for (const { element, own, restore } of slides) {
-    if (element instanceof HTMLElement || element instanceof SVGElement) {
+    if (isHTMLElement(element) || isSVGElement(element)) {
       element.style.setProperty("transition", `translate ${makeRoomMs}ms ${settle}`, "important")
       element.style.setProperty("translate", own, "important")
     }

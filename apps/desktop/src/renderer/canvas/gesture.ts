@@ -166,6 +166,23 @@ export interface Press {
   click?(): void
 }
 
+/**
+ * Where a press began: on the screen, and in which window, a lens's own or the main one, as its event's `view` says.
+ * Without one, the main window.
+ */
+export interface PressStart {
+  clientX: number
+  clientY: number
+  view?: Window | null
+}
+
+/** The window a press came from, which its gesture follows the pointer and keys in, and shows its cursor over. */
+function pressWindow(start: Pick<PressStart, "view">): GestureWindow {
+  const target = start.view ?? window
+
+  return { target, holdCursor: (cursor) => holdCursor(cursor, target.document) }
+}
+
 /** Where a gesture hears the pointer and keys, and shows its cursor: the window. */
 export interface GestureWindow {
   target: EventTarget
@@ -186,9 +203,9 @@ export interface GestureWindow {
 export function followPress(
   policy: GesturePolicy,
   doc: GestureDoc,
-  start: { clientX: number; clientY: number },
+  start: PressStart,
   press: Press,
-  at: GestureWindow = { target: window, holdCursor }
+  at: GestureWindow = pressWindow(start)
 ): void {
   let drag: Drag | undefined
   let checkpoint: Checkpoint | undefined
@@ -319,11 +336,11 @@ function isPointer(event: Event): event is PointerEvent {
  *
  * Returns what lets it go. Letting go twice is harmless.
  */
-export function holdCursor(cursor: string): () => void {
-  const layer = document.createElement("div")
+export function holdCursor(cursor: string, page: Document = document): () => void {
+  const layer = page.createElement("div")
   layer.dataset.heldCursor = cursor
   layer.style.cssText = `position: fixed; inset: 0; z-index: 2147483647; cursor: ${cursor}`
-  document.body.append(layer)
+  page.body.append(layer)
 
   return () => layer.remove()
 }

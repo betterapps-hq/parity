@@ -209,7 +209,7 @@ export function pressSpacing(
   }
 
   const drag = spacingDrag(edit.start)
-  const start = { clientX: event.clientX, clientY: event.clientY }
+  const start = { clientX: event.clientX, clientY: event.clientY, view: event.nativeEvent.view }
   let last = ""
   followPress(gestures.resize, session.doc, start, {
     design: edit.frame.design,

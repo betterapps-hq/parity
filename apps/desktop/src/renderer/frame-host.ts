@@ -2,6 +2,7 @@ import type { MountHandle, MountOptions, RenderNode } from "@parity-app/core"
 import { type FrameMode, frameSetup } from "./frame-setup.ts"
 import { adoptFrameSheet, prepareFrame, setDrawnNodes, setFrameViewport, showFrameRules, whenDrawn } from "./frame.ts"
 import type { LoadedGuest } from "./guest.ts"
+import { isHTMLElement } from "./lens-windows.ts"
 
 /**
  * A frame's host side, in one place: mounting a design in a frame, the nodes it draws, and taking it apart, for the
@@ -220,7 +221,7 @@ export function frameContent(host: Element): ParentNode | undefined {
 export function frameBody(host: Element): HTMLElement | undefined {
   const body = host.shadowRoot?.firstElementChild
 
-  return body instanceof HTMLElement ? body : undefined
+  return isHTMLElement(body) ? body : undefined
 }
 
 /** Whether a frame has drawn its design: one of its nodes is in it. */
@@ -237,7 +238,7 @@ export function frameAnimates(host: Element): boolean {
 export function blurFrame(host: Element): void {
   const focused = host.shadowRoot?.activeElement
 
-  if (focused instanceof HTMLElement) {
+  if (isHTMLElement(focused)) {
     focused.blur()
   }
 }

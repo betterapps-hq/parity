@@ -161,6 +161,22 @@ describe("a press on the canvas", () => {
     expect(cursors).toEqual([])
   })
 
+  it("follows the pointer in the window it was pressed in, as a lens's own window", () => {
+    const { doc } = setup()
+    // SAFETY: a press follows the pointer by listening on its window, which an `EventTarget` stands in for.
+    const lensWindow = new EventTarget() as Window
+    const log: string[] = []
+    followPress(
+      gestures.titleDrag,
+      doc,
+      { clientX: 0, clientY: 0, view: lensWindow },
+      { move: (event) => log.push(`move ${event.clientX}`), end: (kept) => log.push(`end ${kept}`) }
+    )
+    lensWindow.dispatchEvent(pointer("pointermove", dragThreshold + 1))
+    lensWindow.dispatchEvent(new Event("pointerup"))
+    expect(log).toEqual([`move ${dragThreshold + 1}`, "end true"])
+  })
+
   it("begins the undo gesture, takes the checkpoint and holds the cursor as it becomes a drag, once", () => {
     const { doc, target, cursors, at } = setup()
     const checkpoint = vi.spyOn(doc, "checkpoint")

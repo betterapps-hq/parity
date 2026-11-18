@@ -11,9 +11,9 @@ import { useProject } from "../../workspace.ts"
 const popoutUrl = "/lens-popout/popout.html"
 
 /**
- * The app's lenses, today's canvas on Screens, in the shell with lens windows on, which the app doesn't allow yet. Move
- * Screens to a window of its own with the button at the end of its tabs, then try the canvas there. What works and what
- * breaks is in lens-layout.md, "On Dockview" (PAR-1242).
+ * The app's lenses, today's canvas on Screens, in the shell with lens windows on, as PAR-1242 tried them. Move Screens
+ * to a window of its own with the button at the end of its tabs, then try the canvas there. What the spike found is in
+ * lens-layout.md, "On Dockview"; the desktop app's lens windows, with its fixes, are in editor.md (PAR-1247).
  */
 function CanvasWindow() {
   const session = useProject()?.session

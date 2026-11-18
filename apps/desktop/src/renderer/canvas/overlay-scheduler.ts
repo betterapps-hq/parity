@@ -4,6 +4,7 @@ import { react, type TLRecord } from "tldraw"
 import { subscribePreferences } from "../chrome/preferences.ts"
 import { frameAnimates, watchFrame } from "../frame-host.ts"
 import { allFrames, subscribeFrames } from "../frame.ts"
+import { isHTMLElement, onEachWindow } from "../lens-windows.ts"
 import type { ProjectSession } from "../workspace.ts"
 
 /**
@@ -118,7 +119,7 @@ class OverlayScheduler {
     // The canvas area resizing or showing again, and frames drawn over changing size.
     const resizes = new ResizeObserver((entries) => {
       const moved = ({ target }: ResizeObserverEntry) =>
-        target === area || (target instanceof HTMLElement && this.drawsOver(target))
+        target === area || (isHTMLElement(target) && this.drawsOver(target))
 
       if (entries.some(moved)) {
         this.wake()
@@ -169,9 +170,18 @@ class OverlayScheduler {
     const wake = () => this.wake()
     const inputs = ["pointermove", "pointerdown", "pointerup", "pointercancel", "keydown", "keyup", "input"]
 
-    for (const type of inputs) {
-      window.addEventListener(type, wake, { capture: true, passive: true })
-    }
+    // A lens window's pointer and keys too, for a canvas moved into one (PAR-1247).
+    const stopInputs = onEachWindow((target) => {
+      for (const type of inputs) {
+        target.addEventListener(type, wake, { capture: true, passive: true })
+      }
+
+      return () => {
+        for (const type of inputs) {
+          target.removeEventListener(type, wake, { capture: true })
+        }
+      }
+    })
 
     document.fonts.addEventListener("loadingdone", wake)
 
@@ -185,11 +195,8 @@ class OverlayScheduler {
       session.doc.subscribe(wake),
       // The canvas mounting, or remounting, gives the session another editor to follow.
       session.subscribe(() => this.follow(session.editor)),
+      stopInputs,
       () => {
-        for (const type of inputs) {
-          window.removeEventListener(type, wake, { capture: true })
-        }
-
         document.fonts.removeEventListener("loadingdone", wake)
       }
     )

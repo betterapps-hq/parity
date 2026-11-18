@@ -32,6 +32,7 @@ import { Hint } from "../chrome/Hint.tsx"
 import { gestures as held } from "../chrome/keymap.ts"
 import { holds } from "../chrome/keys.ts"
 import { SpacingBar } from "../chrome/token-previews.tsx"
+import { isElement } from "../lens-windows.ts"
 import { KeyHints } from "./KeyHints.tsx"
 import { spacingChip, spacingColors, spacingHatch } from "./spacing-colors.ts"
 import type { SpacingValue } from "./spacing-edit.ts"
@@ -402,7 +403,7 @@ function TypeBox(props: {
           }}
           onBlur={(event) => {
             // Moving to the list or the unit keeps the box open.
-            if (event.relatedTarget instanceof Element && event.relatedTarget.closest("[data-spacing-picker]")) {
+            if (isElement(event.relatedTarget) && event.relatedTarget.closest("[data-spacing-picker]")) {
               return
             }
 

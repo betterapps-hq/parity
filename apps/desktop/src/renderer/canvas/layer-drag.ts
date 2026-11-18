@@ -34,6 +34,7 @@ import {
   frameRuleSheets,
   nodeBox
 } from "../frame.ts"
+import { windowOf } from "../lens-windows.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { carriedPicture, type Spot } from "./carried.ts"
@@ -271,12 +272,14 @@ export function pressLayers(
             }
           }
 
-          window.addEventListener("keydown", onKey, { capture: true })
-          window.addEventListener("keyup", onKey, { capture: true })
+          // Heard in the window the press came from, the main one or a lens's own.
+          const from = windowOf(start)
+          from.addEventListener("keydown", onKey, { capture: true })
+          from.addEventListener("keyup", onKey, { capture: true })
 
           unlisten = () => {
-            window.removeEventListener("keydown", onKey, { capture: true })
-            window.removeEventListener("keyup", onKey, { capture: true })
+            from.removeEventListener("keydown", onKey, { capture: true })
+            from.removeEventListener("keyup", onKey, { capture: true })
           }
         },
         move(event) {

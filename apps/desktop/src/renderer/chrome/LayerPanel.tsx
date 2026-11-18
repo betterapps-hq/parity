@@ -45,6 +45,7 @@ import { ChangeMark } from "../inspector/controls/field-parts.tsx"
 import { Field, FieldGrid, SwitchRow } from "../inspector/controls/field-row.tsx"
 import type { TypeStyle } from "../inspector/controls/rendered-type.ts"
 import { AttributesSection, PropsSection } from "../inspector/sections/PropsSection.tsx"
+import { isHTMLElement } from "../lens-windows.ts"
 import { type ContainerEntry, projectLibrary, useContainerEntries } from "../project-doc.ts"
 import { useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
@@ -755,7 +756,7 @@ export function placeNode(
   // Insets count from the containing block inside its border, which `offsetParent` gives (see `LayerSnapping`).
   const around = found?.element?.offsetParent
 
-  if (!host || !found || !(around instanceof HTMLElement) || !editor) {
+  if (!host || !found || !isHTMLElement(around) || !editor) {
     return undefined
   }
 
@@ -834,7 +835,7 @@ export function nodeGrid(
     const style = getComputedStyle(child)
 
     // An absolutely placed child, or one not drawn, takes no cells.
-    if (!(child instanceof HTMLElement) || style.display === "none" || style.position === "absolute") {
+    if (!isHTMLElement(child) || style.display === "none" || style.position === "absolute") {
       return []
     }
 

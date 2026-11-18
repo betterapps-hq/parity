@@ -1,6 +1,7 @@
 import { reparkAfter } from "@parity-app/frames"
 import { useEffect, useState } from "react"
 import { react, useEditor } from "tldraw"
+import { useShownIn } from "../lens-windows.ts"
 import { useInteracting } from "../selection.ts"
 import { useProject } from "./context.ts"
 import { poolFor } from "./live-frames.ts"
@@ -17,7 +18,10 @@ export function LiveLayer() {
   const interacting = useInteracting(session.selection)
   const [element, setElement] = useState<HTMLDivElement | null>(null)
   const pool = poolFor(session.id)
+  const shownIn = useShownIn()
 
+  // Moved to another window with its lens (PAR-1247), the layer's frames load their pages again from where they opened,
+  // so the pool starts over there: the live page ends and the spares open again.
   useEffect(() => {
     if (!element) {
       return undefined
@@ -26,7 +30,7 @@ export function LiveLayer() {
     pool.attach({ element, editor })
 
     return () => pool.attach(undefined)
-  }, [pool, element, editor])
+  }, [pool, element, editor, shownIn])
 
   useEffect(() => pool.setInteracting(interacting), [pool, interacting])
 
