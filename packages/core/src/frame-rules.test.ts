@@ -160,6 +160,29 @@ describe("previewRules", () => {
     )
   })
 
+  it("gives only what changed, under the selector asked for, for an element other rules draw (PAR-1264)", () => {
+    const options = { changedOnly: true, selector: (id: string) => `[data-copy-node="${id}"]` }
+
+    const css = previewRules(
+      render(design.root),
+      render(withStyle("root", { gap: undefined, padding: { step: 6 } })),
+      options
+    )
+
+    expect(css).toBe(
+      ['[data-copy-node="root"] {', "  gap: revert-layer;", "  padding: calc(var(--spacing) * 6);", "}", ""].join("\n")
+    )
+  })
+
+  it("marks each declaration important when asked, to win over a page's inline style (PAR-1264)", () => {
+    const css = previewRules(render(design.root), render(withStyle("root", { gap: undefined, padding: { step: 6 } })), {
+      changedOnly: true,
+      important: true
+    })
+
+    expect(css).toBe(rule("root", ["gap: revert-layer !important", "padding: calc(var(--spacing) * 6) !important"]))
+  })
+
   it("leaves a component's change to its inline style", () => {
     expect(previewRules(render(design.root), render(withStyle("button", { opacity: { step: 40 } })))).toBe("")
   })

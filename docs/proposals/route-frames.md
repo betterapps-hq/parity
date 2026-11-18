@@ -785,8 +785,8 @@ Each is an issue, in this order.
    step 5's live frame, the page drawn with the Interact tool is what's started again, unless its `page.ready` named
    Next's router (`updatesItself`), and the webpack-compatible builders' polling reload is gone. The style preview that
    exists today is token values edited and not saved, which go into one sheet per project every copy adopts and to the
-   page through `preview.set`, into a sheet snapshots never list. A preview of one element's style waits for something
-   to show one, since copies' layers are read-only.
+   page through `preview.set`, into a sheet snapshots never list. A copy's layer previews a style field's value while
+   it's typed or scrubbed, in every copy of the page, and never saves it.
 8. **React Router's and Next's page routers** (PAR-1265), with the wrapped `createBrowserRouter` and `createHashRouter`
    for library mode. Built: React Router's reads `__reactRouterDataRouter`, or in library mode `__parityDataRouter`,
    which Parity's `react-router` sets. A manifest's `pageWraps` names the packages a router serves in place of the

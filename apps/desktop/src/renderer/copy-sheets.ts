@@ -82,6 +82,14 @@ export function copyShadowStyle(copy: Pick<CopySheets, "origin">, css: string, s
   return prepared.scoped
 }
 
+/** The attribute on a copy's element on a route board that names its layer, which a style preview's rules find it by. */
+export const copyNodeAttribute = "data-copy-node"
+
+/** The selector of a copy's element for a layer (`copyNodeAttribute`). */
+export function copyNodeSelector(nodeId: string): string {
+  return `[${copyNodeAttribute}="${nodeId.replaceAll(/["\\]/g, String.raw`\$&`)}"]`
+}
+
 /** The attribute on the element around a copy's body that carries `<html>`'s classes and attributes. */
 export const copyRootAttribute = "data-copy-root"
 

@@ -361,6 +361,19 @@ describe("mapping every node (PAR-966)", () => {
     expect(locateNode(next, "photo")).toMatchObject({ slot: "actions", index: 0 })
   })
 
+  it("reaches the layers inside a route, as a page's copy draws them (PAR-1264)", () => {
+    const page: DesignNode = {
+      type: "route",
+      id: "pricing",
+      route: "/pricing",
+      children: [{ type: "layout", id: "0", children: [{ type: "text", id: "0.0", text: "Plans" }] }]
+    }
+
+    const next = mapNode(page, "0.0", (node) => ({ ...node, style: { opacity: { step: 30 } } }))
+
+    expect(findNode(next, "0.0")).toMatchObject({ style: { opacity: { step: 30 } } })
+  })
+
   it("goes into what a node's replacement holds, not what the node held", () => {
     const next = mapNodes(tree, (node) =>
       node.id === "row" && node.type === "instance"

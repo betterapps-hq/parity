@@ -8795,7 +8795,10 @@ A screen is named for the component its route draws, else its path.
   is: Desktop Dark keeps `primary`'s dark value, and takes an edited `radius`, which has none. A theme's value given,
   saved and undone shows the token's default there. A theme turned on by an attribute, such as `[data-theme="dark"]`,
   counts as its class does (the guest's `themeAttributes`). The pool's live and spare pages get them over their channel
-  (`preview.set`), when they connect and as they change, into a sheet their snapshots never list.
+  (`preview.set`), when they connect and as they change, into a sheet their snapshots never list. A copy's layer has its
+  style fields on: a value being typed or scrubbed shows in every copy of the page, goes when the edit ends, and is
+  never saved (`StylePreview`, `previewRules` with `changedOnly` and `important`). Its fields start from the copy's
+  drawn style (`withCopyStyles`), and the preview wins over the page's inline styles. Its other fields stay read-only.
 - **Live boards (PAR-1263).** With the Interact tool, a route board can be the app's own page, as
   [proposals/route-frames.md](proposals/route-frames.md) sets out. Each project keeps two spare frames per window while
   Interact is on: the app's page in an iframe on its builder's origin, in a layer in the canvas's page space above the
@@ -8951,6 +8954,9 @@ frozen yet, and every mode of a route frozen for the first time; `withMarkup`: a
 it drew), `packages/frames/src/preview.test.ts` (5: token values on a copy's roots by theme and on the live page's root,
 unsafe values and themes left out, and a sheet a document takes; only Next's pages updating themselves),
 `packages/page-runtime/src/snapshot.test.ts` ("shows a style preview over the page, and never puts it in a snapshot"),
+`packages/core/src/frame-rules.test.ts` ("gives only what changed, under the selector asked for, for an element other
+rules draw", "marks each declaration important when asked, to win over a page's inline style"),
+`packages/core/src/edit.test.ts` ("reaches the layers inside a route, as a page's copy draws them"),
 `packages/project/src/open-project.test.ts` (`pageSourceChange`: the app's files and lockfile, not hidden folders,
 installed packages, builders' output, `.par` files, build records or logs) and
 `apps/desktop/src/utility/projects.test.ts` ("tell the windows which of the app's files changed, at once for a save that

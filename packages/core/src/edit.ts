@@ -170,7 +170,7 @@ export function mapNodes(root: DesignNode, update: (node: DesignNode) => DesignN
 }
 
 /**
- * A node with each list of nodes it holds replaced by what `each` returns for it: a layout's children, a code
+ * A node with each list of nodes it holds replaced by what `each` returns for it: a layout's or route's children, a code
  * component's slots, and the layers an instance fills its component's slots with, by slot. With `childEntries`, which
  * reads them, it's where a node is known to hold nodes, so a rebuild goes through it rather than by a node's type.
  * Returns the same node when every list comes back as it was.
@@ -179,7 +179,7 @@ export function mapChildLists(
   node: DesignNode,
   each: (nodes: DesignNode[], slot: string | undefined) => DesignNode[]
 ): DesignNode {
-  if (node.type === "layout") {
+  if (node.type === "layout" || node.type === "route") {
     const children = each(node.children, undefined)
 
     return children === node.children ? node : { ...node, children }
