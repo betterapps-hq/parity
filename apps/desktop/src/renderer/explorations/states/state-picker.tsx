@@ -123,10 +123,11 @@ function Search({
   }, [open, highlight, listId])
 
   const show = () => {
+    // Counted in what the search leaves, so a pick after reopening mid-search lands on a state that's listed.
     setHighlight(
       Math.max(
         0,
-        states.findIndex((state) => state.id === current?.id)
+        matches.findIndex((state) => state.id === current?.id)
       )
     )
     setOpen(true)
