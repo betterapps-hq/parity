@@ -6,9 +6,11 @@ import {
   copyId,
   type FrozenElement,
   freezeLoadDeadline,
+  freezeKeeps,
   freezeOrder,
   freezeQuiet,
   groupLeaders,
+  keepsLiveCopy,
   type MarkupGroups,
   type PageLocation,
   type PageMode,
@@ -90,6 +92,8 @@ export interface FrozenCopy {
   trace: CopyTrace
   /** Whether it was made from another mode's snapshot in its markup group and is still to be checked in its own. */
   unchecked?: true
+  /** Whether it's the live page's snapshot when live ends: what someone left in it, not the page as it loads (PAR-1304). */
+  used?: true
 }
 
 /** Every copy the window has, by `copyStoreKey`. */
@@ -191,6 +195,28 @@ export function useFrozenCopy(
   return copy?.drawn === drawn ? copy : undefined
 }
 
+/** The live page whose snapshot becomes its board's copy when live ends: its channel and what it was loaded as. */
+export interface LivePage {
+  channel: Channel<ParityMethods, PageMethods>
+  /** The board's URL, which its copy is kept under. */
+  url: string
+  mode: PageMode
+  viewport: PageViewport
+  /** The builder's origin, which the snapshot is sanitized against. */
+  origin: string
+  /** When the page last started loading, in milliseconds since 1970. */
+  loadedAt: number
+}
+
+/**
+ * Takes the live page's snapshot as its board's copy when live ends (PAR-1304), so what was done in it stays on the
+ * board: every board of its route and mode as drawn takes it, as a frozen copy would. It's kept as the freezer's would
+ * be, with its trace, until a code change makes it stale. Resolves once it's kept or refused, never failing.
+ */
+export async function keepLiveCopy(project: string, page: LivePage): Promise<void> {
+  await freezerFor(project).keepLive(page)
+}
+
 function freezerFor(project: string): Freezer {
   let freezer = freezers.get(project)
 
@@ -258,6 +284,10 @@ class Freezer {
   private changes = 0
   /** The count of changes when each stale copy last went stale, by its key. */
   private readonly stale = new Map<string, number>()
+  /** How many live pages' snapshots have been asked for, so one that comes late never replaces a newer one's copy. */
+  private liveTurns = 0
+  /** The turn of the live page's snapshot each copy was kept from, by its key. */
+  private readonly keptTurns = new Map<string, number>()
   /** Each route's modes, as drawn, with the markup each drew at its last snapshot. */
   private groups: MarkupGroups = new Map()
   private running = false
@@ -299,6 +329,26 @@ class Freezer {
     this.unhear()
     window.clearTimeout(this.timer)
     this.frame?.remove()
+  }
+
+  /** The live page's snapshot, as its board's copy, for every board that draws its route and mode (`keepLiveCopy`). */
+  async keepLive(page: LivePage): Promise<void> {
+    const drawn = drawnAs(page.mode, page.viewport)
+    const needs = [...this.needs.values()].filter((need) => need.url === page.url && need.drawn === drawn)
+    const [unit] = units(needs)
+
+    if (!unit) {
+      return
+    }
+
+    try {
+      await this.snapshot(page.channel, page.url, unit, page, this.changes, [], ++this.liveTurns)
+    } catch {
+      // A live page that's stuck or gone when live ends leaves its board the copy it has.
+    }
+
+    // A file it was made from may have changed since its page loaded, which makes it stale: the queue runs again.
+    this.poke()
   }
 
   /**
@@ -587,7 +637,8 @@ class Freezer {
   /**
    * Takes one mode's snapshot, checks and sanitizes it, gets the sheets it lists, and keeps its copy for every board
    * that draws the mode, and as a stand-in for the `group`'s other modes, which keep their own heights until they're
-   * checked.
+   * checked. A live page's snapshot (`liveTurn`) holds what was done in it, so it leaves the markup groups be, one
+   * that's refused leaves the freezer free to freeze its route, and one that comes after a newer one's leaves its copy.
    */
   private async snapshot(
     channel: Channel<ParityMethods, PageMethods>,
@@ -595,8 +646,12 @@ class Freezer {
     unit: FreezeUnit,
     page: Pick<FrozenCopy, "origin" | "loadedAt">,
     changes: number,
-    group: readonly FreezeUnit[]
+    group: readonly FreezeUnit[],
+    /** A live page's snapshot, by its turn (`liveTurns`), rather than the freezer's. */
+    liveTurn?: number
   ): Promise<void> {
+    const from = liveTurn === undefined ? "freezer" : "live"
+    const refuse = (reason: Refusal, refused?: FreezeUnit) => this.refuse(reason, from === "live" ? undefined : refused)
     const { origin, loadedAt } = page
     let taken: unknown
 
@@ -607,7 +662,7 @@ class Freezer {
       )
     } catch (error) {
       if (error instanceof Deadline) {
-        this.refuse("deadline")
+        refuse("deadline")
       }
 
       throw error
@@ -618,8 +673,15 @@ class Freezer {
     try {
       snapshot = parsePageSnapshot(taken)
     } catch (error) {
-      this.refuse(String(error).includes("at most") ? "cap" : "schema", unit)
+      refuse(String(error).includes("at most") ? "cap" : "schema", unit)
 
+      return
+    }
+
+    // A live page a link moved on while it went quiet draws another route than its board's.
+    const { pathname, search } = new URL(url)
+
+    if (from === "live" && !keepsLiveCopy(pathname + search, snapshot.location)) {
       return
     }
 
@@ -642,7 +704,7 @@ class Freezer {
       }
 
       // A sheet past its cap, or one that isn't what the schema reads.
-      this.refuse(String(error).includes("at most") ? "cap" : "schema", unit)
+      refuse(String(error).includes("at most") ? "cap" : "schema", unit)
 
       return
     }
@@ -663,16 +725,35 @@ class Freezer {
       trace
     }
 
-    this.groups = withMarkup(this.groups, url, unit.drawn, snapshot.markup)
+    if (from === "live") {
+      copy.used = true
+    }
+
+    if (from === "freezer") {
+      this.groups = withMarkup(this.groups, url, unit.drawn, snapshot.markup)
+    }
 
     const next = new Map(copies.get())
 
-    for (const need of unit.needs) {
+    // A copy kept from the live page since this freeze began, queued or under way, holds what was done in the page; a
+    // live page's snapshot replaces it only when it was asked for after the one it was kept from.
+    const replaced = (need: CopyNeed) =>
+      liveTurn === undefined
+        ? !freezeKeeps(next.get(need.key), changes)
+        : (this.keptTurns.get(need.key) ?? 0) < liveTurn
+
+    const needs = unit.needs.filter(replaced)
+
+    for (const need of needs) {
       next.set(need.key, copy)
+
+      if (liveTurn !== undefined) {
+        this.keptTurns.set(need.key, liveTurn)
+      }
     }
 
     for (const other of group) {
-      for (const need of other.needs) {
+      for (const need of other.needs.filter(replaced)) {
         const before = next.get(need.key)
 
         next.set(need.key, {
@@ -690,7 +771,7 @@ class Freezer {
     if (changed) {
       this.changes++
 
-      for (const need of [unit, ...group].flatMap((each) => each.needs)) {
+      for (const need of [...needs, ...group.flatMap((each) => each.needs.filter(replaced))]) {
         this.stale.set(need.key, this.changes)
       }
     }

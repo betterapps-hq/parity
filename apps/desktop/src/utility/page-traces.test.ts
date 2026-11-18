@@ -82,6 +82,12 @@ describe("page traces (PAR-1200)", () => {
     ).toBeDefined()
   })
 
+  it("has none for a copy of what someone left in the live page, which a fresh load doesn't draw (PAR-1304)", async () => {
+    const copy = { origin: "http://shop.localhost:5173", loadedAt: Date.now() + 60_000, landed: true, pageHeight: 900 }
+    const frozen = { ...copy, root: { classes: [], attributes: [], style: "" }, body: {}, sheets: [] }
+    expect(await pageTraces(projects([])).trace({ ...job, copy: { ...frozen, used: true } })).toBeUndefined()
+  })
+
   it("holds until a file it lists changes, and a file it doesn't list leaves it holding", async () => {
     const traces = pageTraces(projects([]))
     const traced = (await traces.trace(job))!

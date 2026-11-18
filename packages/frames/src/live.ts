@@ -1,8 +1,10 @@
 import type { PoolFrame } from "./pool.ts"
+import type { PageLocation } from "./snapshot.ts"
 
 /*
  * The live frame's plan (docs/proposals/route-frames.md, "Input on a live board", "Going live" and "The pool"): which
- * frame goes live, where its window sits on its board, when live ends, and when the freezer waits for the live page.
+ * frame goes live, where its window sits on its board, when live ends, when the freezer waits for the live page, and
+ * whether the live page's snapshot becomes its board's copy when live ends.
  */
 
 /** How long the pointer rests on a board with Interact before a spare is sent to its route, in milliseconds. */
@@ -102,4 +104,23 @@ export function liveWindowTop(view: LiveWindowView): number {
 /** Whether a live board's box has been out of view long enough that live ends, from when it left, or not. */
 export function liveExpired(outSince: number | undefined, now: number): boolean {
   return outSince !== undefined && now - outSince >= liveOutOfView
+}
+
+/**
+ * Whether the live page's snapshot becomes its board's copy when live ends: only while the page is still on the board's
+ * route, its path and query, as it last said. A page a link moved to another route, or that a redirect took elsewhere,
+ * draws another page than its board's, so the board keeps the copy it has. A page main stopped leaving the builder's
+ * origin is still where it was, so it counts.
+ */
+export function keepsLiveCopy(route: string, location: PageLocation | undefined): boolean {
+  return location !== undefined && `${location.path}${location.search}` === route
+}
+
+/**
+ * Whether a freeze leaves a board's copy as it is: a copy kept from the live page (`used`) after the freeze began, at
+ * the freezer's count of code changes `began`, with no code change since, holds what was done in the page, which the
+ * freeze's fresh load doesn't. A freeze begun after a change that made it stale replaces it.
+ */
+export function freezeKeeps(copy: { used?: true; changes: number } | undefined, began: number): boolean {
+  return copy?.used === true && copy.changes >= began
 }

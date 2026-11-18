@@ -125,6 +125,11 @@ export const pageJob = z.object({
       loadedAt: finiteNumber,
       /** It's of the route's own page, not one it redirected to, nor its not-found or error page. */
       landed: z.boolean(),
+      /**
+       * It's what someone left in the live page (PAR-1304), not the page as it loads: its picture is kept without a
+       * trace, so it never stands for the page's fresh load.
+       */
+      used: z.literal(true).optional(),
       pageHeight: finiteNumber,
       root: z.object({
         classes: z.array(z.string()),

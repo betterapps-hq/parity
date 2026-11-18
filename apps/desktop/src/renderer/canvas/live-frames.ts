@@ -1,6 +1,7 @@
 import { type Channel, createChannel, domPort } from "@parity-app/channel"
 import { pageFrameUrl } from "@parity-app/editor"
 import {
+  keepsLiveCopy,
   type LiveChoice,
   type LiveFrom,
   liveExpired,
@@ -34,7 +35,7 @@ import { z } from "zod"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
 import { track } from "../report-error.ts"
 import { resetWithWindow, useStore, windowStore } from "../store.ts"
-import { holdFreezer } from "./freezer.ts"
+import { holdFreezer, keepLiveCopy } from "./freezer.ts"
 import { onPageFiles, showTokenPreview } from "./page-changes.ts"
 import { parityChecks } from "./page-channel.ts"
 import { onPageProcess, pageProcessOpen } from "./page-process.ts"
@@ -46,7 +47,9 @@ import { onPageProcess, pageProcessOpen } from "./page-process.ts"
  * origin, parked in view at 1% so Chromium keeps laying it out, and moved by the app's router to the routes in view. Resting the pointer on a board sends a spare to its route; pressing it takes the quickest
  * frame and puts it over the board, engaged, so the page takes the pointer and keys. A press outside, Escape the page
  * didn't handle, or leaving Interact disengages it, and focus comes back to Parity's document. Live ends when another
- * board goes live or the board has been out of view for 10 s, and the frame is closed, never reused. When the
+ * board goes live or the board has been out of view for 10 s, and the frame is closed, never reused: a page still on
+ * its board's route first gives its snapshot to the freezer as the board's copy (PAR-1304), so what was done in it stays
+ * on the board. When the
  * project's page process fails, live ends and every frame closes; the pool fills again after the pause
  * (`page-process.ts`), and while it waits, or once Parity stops trying, boards keep their copies.
  */
@@ -198,6 +201,8 @@ interface Frame {
   ready: PromiseWithResolvers<void>
   viewport: PageViewport
   location?: PageLocation
+  /** When its page last started loading, in milliseconds since 1970: what code it draws is no newer than this. */
+  loadedAt: number
   /** Busy being moved, so the pool's plan leaves it be. */
   busy: boolean
   /** The move it's making with the app's router, which going live waits for, and fails with when the move does. */
@@ -230,6 +235,8 @@ export class Pool {
   private readonly spares = new Map<string, Frame>()
   /** Frames on their way to going live, taken from the spares or new, until they're live. */
   private readonly pendingFrames = new Map<string, Frame>()
+  /** Frames that were live, left over their boards until their snapshots are their boards' copies, then closed. */
+  private readonly endingFrames = new Set<Frame>()
   private layer: LiveLayer | undefined
   private interacting = false
   private focused = typeof document === "undefined" ? true : document.hasFocus()
@@ -334,6 +341,7 @@ export class Pool {
     this.layer = layer
     this.endLive()
     this.closeSpares()
+    this.closeEnding()
     this.plan()
   }
 
@@ -498,7 +506,7 @@ export class Pool {
         return
       }
 
-      this.endLive()
+      this.endLive(true)
       this.live = { frame, board: id, engaged: false, top: -1 }
       frame.iframe.inert = false
       frame.iframe.removeAttribute("aria-hidden")
@@ -553,6 +561,7 @@ export class Pool {
     window.clearTimeout(this.planTimer)
     this.endLive()
     this.closeSpares()
+    this.closeEnding()
   }
 
   private setEngaged(engaged: boolean): void {
@@ -719,6 +728,7 @@ export class Pool {
       state: "loading",
       route: routeOf(url),
       router: undefined,
+      loadedAt: Date.now(),
       ready: Promise.withResolvers<void>(),
       viewport: board.viewport,
       busy: false
@@ -889,6 +899,7 @@ export class Pool {
   /** Loads a frame's page again where it is (`page.reload`), or at where it last said it was when it doesn't answer. */
   private reload(frame: Frame): void {
     const { iframe, location } = frame
+    frame.loadedAt = Date.now()
 
     const fallback = () => {
       iframe.src = location
@@ -1032,7 +1043,7 @@ export class Pool {
     live.outSince = inView ? undefined : (live.outSince ?? now)
 
     if (liveExpired(live.outSince, now)) {
-      this.endLive()
+      this.endLive(true)
 
       return
     }
@@ -1086,8 +1097,13 @@ export class Pool {
     this.frameLoop = requestAnimationFrame(step)
   }
 
-  /** Live ends: the frame is closed, since it may hold what someone typed or opened, and its board shows its copy. */
-  private endLive(): void {
+  /**
+   * Live ends: the frame is closed, since it may hold what someone typed or opened, and its board shows its copy. When
+   * it `keeps` and the page is still on its board's route, the page's snapshot becomes the board's copy first: the frame
+   * stays where it was over the board, taking nothing, until the copy is kept or refused, so the board never shows its
+   * old copy in between.
+   */
+  private endLive(keeps = false): void {
     const live = this.live
 
     if (!live) {
@@ -1102,10 +1118,48 @@ export class Pool {
       this.takeFocusBack(live.frame.iframe)
     }
 
-    this.close(live.frame)
+    const board = this.boards.get(live.board)?.()
+
+    if (keeps && board && keepsLiveCopy(routeOf(board.url), live.frame.location)) {
+      this.keepCopy(live.frame, board)
+    } else {
+      this.close(live.frame)
+    }
+
     const next = new Map(liveStates.get())
     next.delete(this.project)
     liveStates.set(next)
+  }
+
+  /** Takes a frame that was live as its board's copy (`keepLiveCopy`), then closes it. */
+  private keepCopy(frame: Frame, board: LiveBoard): void {
+    const { iframe } = frame
+    iframe.inert = true
+    iframe.setAttribute("aria-hidden", "true")
+    iframe.style.pointerEvents = "none"
+    this.endingFrames.add(frame)
+
+    void keepLiveCopy(this.project, {
+      channel: frame.channel,
+      url: board.url,
+      mode: board.mode,
+      viewport: board.viewport,
+      origin: frame.origin,
+      loadedAt: frame.loadedAt
+    }).finally(() => {
+      if (this.endingFrames.delete(frame)) {
+        this.close(frame)
+      }
+    })
+  }
+
+  /** Closes the frames left over their boards for their snapshots, which their boards then go without. */
+  private closeEnding(): void {
+    for (const frame of this.endingFrames) {
+      this.close(frame)
+    }
+
+    this.endingFrames.clear()
   }
 
   private setLiveState(state: LiveState): void {
@@ -1216,6 +1270,7 @@ export class Pool {
     this.going = undefined
     this.endLive()
     this.closeSpares()
+    this.closeEnding()
 
     for (const frame of this.pendingFrames.values()) {
       this.close(frame)
