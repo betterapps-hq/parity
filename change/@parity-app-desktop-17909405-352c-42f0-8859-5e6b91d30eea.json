@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Screens holds only designs: each lens's canvas loads the first time its tab is in front, so a project opens without drawing pages or stories it doesn't show.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

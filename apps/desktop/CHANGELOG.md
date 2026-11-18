@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Wed, 18 Nov 2026 10:09:09 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 18 Nov 2026 11:07:26 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.111.0
+
+Wed, 18 Nov 2026 11:07:26 GMT
+
+### Minor changes
+
+- Stories has a lens of its own: the project's story files on a canvas of their own, listed by file in its panel, with
+  the selected story in the inspector. The Screens canvas no longer draws stories. (ajcraswell@gmail.com)
 
 ## 0.110.0
 

@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Wed, 18 Nov 2026 11:07:26 GMT",
+      "version": "0.111.0",
+      "tag": "@parity-app/desktop_v0.111.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c48a09a8fa00611e2e98ec88b31c6c9644f05d63",
+            "comment": "Stories has a lens of its own: the project's story files on a canvas of their own, listed by file in its panel, with the selected story in the inspector. The Screens canvas no longer draws stories."
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "06798baa285be13ea2fc6c3d3b6498949991d14c",
+            "comment": "Test the react-router-dom page wrap against a declared react-router-dom 7 dev dependency"
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 18 Nov 2026 10:09:09 GMT",
       "version": "0.110.0",
       "tag": "@parity-app/desktop_v0.110.0",
