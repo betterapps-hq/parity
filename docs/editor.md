@@ -6476,6 +6476,32 @@ the signed-in person's first name.
 - **Telemetry.** `room.relayStarted`, `room.joined`, `room.left`, `room.hostChanged`, `room.reconnected` and
   `room.latency`, recorded through `parity.telemetry`, beside core's `sync.*`. `room.latency` also has how far apart
   others' presence arrived and how many of their pointer positions came too late to be drawn on time (PAR-1307).
+- **Measuring one remote change** (PAR-1325). `remote-change.bench.ts` in `packages/multiplayer-loro` times what one of
+  others' changes costs the copy that takes it in, by stage: Loro's import, reading the touched designs back and diffing
+  them (`backend.ts`, reported by the backend's `timings()`), `ProjectDoc` taking the change, and reading the designs
+  back as the canvas does. Decoding the relay's message is `decode.bench.ts` in the extension. CI holds each to a budget
+  several times a laptop's (`remote-change.test.ts`, `decode.test.ts`). On 2026-11-18, the median and 95th percentile in
+  milliseconds:
+
+  | Project    | Edit         | Import      | Read and diff | `ProjectDoc` | Lookups     | Total       |
+  | ---------- | ------------ | ----------- | ------------- | ------------ | ----------- | ----------- |
+  | Small      | Board drag   | 0.23 / 0.38 | 5.3 / 8.6     | 0.47 / 0.77  | 0.04 / 0.08 | 6.1 / 9.8   |
+  | Small      | Style change | 0.32 / 0.52 | 7.8 / 10.8    | 0.58 / 0.98  | 0.06 / 0.10 | 8.8 / 12.3  |
+  | Small      | Typing       | 0.37 / 0.49 | 8.2 / 10.1    | 0.74 / 1.00  | 0.06 / 0.09 | 9.4 / 11.5  |
+  | Small      | Token change | 0.09 / 0.20 | 0.02 / 0.04   | 0.01 / 0.02  | 0.00 / 0.00 | 0.13 / 0.27 |
+  | Large      | Board drag   | 0.33 / 0.56 | 18.5 / 22.3   | 1.55 / 1.77  | 0.19 / 0.35 | 20.6 / 24.4 |
+  | Large      | Style change | 0.34 / 0.54 | 18.8 / 22.6   | 1.61 / 2.13  | 0.19 / 0.30 | 20.9 / 25.9 |
+  | Large      | Typing       | 0.39 / 0.51 | 19.1 / 23.1   | 1.72 / 2.02  | 0.25 / 0.30 | 21.3 / 26.0 |
+  | Large      | Token change | 0.09 / 0.18 | 0.02 / 0.03   | 0.01 / 0.02  | 0.00 / 0.00 | 0.12 / 0.23 |
+  | Very large | Board drag   | 0.38 / 0.54 | 46.0 / 60.1   | 4.36 / 5.71  | 0.58 / 0.84 | 51.3 / 66.1 |
+  | Very large | Style change | 0.35 / 0.48 | 39.1 / 48.6   | 3.76 / 4.59  | 0.33 / 0.44 | 43.6 / 53.4 |
+  | Very large | Typing       | 0.37 / 0.65 | 39.0 / 46.3   | 3.83 / 4.83  | 0.41 / 0.51 | 43.7 / 52.3 |
+  | Very large | Token change | 0.09 / 0.16 | 0.02 / 0.03   | 0.01 / 0.02  | 0.00 / 0.00 | 0.11 / 0.22 |
+
+  Reading back and diffing is nearly all of it, and grows with the project, though each edit touches one design: Loro's
+  import stays under half a millisecond. The projects are `packages/multiplayer`'s generated ones, 20, 100 and 250
+  designs.
+
 - **Measuring smoothness** (PAR-1307). `node apps/desktop/scripts/room-perf.ts` starts two copies in a room side by
   side, has one person move their pointer in a circle while the other watches, both ways, and records how far apart
   positions are sent and arrive, the watcher's frames, and how often the pointer stood still on screen while positions
@@ -6545,6 +6571,11 @@ Tests:
   host saved and left writes the file and token value it changed back since (PAR-1254).
 - `apps/desktop/src/renderer/tokens-store.test.ts`, "joining a live room" (2), in Chrome: a guest that loaded a value
   the host saved shows the room's, though it's the edit's original; and shows a saved edit again on redo after undo.
+- `packages/multiplayer-loro/src/remote-change.test.ts` (8): budgets for one remote change on the receiving copy, a
+  board drag, a style change, typing and a token change, on the small and large projects, end to end and for Loro's
+  import (PAR-1325). `remote-change.bench.ts` times each stage on the very large project too.
+- `packages/extension-multiplayer/src/decode.test.ts` (4): a change's bytes decoded as sent, and budgets for decoding
+  presence alone, one edit's change and a large paste's (PAR-1325). `decode.bench.ts` times them.
 
 ### The canvas surface: colors, the camera and boxes (PAR-1236)
 
