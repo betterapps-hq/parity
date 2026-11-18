@@ -192,7 +192,7 @@ function FollowYourMouseStory() {
           <CanvasBoard name="Dashboard" x={40} y={40}>
             <DashboardDesign />
           </CanvasBoard>
-          <RemotePointer member={members.mia} at={sent.at} offCanvas={sent.offCanvas} stepMs={60} />
+          <RemotePointer member={members.mia} at={sent.at} offCanvas={sent.offCanvas} />
         </CanvasPane>
       </div>
     </div>

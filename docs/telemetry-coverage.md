@@ -61,6 +61,11 @@ Across all of them:
   and holds a window module opens are recorded with its id (PAR-1257). `parity.sync` records how a project opened
   through it, changes refused or left waiting, who writes files, its minute's traffic and detaching (`sync.*`) once the
   tab offers it, and `parity.agents` its minute's activity and steps dropped (`agents.*`).
+- **A live room says how smoothly others arrive** (PAR-1307). Once a minute in a room, `room.latency` has its round
+  trips, the presence it sent and received, how far apart others' presence arrived (median, 95th percentile and longest,
+  leaving out pauses of a second or more) and how many of their pointer positions came too late to be drawn on time. It
+  carries no names or positions. Frame times while someone moves aren't recorded; `apps/desktop/scripts/room-perf.ts`
+  measures those by hand.
 - **Almost nothing is sampled.** No process sets `tracesSampleRate` or a sampler, so the SDKs make no spans of their
   own, and every span Parity makes is sent. No registered event uses `defineEvent`'s `sample` option. Three events thin
   themselves: `dragPreview.settled` records one in ten previews of others' drags that end by their write, and every

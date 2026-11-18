@@ -4,7 +4,7 @@ import { z } from "zod"
  * What copies in a room send each other through the relay (docs/proposals/extensions-in-the-window.md, "What the
  * multiplayer extension sends between copies"). This is the extension's own protocol, not core's. Document changes,
  * gestures, agents' steps and the host's colors go in order on one channel; each person's presence goes with them, only
- * the latest kept while a batch is on its way.
+ * the latest kept while a batch is on its way, and at most 30 times a second.
  */
 
 const point = z.object({ x: z.number(), y: z.number() })
@@ -87,7 +87,8 @@ export type RoomEvent = z.infer<typeof eventSchema>
 /** What someone is doing now, the latest of each. */
 export const presenceSchema = z.object({
   name: z.string(),
-  pointer: z.object({ at: point, over: z.boolean() }).optional(),
+  /** `t`: when the position was taken, in milliseconds on the sender's clock, so others draw it in time (PAR-1307). */
+  pointer: z.object({ at: point, over: z.boolean(), t: z.number().optional() }).optional(),
   selection: z.array(nodeRef),
   camera: rect.optional(),
   viewing: z.object({ design: z.string().optional(), ...inFrame })

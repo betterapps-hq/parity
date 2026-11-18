@@ -163,13 +163,14 @@ export default defineWindowModule({
 
     const dragged = (from: string, gesture: Extract<Gesture, { kind: "move" }>) => {
       const person = people.person(from)
-      const pointer = person?.pointer?.at
+      // Where their pointer is drawn, which their drag follows.
+      const pointer = people.pointerAt(from, performance.now())
 
       if (gesture.phase === "start") {
         previews.get(from)?.dispose()
         previews.delete(from)
 
-        if (!pointer) {
+        if (!person || !pointer) {
           return
         }
 
@@ -193,6 +194,7 @@ export default defineWindowModule({
 
       if (gesture.phase === "drop" && preview && pointer) {
         preview.update(dragItems(gesture, pointer), gesture.drop ? { drop: gesture.drop } : {})
+        drawDrags()
       } else if (gesture.phase === "end") {
         // The drop's write came first, on the same channel, so the preview settles on it.
         preview?.settleOnWrite()
@@ -250,6 +252,7 @@ export default defineWindowModule({
         follow.left(gone)
         previews.get(gone)?.dispose()
         previews.delete(gone)
+        heldForWrite.delete(gone)
         people.remove(gone)
 
         if (held.delete(gone)) {
@@ -286,7 +289,11 @@ export default defineWindowModule({
       },
       presence(presence, from) {
         people.presence(from, presence)
-        dragMoved(from)
+        heldForWrite.delete(from)
+
+        if (previews.has(from)) {
+          drawDrags()
+        }
 
         if (presence.camera) {
           follow.update(from, presence.camera)
@@ -295,6 +302,12 @@ export default defineWindowModule({
       event(event, from) {
         switch (event.kind) {
           case "changes":
+            // Likely their drop's write, which their drag settles on when it ends: until they move again, frames
+            // drawn between positions leave the drag be, since an update makes it forget a write that came first.
+            if (previews.has(from)) {
+              heldForWrite.add(from)
+            }
+
             void parity.sync.receive(fromBase64(event.bytes)).then(
               ({ pending }) => {
                 if (pending) {
@@ -343,17 +356,33 @@ export default defineWindowModule({
       }
     })
 
-    // Someone's drag follows their pointer.
-    const dragMoved = (from: string) => {
-      const preview = previews.get(from)
-      const person = people.person(from)
-      const gesture = person?.gesture
+    // Someone's drag follows their pointer as it's drawn, on every frame while it's on its way, unless held for a write.
+    let dragFrame: number | undefined
+    const heldForWrite = new Set<string>()
 
-      const pointer = person?.pointer?.at
+    const drawDrags = () => {
+      dragFrame ??= requestAnimationFrame((now) => {
+        dragFrame = undefined
+        let moving = false
 
-      if (preview && gesture?.kind === "move" && pointer) {
-        preview.update(dragItems(gesture, pointer))
-      }
+        for (const [from, preview] of previews) {
+          if (heldForWrite.has(from)) {
+            continue
+          }
+
+          const gesture = people.person(from)?.gesture
+          const pointer = people.pointerAt(from, now)
+
+          if (gesture?.kind === "move" && pointer) {
+            preview.update(dragItems(gesture, pointer))
+            moving ||= people.trail(from)?.moving === true
+          }
+        }
+
+        if (moving) {
+          drawDrags()
+        }
+      })
     }
 
     const askMissing = () => {
@@ -391,7 +420,8 @@ export default defineWindowModule({
       parity.sync.onLocalChanges((bytes) => room.send({ kind: "changes", bytes: toBase64(bytes) })),
       // What this person is doing, and what this copy's agents do.
       parity.presence.onPointer((pointer) => {
-        mine.pointer = pointer
+        // Stamped with when it was there, so others draw it in time however unevenly it reaches them.
+        mine.pointer = { at: pointer.at, over: pointer.over, t: pointer.t ?? performance.now() }
         tellMine()
       }),
       parity.presence.onGesture((gesture) => room.send({ kind: "gesture", gesture: copyOf(gesture) })),
@@ -444,19 +474,25 @@ export default defineWindowModule({
     // `room.latency`, once a minute while in the room.
     const latency = setInterval(() => {
       const stats = room.takeStats()
+      const presenceLate = people.takeLate()
       const sorted = stats.rtts.toSorted((a, b) => a - b)
+      const gaps = stats.presenceGaps.toSorted((a, b) => a - b)
 
       if (sorted.length === 0 && stats.presenceReceived === 0) {
         return
       }
 
-      const at = (share: number) =>
-        Math.round(sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * share))] ?? 0)
+      const at = (values: number[], share: number) =>
+        Math.round(values[Math.min(values.length - 1, Math.floor(values.length * share))] ?? 0)
 
       parity.telemetry.record("room.latency", {
-        rttP50Ms: at(0.5),
-        rttP95Ms: at(0.95),
+        rttP50Ms: at(sorted, 0.5),
+        rttP95Ms: at(sorted, 0.95),
         rttMaxMs: Math.round(sorted.at(-1) ?? 0),
+        presenceGapP50Ms: at(gaps, 0.5),
+        presenceGapP95Ms: at(gaps, 0.95),
+        presenceGapMaxMs: Math.round(gaps.at(-1) ?? 0),
+        presenceLate,
         presenceSent: stats.presenceSent,
         presenceReceived: stats.presenceReceived,
         queueMax: stats.queueMax,
@@ -473,6 +509,11 @@ export default defineWindowModule({
 
       stopped = true
       clearInterval(latency)
+
+      if (dragFrame !== undefined) {
+        cancelAnimationFrame(dragFrame)
+      }
+
       hosting.dispose()
       stopRoom()
       follow.dispose()

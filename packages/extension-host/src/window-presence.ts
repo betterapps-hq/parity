@@ -14,6 +14,8 @@ import type { WindowSurface } from "./window-modules.ts"
 export interface Pointer {
   at: Point
   over: boolean
+  /** When the pointer was there, on the window's clock, from the input event. */
+  t?: number
 }
 
 /** What the tab's window tells of this person. */

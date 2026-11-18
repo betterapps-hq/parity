@@ -1712,15 +1712,19 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `room.latency`
 
-| Attribute            | Type      | Meaning                                                        |
-| -------------------- | --------- | -------------------------------------------------------------- |
-| `rttP50Ms`           | `number`  | The median round trip of a batch to the relay, in milliseconds |
-| `rttP95Ms`           | `number`  | The 95th percentile round trip, in milliseconds                |
-| `rttMaxMs`           | `number`  | The slowest round trip, in milliseconds                        |
-| `presenceSent`       | `integer` | Presence updates sent                                          |
-| `presenceReceived`   | `integer` | Presence updates received                                      |
-| `queueMax`           | `integer` | The most messages waiting to be sent at once                   |
-| `batchesInFlightMax` | `integer` | The most batches on their way at once                          |
+| Attribute            | Type      | Meaning                                                                                                |
+| -------------------- | --------- | ------------------------------------------------------------------------------------------------------ |
+| `rttP50Ms`           | `number`  | The median round trip of a batch to the relay, in milliseconds                                         |
+| `rttP95Ms`           | `number`  | The 95th percentile round trip, in milliseconds                                                        |
+| `rttMaxMs`           | `number`  | The slowest round trip, in milliseconds                                                                |
+| `presenceGapP50Ms`   | `number`  | How far apart others' presence arrived, the median, in milliseconds, leaving out pauses of 1 s or more |
+| `presenceGapP95Ms`   | `number`  | How far apart others' presence arrived, the 95th percentile                                            |
+| `presenceGapMaxMs`   | `number`  | The longest gap between others' presence, under 1 s                                                    |
+| `presenceLate`       | `integer` | Others' pointer positions that arrived after the time they were to be drawn at                         |
+| `presenceSent`       | `integer` | Presence updates sent                                                                                  |
+| `presenceReceived`   | `integer` | Presence updates received                                                                              |
+| `queueMax`           | `integer` | The most messages waiting to be sent at once                                                           |
+| `batchesInFlightMax` | `integer` | The most batches on their way at once                                                                  |
 
 ### `room.left`
 

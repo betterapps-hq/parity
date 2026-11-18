@@ -54,6 +54,22 @@ export const roomEvents = [
       rttP50Ms: z.number().nonnegative().describe("The median round trip of a batch to the relay, in milliseconds"),
       rttP95Ms: z.number().nonnegative().describe("The 95th percentile round trip, in milliseconds"),
       rttMaxMs: z.number().nonnegative().describe("The slowest round trip, in milliseconds"),
+      presenceGapP50Ms: z
+        .number()
+        .nonnegative()
+        .describe(
+          "How far apart others' presence arrived, the median, in milliseconds, leaving out pauses of 1 s or more"
+        ),
+      presenceGapP95Ms: z
+        .number()
+        .nonnegative()
+        .describe("How far apart others' presence arrived, the 95th percentile"),
+      presenceGapMaxMs: z.number().nonnegative().describe("The longest gap between others' presence, under 1 s"),
+      presenceLate: z
+        .number()
+        .int()
+        .nonnegative()
+        .describe("Others' pointer positions that arrived after the time they were to be drawn at"),
       presenceSent: z.number().int().nonnegative().describe("Presence updates sent"),
       presenceReceived: z.number().int().nonnegative().describe("Presence updates received"),
       queueMax: z.number().int().nonnegative().describe("The most messages waiting to be sent at once"),

@@ -383,9 +383,10 @@ export interface Presence {
   readonly self: Self
   /**
    * Told where the pointer is on the page, at most once a frame with the latest. Its leaving the canvas (`over: false`)
-   * is never dropped.
+   * is never dropped. `t` is when it was there, on the window's clock (`performance.now()`), taken from the input event,
+   * so it holds even when the window was too busy to tell it at once.
    */
-  onPointer(listener: (pointer: { at: Point; over: boolean }) => void): Disposable
+  onPointer(listener: (pointer: { at: Point; over: boolean; t?: number }) => void): Disposable
   /**
    * Told each gesture's start, its drop target changing, and its end or cancel, every one in order. A move's drop
    * reaches `sync.onLocalChanges` before its `end` is told here.
