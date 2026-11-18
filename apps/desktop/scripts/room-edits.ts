@@ -15,6 +15,10 @@ declare global {
     /** The room's measures of others' changes, from arriving to their frame, in the page's own time. */
     roomPerfShown?: { start: number; duration: number }[]
     roomPerfDrag?: { frames: number[]; tasks: number[]; running: boolean }
+    /** Starts watching a design's board, or the whole canvas, for changes in it and in its frames. */
+    roomPerfWatch?: (key: string | undefined) => boolean
+    /** When the watched board last changed, in milliseconds since the epoch. */
+    roomPerfLast?: number
   }
 }
 
@@ -33,6 +37,11 @@ export interface EditTimes {
   toScreen: number[]
   /** The watching copy's share: from the change arriving to that frame. */
   arrivedToScreen: number[]
+  /**
+   * From the edit to the last change in the board's frames that it caused, or anywhere on the canvas for a token
+   * change: what a person sees settle. A change made only to a stylesheet isn't seen, so it counts as the first frame.
+   */
+  toFrame: number[]
 }
 
 export interface DragTimes {
@@ -60,26 +69,86 @@ export async function withDocs(pages: Page[]): Promise<void> {
           shown.push({ start: entry.startTime, duration: entry.duration })
         }
       }).observe({ type: "measure" })
+
+      let observer: MutationObserver | undefined
+
+      window.roomPerfWatch = (key) => {
+        observer?.disconnect()
+        window.roomPerfLast = undefined
+
+        const scope = key
+          ? document.querySelector(`.container-view[data-design="${CSS.escape(key)}"]`)
+          : document.querySelector(".tl-canvas")
+
+        if (!scope) {
+          return false
+        }
+
+        const options = { subtree: true, childList: true, attributes: true, characterData: true }
+        const watched = new WeakSet<ShadowRoot>()
+
+        // Frames draw in shadow roots, which an observer of the page doesn't see into.
+        const intoFrames = (root: Node) => {
+          if (!(root instanceof Element)) {
+            return
+          }
+
+          for (const host of [root, ...root.querySelectorAll("[data-frame]")]) {
+            if (host.shadowRoot && !watched.has(host.shadowRoot)) {
+              watched.add(host.shadowRoot)
+              observer!.observe(host.shadowRoot, options)
+            }
+          }
+        }
+
+        observer = new MutationObserver((records) => {
+          window.roomPerfLast = performance.timeOrigin + performance.now()
+
+          for (const record of records) {
+            record.addedNodes.forEach(intoFrames)
+          }
+        })
+
+        observer.observe(scope, options)
+        intoFrames(scope)
+
+        return true
+      }
     }, "/workspace.ts")
   }
 }
 
 /** Each edit made 20 times in `mover`, a quarter of a second apart, timed to the first frame `watcher` draws with it. */
-export async function editsToScreen(mover: Page, watcher: Page): Promise<EditTimes[]> {
+export async function editsToScreen(
+  mover: Page,
+  watcher: Page,
+  kinds: readonly (typeof editKinds)[number][] = editKinds
+): Promise<EditTimes[]> {
   const target = await targetOf(mover)
   const results: EditTimes[] = []
 
-  for (const kind of editKinds) {
-    const times: EditTimes = { edit: kind, toScreen: [], arrivedToScreen: [] }
+  for (const kind of kinds) {
+    const times: EditTimes = { edit: kind, toScreen: [], arrivedToScreen: [], toFrame: [] }
+
+    // A project drawn only from code has no design to edit, but its tokens can still change.
+    if (!target && kind !== "token change") {
+      continue
+    }
 
     for (let count = 0; count < 20; count += 1) {
-      const seen = await watcher.evaluate(() => window.roomPerfShown!.length)
+      const seen = await watcher.evaluate(
+        (key) => (window.roomPerfWatch!(key), window.roomPerfShown!.length),
+        kind === "token change" ? undefined : target?.key
+      )
+
       const made = await edit(mover, kind, target, count)
       const shown = await nextShown(watcher, seen)
 
       if (shown) {
         times.toScreen.push(shown.shown - made)
         times.arrivedToScreen.push(shown.shown - shown.arrived)
+        const settled = await settledAt(watcher)
+        times.toFrame.push(Math.max(shown.shown, settled ?? 0) - made)
       }
 
       await mover.waitForTimeout(250)
@@ -98,6 +167,11 @@ export async function editsToScreen(mover: Page, watcher: Page): Promise<EditTim
 /** `mover` drags a board for `seconds`, writing it every frame in one gesture, while `watcher` records its frames. */
 export async function remoteDrag(mover: Page, watcher: Page, seconds: number): Promise<DragTimes> {
   const target = await targetOf(mover)
+
+  if (!target) {
+    throw new Error("The project has no design to drag")
+  }
+
   const before = await watcher.evaluate(() => window.roomPerfShown!.length)
 
   await watcher.evaluate(() => {
@@ -207,7 +281,7 @@ export async function joinAgain(page: Page): Promise<{ ms: number; snapshotBytes
   return { ms, snapshotBytes }
 }
 
-async function targetOf(page: Page): Promise<Target> {
+async function targetOf(page: Page): Promise<Target | undefined> {
   return page.evaluate(() => {
     const doc = window.roomPerfDoc!
     const keys = [...doc.files()].flatMap(([path, file]) => file.containers.map((design) => `${path}#${design.id}`))
@@ -233,52 +307,56 @@ async function targetOf(page: Page): Promise<Target> {
       }
     }
 
-    throw new Error("No design has a layout and a text layer")
+    return undefined
   })
 }
 
 /** Makes one edit of `kind` in the page's document, returning when, in milliseconds since the epoch. */
-async function edit(page: Page, kind: string, target: Target, count: number): Promise<number> {
+async function edit(page: Page, kind: string, target: Target | undefined, count: number): Promise<number> {
   return page.evaluate(
     ([kind, target, count]) => {
       const doc = window.roomPerfDoc!
-      const { position } = doc.design(target.key)!
 
       const ops = (): Parameters<typeof doc.transact>[1] => {
-        switch (kind) {
-          case "board drag":
-            return [
-              { op: "setDesign", design: target.key, path: ["position"], value: { x: position.x + 4, y: position.y } }
-            ]
-          case "style change":
-            return [
-              {
-                op: "set",
-                design: target.key,
-                node: target.layer,
-                path: ["style", "gap"],
-                value: { step: 10 + (count % 2) }
-              }
-            ]
-          case "typing":
-            return [
-              {
-                op: "editText",
-                design: target.key,
-                node: target.text,
-                edit: { kind: "splice", at: 0, remove: 0, insert: "x" }
-              }
-            ]
-          default:
-            return [
-              {
-                op: "setTokens",
-                tokens: new Map([
-                  ["primary light", { name: "primary", theme: "light", value: `oklch(0.5 0.1 ${count % 360})` }]
-                ])
-              }
-            ]
+        if (kind === "token change" || !target) {
+          return [
+            {
+              op: "setTokens",
+              tokens: new Map([
+                ["primary light", { name: "primary", theme: "light", value: `oklch(0.5 0.1 ${count % 360})` }]
+              ])
+            }
+          ]
         }
+
+        if (kind === "board drag") {
+          const { position } = doc.design(target.key)!
+
+          return [
+            { op: "setDesign", design: target.key, path: ["position"], value: { x: position.x + 4, y: position.y } }
+          ]
+        }
+
+        if (kind === "style change") {
+          return [
+            {
+              op: "set",
+              design: target.key,
+              node: target.layer,
+              path: ["style", "gap"],
+              value: { step: 10 + (count % 2) }
+            }
+          ]
+        }
+
+        return [
+          {
+            op: "editText",
+            design: target.key,
+            node: target.text,
+            edit: { kind: "splice", at: 0, remove: 0, insert: "x" }
+          }
+        ]
       }
 
       const at = performance.timeOrigin + performance.now()
@@ -292,6 +370,25 @@ async function edit(page: Page, kind: string, target: Target, count: number): Pr
     },
     [kind, target, count] as const
   )
+}
+
+/** Waits until the watched board has been still for 400 ms, at most 5 s, returning when it last changed. */
+async function settledAt(page: Page): Promise<number | undefined> {
+  return page.evaluate(async () => {
+    const began = Date.now()
+
+    while (Date.now() - began < 5000) {
+      const last = window.roomPerfLast
+
+      if (performance.timeOrigin + performance.now() - (last ?? began) >= 400) {
+        break
+      }
+
+      await new Promise((done) => setTimeout(done, 50))
+    }
+
+    return window.roomPerfLast
+  })
 }
 
 /** Waits for the page to draw a change after the first `seen`, returning its arrival and frame since the epoch. */

@@ -107,7 +107,9 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  act(() => root.unmount())
+  act(() => {
+    root.unmount()
+  })
   host.remove()
   vi.unstubAllGlobals()
 })
@@ -124,7 +126,12 @@ function presenceOf(name: string, index: number, step: number): PersonPresence {
 /** The room's five layers, each in a profiler counting its renders, with three people in the room. */
 function mountRoom() {
   let clock = 0
-  const people = new People(palette, () => clock)
+
+  const people = new People(
+    () => palette(0),
+    () => clock
+  )
+
   const follow = new Follow(camera)
   const fake = fakeLayer()
   const names = ["Ada", "Grace", "Linus"]

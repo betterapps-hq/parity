@@ -6491,7 +6491,9 @@ the signed-in person's first name.
   preview settles on it, in the same batch or an earlier one.
 - **Telemetry.** `room.relayStarted`, `room.joined`, `room.left`, `room.hostChanged`, `room.reconnected` and
   `room.latency`, recorded through `parity.telemetry`, beside core's `sync.*`. `room.latency` also has how far apart
-  others' presence arrived and how many of their pointer positions came too late to be drawn on time (PAR-1307).
+  others' presence arrived and how many of their pointer positions came too late to be drawn on time (PAR-1307), and how
+  many of others' changes this copy took in and how long each took from arriving to the first frame drawn with it, its
+  median, 95th percentile and slowest (PAR-1325).
 - **Measuring one remote change** (PAR-1325). `remote-change.bench.ts` in `packages/multiplayer-loro` times what one of
   others' changes costs the copy that takes it in, by stage: Loro's import, reading the touched designs back and diffing
   them (`backend.ts`, reported by the backend's `timings()`), `ProjectDoc` taking the change, and reading the designs
@@ -6516,7 +6518,37 @@ the signed-in person's first name.
 
   Reading back and diffing is nearly all of it, and grows with the project, though each edit touches one design: Loro's
   import stays under half a millisecond. The projects are `packages/multiplayer`'s generated ones, 20, 100 and 250
-  designs.
+  designs. That's the room's own share only, without what the canvas does with the change, which is most of what a
+  person waits for: see the next item.
+
+- **Measuring through the canvas** (PAR-1325). `node apps/desktop/scripts/room-perf.ts --runs "edits, drag, join"`
+  measures in two copies side by side, the guest editing and the host watching, and profiles the host's JavaScript while
+  it watches, each kind of edit apart (`.inspect/room-perf/<label>.*.cpuprofile`). Each edit is made 20 times, a quarter
+  of a second apart, through the guest's document. _First frame_ is from the edit to the first frame the host draws
+  after taking it in, which the room measures as `room.changeToScreen`; _settled_ is to the last change it caused in the
+  board's frames, or anywhere on the canvas for a token change. The drag writes a board's position every frame for 6 s
+  in one gesture, as a drag does. Before each run both windows are put back on top, and the run stops if the host draws
+  slower than a frame every 40 ms, since a covered window draws a frame a second. On 2026-11-18, on the example project,
+  two runs, the median and 95th percentile in milliseconds:
+
+  | Edit         | First frame          | Of which the host's share | Settled                |
+  | ------------ | -------------------- | ------------------------- | ---------------------- |
+  | Board drag   | 41 / 104, 37 / 144   | 36 / 88, 33 / 90          | as first frame         |
+  | Style change | 38 / 128, 36 / 125   | 30 / 117, 32 / 121        | 38 / 212, 75 / 274     |
+  | Typing       | 41 / 151, 41 / 88    | 37 / 133, 37 / 82         | 41 / 230, 41 / 222     |
+  | Token change | 487 / 614, 471 / 709 | 480 / 586, 467 / 705      | 614 / 5732, 515 / 5684 |
+  - **The canvas, not the room, takes the time.** Taking in a change (`window-sync.ts` through `backend.ts`) is about 10
+    ms of a style change's 290 ms of the host's main thread, and 20 ms of a token change's 1.2 s. The rest is React, the
+    frames drawing again (`frame-changes.ts`, `frame-bitmaps.ts`, `render-job.ts`, `ModeView`, `ContainerView`), reading
+    layout (`getBoundingClientRect` alone is a tenth of it), the overlays, and calls to the project service.
+  - **A token change** takes half a second to show and up to six to settle, as every frame draws again.
+  - **During a remote drag the host can't keep up.** Over the 6 s it was busy for all but a fraction, with 6 s of long
+    tasks, the longest 2 to 3 s, so the drag shows in jumps: frames' median 9 and 25 ms, but their 95th percentile 209
+    and 392. Of its 6.9 s of JavaScript, taking the changes in was 2.9 s: Loro reading back and diffing 1.4 s (which
+    PAR-1326 removes), and `ProjectDoc` telling `CanvasEditor.sync()` and tldraw 1.5 s. React drawing it again was 2.6 s
+    more.
+  - **Joining again** took 7.3 and 6.9 s, on a snapshot of 0.9 MB. On a project drawn only from code (the heavy app
+    `scripts/heavy-app.ts` makes, 40 routes), it took 1.3 s, and a token change took 38 / 119 ms to its first frame.
 
 - **Measuring smoothness** (PAR-1307). `node apps/desktop/scripts/room-perf.ts` starts two copies in a room side by
   side, has one person move their pointer in a circle while the other watches, both ways, and records how far apart
@@ -6596,6 +6628,10 @@ Tests:
   import (PAR-1325). `remote-change.bench.ts` times each stage on the very large project too.
 - `packages/extension-multiplayer/src/decode.test.ts` (4): a change's bytes decoded as sent, and budgets for decoding
   presence alone, one edit's change and a large paste's (PAR-1325). `decode.bench.ts` times them.
+- `packages/extension-multiplayer/src/renders.test.ts` (3), in happy-dom: how many times the room's five canvas layers
+  render for each presence message and each frame of a pan or a zoom, with three people in the room, held to budgets
+  (PAR-1325). On 2026-11-18 a presence message, a pointer move included, rendered every layer that reads who's here, and
+  a frame of a pan or a zoom rendered the three page layers, which read the camera only for its zoom.
 
 ### The canvas surface: colors, the camera and boxes (PAR-1236)
 
