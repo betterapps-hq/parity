@@ -53,8 +53,17 @@ Until each lands, a panel draws today's section in its place.
 | Video content  | PAR-1066 |
 | CSS            | PAR-1067 |
 | Export         | PAR-1068 |
-| States         | PAR-1069 |
 | How slots work | PAR-1070 |
+
+## States
+
+A component's states are saved setups of its props and nothing else (PAR-1069), so they lead Props instead of taking a
+section of their own, on the component and on each instance of it. State, above the props, shows the state they're in
+and lists every state with what it sets. Typing searches the list, and a name no state has saves the props showing as a
+new state. Changed props put a dot on their state and a bar under the props: on the component it saves or discards them,
+and on an instance it updates the state or resets the instance to it. State's menu saves the props as a new state,
+renames, duplicates, sets the default or deletes. The Props title keeps its + for adding a prop, so State has none. The
+design is in `explorations/states/` (Explorations › States).
 
 ## Order of work
 
