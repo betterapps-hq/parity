@@ -8969,17 +8969,17 @@ A screen is named for the component its route draws, else its path.
   board goes live or the board has been out of view for 10 s, and its frame is closed, never reused. A page still on its
   board's route, its path and query (`keepsLiveCopy`), first takes a snapshot once it has been quiet for 150 ms, at most
   3 s, and that becomes the copy of every board of its route and mode (`keepLiveCopy`, PAR-1304), so a menu opened or a
-  value typed stays on the board until a code change makes the copy stale. A page that takes Next's hot updates counts
-  as drawing each change once it's heard, so an edit it already shows doesn't make its copy stale. Its frame stays where
-  it was over the board, taking nothing, until then, so the old copy never shows between. A page a link moved to another
-  route, or that redirected, before or while it went quiet, leaves its board the copy it had. A freeze queued or under
-  way when the copy was kept leaves it be (`freezeKeeps`) unless code changed since, and of two live pages' snapshots of
-  one route and mode, the one asked for last is kept, whichever comes first. Such a copy is `used`: its board's picture
-  is captured from it again even when the one on disk is current, and kept without a trace, so it never stands for the
-  page's fresh load when the project opens again. The freezer waits while the live page is in use, 2 s after each
-  `page.used`, and while the pool refills, 1.5 s after a board goes live, since a project's frames share one process. A
-  window that isn't focused keeps no spares. `routeFrame.live` says how a board went live and how long it took, and
-  `routeFrame.miss` that no spare was there.
+  value typed stays on the board until a code change makes the copy stale. A page that takes Next's hot updates says
+  nothing when it has drawn one, so its copy after a code change is stale and frozen again: slower, never showing old
+  code. Its frame stays where it was over the board, taking nothing, until then, so the old copy never shows between. A
+  page a link moved to another route, or that redirected, before or while it went quiet, leaves its board the copy it
+  had. A freeze queued or under way when the copy was kept leaves it be (`freezeKeeps`) unless code changed since, and
+  of two live pages' snapshots of one route and mode, the one asked for last is kept, whichever comes first. Such a copy
+  is `used`: its board's picture is captured from it again even when the one on disk is current, and kept without a
+  trace, so it never stands for the page's fresh load when the project opens again. The freezer waits while the live
+  page is in use, 2 s after each `page.used`, and while the pool refills, 1.5 s after a board goes live, since a
+  project's frames share one process. A window that isn't focused keeps no spares. `routeFrame.live` says how a board
+  went live and how long it took, and `routeFrame.miss` that no spare was there.
 - **Route frame tiers (PAR-1301).** With Settings › Diagnostics › Route frame tiers on, or Help › Developer › Route
   frame tiers, each route board has a dot just right of its top-right corner, where the live page can't cover it
   (`TierDot`): grey while it shows its frozen copy or picture, orange while a spare loads at or moves to its route, and
