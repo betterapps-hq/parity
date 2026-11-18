@@ -8619,9 +8619,10 @@ The project's own components, on their boards, have a lens of their own, Compone
 - **Selecting stays on its canvas,** as on Pages: Select all and its kin select only boards, and a board selected while
   another lens shows, from Search, the Components panel or a page's links, shows Components in that lens's place.
 - **The inspector** shows the selected component as before, its file, export and props from its code, and under them
-  Used in: each page, screen, story and designed component that places it, as links. A click shows the design in its
-  lens, selected; Show beside splits that lens to the right. A page's links to the components it places show their
-  boards in Components.
+  Used in: each page whose route draws it, and each page, screen, story and designed component that places it, as links.
+  A page is drawn from the app's code, so the components its route's component renders inside it aren't listed yet. A
+  click shows the design in its lens, selected; Show beside splits that lens to the right. A page's links to the
+  components it places show their boards in Components.
 
 Code: `lenses/components.tsx` (`componentsLens`); `ComponentLayerTree` in `chrome/LayerTree.tsx`, which lists `part`
 `components`; `isComponentBoard` in `canvas/component-boards.ts`, which `canvasOf` reads; `ComponentUses` and
