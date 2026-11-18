@@ -87,4 +87,13 @@ export {
   restartDelays
 } from "./freezer.ts"
 
+export {
+  noFailures,
+  type PageFrameSeen,
+  PageProcesses,
+  type ProcessFailures,
+  processFailed,
+  processOpen
+} from "./process.ts"
+
 export { type BoardTier, type BoardView, boardTier, frozenFrom, pictureBelow } from "./tiers.ts"

@@ -632,7 +632,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `room.relayStarted`                | info  | all  | renderer                                | The window module asks its Node half for the relay, which starts it or finds one.                                                                                          |
 | `routeFrame.live`                  | info  | all  | renderer                                | A route board goes live with the Interact tool.                                                                                                                            |
 | `routeFrame.miss`                  | info  | all  | renderer                                | A route board goes live with no spare to take, so a new frame loads at its route.                                                                                          |
-| `routeFrame.process`               | warn  | all  | renderer                                | A project's page process fails under its freezer frame.                                                                                                                    |
+| `routeFrame.process`               | warn  | all  | renderer                                | A project's page process goes or stops answering, heard once however many of its frames report it.                                                                         |
 | `routeFrame.refused`               | info  | all  | renderer                                | The freezer refuses a page's snapshot or gets none, so its board keeps what it had.                                                                                        |
 | `routeFrame.removed`               | debug | all  | renderer                                | The sanitizer takes anything out of a snapshot before its copy is built.                                                                                                   |
 | `service.degraded`                 | warn  | all  | service                                 | The project service stops doing something, such as watching a project or keeping bitmaps, and runs on without it.                                                          |
@@ -1755,10 +1755,10 @@ No attributes.
 
 ### `routeFrame.process`
 
-| Attribute | Type               | Meaning                                                            |
-| --------- | ------------------ | ------------------------------------------------------------------ |
-| `how`     | `"gone" \| "hung"` | Whether the page's process closed its channel or stopped answering |
-| `stopped` | `boolean`          | Whether Parity stopped opening frames for the project after it     |
+| Attribute | Type               | Meaning                                                        |
+| --------- | ------------------ | -------------------------------------------------------------- |
+| `how`     | `"gone" \| "hung"` | Whether the page's process went or stopped answering           |
+| `stopped` | `boolean`          | Whether Parity stopped opening frames for the project after it |
 
 ### `routeFrame.refused`
 

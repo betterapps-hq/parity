@@ -34,6 +34,7 @@ import { resetWithWindow, useStore, windowStore } from "../store.ts"
 import { holdFreezer } from "./freezer.ts"
 import { onPageFiles, showTokenPreview } from "./page-changes.ts"
 import { parityChecks } from "./page-channel.ts"
+import { onPageProcess, pageProcessOpen } from "./page-process.ts"
 
 /*
  * Live route boards from a pool of spare frames (docs/proposals/route-frames.md, "Input on a live board", "Going live"
@@ -42,7 +43,9 @@ import { parityChecks } from "./page-channel.ts"
  * to the routes in view. Resting the pointer on a board sends a spare to its route; pressing it takes the quickest
  * frame and puts it over the board, engaged, so the page takes the pointer and keys. A press outside, Escape the page
  * didn't handle, or leaving Interact disengages it, and focus comes back to Parity's document. Live ends when another
- * board goes live or the board has been out of view for 10 s, and the frame is closed, never reused.
+ * board goes live or the board has been out of view for 10 s, and the frame is closed, never reused. When the
+ * project's page process fails, live ends and every frame closes; the pool fills again after the pause
+ * (`page-process.ts`), and while it waits, or once Parity stops trying, boards keep their copies.
  */
 
 /** The spares each project keeps per window while the Interact tool is on. */
@@ -256,6 +259,11 @@ export class Pool {
 
     const unchanged = onPageFiles(project, () => this.filesChanged())
 
+    const unprocess = onPageProcess(project, {
+      gone: () => this.processGone(),
+      resumed: () => this.plan()
+    })
+
     this.stopListening = () => {
       window.removeEventListener("message", hello)
       window.removeEventListener("pointerdown", pressed, true)
@@ -264,6 +272,7 @@ export class Pool {
       unstopped?.()
       unpreviewed()
       unchanged()
+      unprocess()
     }
   }
 
@@ -372,6 +381,11 @@ export class Pool {
     const board = this.boards.get(id)?.()
 
     if (!board || !this.layer || this.going?.board === id) {
+      return
+    }
+
+    // While the page process waits to start again, or has stopped, the board keeps its copy.
+    if (!pageProcessOpen(this.project)) {
       return
     }
 
@@ -1097,7 +1111,7 @@ export class Pool {
     }))
 
     const plan = planPool({
-      spares: this.interacting && !this.going ? spareCount : 0,
+      spares: this.interacting && !this.going && pageProcessOpen(this.project) ? spareCount : 0,
       focused: this.focused,
       frames,
       routes: inView.map((board) => routeOf(board.url)),
@@ -1141,6 +1155,20 @@ export class Pool {
       const frame = this.open(new URL(route, board.url).href, "spare", board)
       this.spares.set(frame.id, frame)
       void withDeadline(frame.ready.promise, loadDeadline).catch(() => this.closeSpare(frame))
+    }
+  }
+
+  /**
+   * The project's page process went or hung: live ends, and every frame closes, the ones on their way to going live
+   * too. The pool fills again once the pause is over.
+   */
+  private processGone(): void {
+    this.going = undefined
+    this.endLive()
+    this.closeSpares()
+
+    for (const frame of this.pendingFrames.values()) {
+      this.close(frame)
     }
   }
 

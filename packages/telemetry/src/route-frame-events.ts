@@ -40,13 +40,13 @@ export const routeFrameRemoved = defineEvent(
 export const routeFrameProcess = defineEvent(
   "routeFrame.process",
   z.object({
-    how: z.enum(["gone", "hung"]).describe("Whether the page's process closed its channel or stopped answering"),
+    how: z.enum(["gone", "hung"]).describe("Whether the page's process went or stopped answering"),
     stopped: z.boolean().describe("Whether Parity stopped opening frames for the project after it")
   }),
   {
     level: "warn",
     sentBy: ["renderer"],
-    when: "A project's page process fails under its freezer frame."
+    when: "A project's page process goes or stops answering, heard once however many of its frames report it."
   }
 )
 

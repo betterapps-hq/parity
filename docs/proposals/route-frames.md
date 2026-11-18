@@ -1,12 +1,12 @@
 # Proposal: route frames, one live frame and frozen copies for the rest (PAR-1249)
 
-Status: draft for discussion, 2026-11-16. Nothing here is built. It turns the spike in
-[frame-isolation-spike.md](frame-isolation-spike.md) (PAR-1217) and the copacker demo that followed it into a plan for
-Parity's route boards: what becomes a package, what goes into the router, renderer and builder extensions, what the
-desktop app keeps, and the contracts between them. Revised twice the same day after independent reviews: the live
-board's input, invalidation, the sanitizer, selection on copies, pictures at full height and failure of the page process
-are specified. Step 1's checks were run in Electron on 2026-11-17 (PAR-1259); their results are under Evidence, and the
-sections they changed say so. A content security policy for Parity's window is left to PAR-1255.
+Status: built, 2026-11-17. Every build step has merged; each one's "Built:" note says where it differs from the plan. It
+turned the spike in [frame-isolation-spike.md](frame-isolation-spike.md) (PAR-1217) and the copacker demo that followed
+it into a plan for Parity's route boards: what becomes a package, what goes into the router, renderer and builder
+extensions, what the desktop app keeps, and the contracts between them. Revised twice the same day after independent
+reviews: the live board's input, invalidation, the sanitizer, selection on copies, pictures at full height and failure
+of the page process are specified. Step 1's checks were run in Electron on 2026-11-17 (PAR-1259); their results are
+under Evidence, and the sections they changed say so. A content security policy for Parity's window is left to PAR-1255.
 
 ## In one line
 
@@ -247,8 +247,9 @@ project's source, so any change makes it stale: slower, never wrong.
 A project's pages share one renderer process, so its failure takes that project's live frame, spares and freezer with
 it, and no other project's.
 
-- **Seen as a closed port.** Chromium closes a frame's `MessagePort` when its process goes, which `domPort` reports, and
-  main hears `render-process-gone` for the frame's process. A request past its deadline counts as a hang.
+- **Seen as a closed port, or by main.** Chromium closes a frame's `MessagePort` when its process goes, which `domPort`
+  reports, and main sees the process go and tells the window the project's host. A request past its deadline counts as a
+  hang. However many frames report it, it's one failure.
 - **Started again with a pause.** Parity opens new frames after 1 s, then 5 s, then 30 s. After three failures in two
   minutes, it stops: boards keep their copies and pictures, and live boards say the app's page stopped, with a button to
   try again.
@@ -737,11 +738,15 @@ Each is an issue, in this order.
    copies instead of iframes. Handling the page process's failure, and telemetry. Built: with the Interact tool a board
    still loads its page in an iframe, until step 5's live frames replace it. A copy is kept by its project, URL, mode
    and window, not yet by `CopyKey`, and each route is frozen in every mode it's drawn in, since markup groups are step
-   7's. The freezer has no live page to pause for yet. A failure of the page process is seen as the freezer's channel
-   closing or a request past its deadline; main doesn't listen for `render-process-gone`. The events are
-   `routeFrame.refused`, `routeFrame.removed` and `routeFrame.process`, as the telemetry registry names events in camel
-   case. `prepareFrame` takes the copy's registry, `elementLayers` takes `style` as optional, and copies' layers reach
-   Layers, the Design panel and hit-testing through the window's entries (`withCopyEntries`), never the document.
+   7's. The freezer has no live page to pause for yet. Main hears the page process go (PAR-1300): Electron's
+   `render-process-gone` is only the window's own process, and a cross-site frame's has no event, so main notes each
+   page frame's process on `did-frame-navigate` and looks twice a second, while any is open, for one that ended under a
+   frame still in the window (`PageProcesses`). The window keeps one record of failures per project (`processFailed`),
+   so the live frame, spares and freezer close together and wait out the same pause. Live boards don't say the page
+   stopped yet, and there's no button to try again. The events are `routeFrame.refused`, `routeFrame.removed` and
+   `routeFrame.process`, as the telemetry registry names events in camel case. `prepareFrame` takes the copy's registry,
+   `elementLayers` takes `style` as optional, and copies' layers reach Layers, the Design panel and hit-testing through
+   the window's entries (`withCopyEntries`), never the document.
 5. **Live frames from the pool** (PAR-1263), done: spares, hover, parking, Interact, engaging and disengaging, the zoom
    wheel and keys passed back, the live window, fixed elements hidden in the copy, frames stopped leaving the builder's
    origin, and when live ends. With the Interact tool a board goes live instead of loading its page in an iframe. Built:
