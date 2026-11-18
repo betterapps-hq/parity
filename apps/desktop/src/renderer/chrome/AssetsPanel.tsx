@@ -76,6 +76,7 @@ import { kindColors } from "../canvas/kinds.tsx"
 import { useComponentPreview, usePreviewOnScreen, useVariantPreviews } from "../component-previews.ts"
 import { useExtensions } from "../extensions.ts"
 import type { LoadedGuest } from "../guest.ts"
+import { lensOf, requestLens } from "../lenses/lens-requests.ts"
 import { type ContainerEntry, useContainerEntries } from "../project-doc.ts"
 import { errorCode, reportError, track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
@@ -98,7 +99,7 @@ import { GroupLabel } from "./PanelSection.tsx"
 import { type Preferences, setPreferences, usePreferences } from "./preferences.ts"
 import { type PreviewStatus, previewStatus } from "./preview-status.ts"
 import { announceEdit } from "./project-edits.tsx"
-import { revealSelection } from "./reveal.ts"
+import { revealOnceShown } from "./reveal.ts"
 
 const noSubscription = () => () => undefined
 
@@ -497,8 +498,11 @@ function pick(session: ProjectSession, item: InsertItem, component: string | und
     return
   }
 
+  // The board is on Components' canvas: shown first, as a link shows it, so picking it again with it still selected
+  // still shows it.
+  requestLens(lensOf(board))
   session.selection.set({ design: board })
-  revealSelection(session)
+  revealOnceShown(board)
 }
 
 /** The app's exports that aren't listed as components: what the type checker left out, less what the person listed. */
