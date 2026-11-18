@@ -320,7 +320,7 @@ function AppMenus({ actions }: { actions: ChromeActions }) {
                   disabled={!actions.project}
                   checked={actions.project && id === actions.current}
                   onCheckedChange={() => actions.show(id)}
-                  className="ps-1.5 [&>span:first-child]:hidden"
+                  className="pl-1.5 [&>span:first-child]:hidden [&_svg:not([class*='size-'])]:size-4"
                 >
                   <Icon className="size-4" /> {label}
                   <MenubarShortcut className="flex items-center gap-1.5">
@@ -355,7 +355,7 @@ function AppMenus({ actions }: { actions: ChromeActions }) {
             disabled={!actions.project}
             checked={actions.panels.left || actions.panels.right}
             onCheckedChange={actions.togglePanels}
-            className="ps-1.5 [&>span:first-child]:hidden"
+            className="pl-1.5 [&>span:first-child]:hidden [&_svg:not([class*='size-'])]:size-4"
           >
             <PanelsLeftRight className="size-4" /> Panels
             <MenubarShortcut className="flex items-center gap-1.5">
