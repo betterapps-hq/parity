@@ -1,8 +1,24 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Tue, 17 Nov 2026 21:41:34 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 18 Nov 2026 01:16:11 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.109.0
+
+Wed, 18 Nov 2026 01:16:11 GMT
+
+### Minor changes
+
+- Style fields on a page copy's layer preview while you type or scrub, in every copy of the page, without saving
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- A copy in another's live room keeps no recovery copy of the room's edits, and leaves the one from last time for when
+  the project opens alone (ajcraswell@gmail.com)
+- Live room polish: a person's card closes on Follow or Go to, internal extensions say they come with Parity, token
+  value fields are named, and others' carets are easier to see (ajcraswell@gmail.com)
 
 ## 0.108.0
 

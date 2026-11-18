@@ -2,6 +2,35 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Wed, 18 Nov 2026 01:16:11 GMT",
+      "version": "0.109.0",
+      "tag": "@parity-app/desktop_v0.109.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "be169b0ee5e1b4a5e6cf637795115cfcaa96ce85",
+            "comment": "A copy in another's live room keeps no recovery copy of the room's edits, and leaves the one from last time for when the project opens alone"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "86c92b6d0e8f353c44ab14d291693513ef22a5e9",
+            "comment": "Live room polish: a person's card closes on Follow or Go to, internal extensions say they come with Parity, token value fields are named, and others' carets are easier to see"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0890861c078c3adfaec06642fb8f5fb0bdbecf6c",
+            "comment": "Style fields on a page copy's layer preview while you type or scrub, in every copy of the page, without saving"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 21:41:34 GMT",
       "version": "0.108.0",
       "tag": "@parity-app/desktop_v0.108.0",
