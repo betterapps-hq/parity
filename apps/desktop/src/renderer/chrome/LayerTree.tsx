@@ -130,8 +130,11 @@ import { revealSelection } from "./reveal.ts"
 
 type Row = TreeRow<ContainerEntry>
 
-/** What a Layers panel lists: the app's pages, by route, its stories, by file, or the designs, boards and notes. */
-export type LayerPart = "pages" | "stories" | "designs"
+/**
+ * What a Layers panel lists: the app's pages, by route, its components' boards, its stories, by file, or the designs and
+ * notes.
+ */
+export type LayerPart = "pages" | "components" | "stories" | "designs"
 
 /** Where dragged layers or designs would land relative to a row: just above it, just below it, or inside it. */
 type DropPosition = "before" | "after" | "inside"
@@ -341,8 +344,8 @@ function folderOfLine(line: Line): string | undefined {
  * nested inside. Selecting, hovering and renaming here act on the canvas too. Each group's heading has a + that makes a
  * new one, always showing, with its keys in the tooltip; an empty group's row is a button that makes
  * the first one (PAR-546). A search above the tree finds layers and designs by name, and Collapse all closes every
- * row. Only the rows in view are drawn (PAR-187). Pages' Layers lists the app's routes, Stories' its story files, and
- * Screens' the rest (lens-layout.md).
+ * row. Only the rows in view are drawn (PAR-187). Pages' Layers lists the app's routes, Components' the boards, Stories'
+ * the story files, and Screens' the rest (lens-layout.md).
  */
 export function LayerTree() {
   return <LayerList part="designs" />
@@ -351,6 +354,11 @@ export function LayerTree() {
 /** Pages' Layers: the app's routes, and their pages' layers. */
 export function RouteLayerTree() {
   return <LayerList part="pages" />
+}
+
+/** Components' Layers: the project's components on their boards, and their layers. */
+export function ComponentLayerTree() {
+  return <LayerList part="components" />
 }
 
 /** Stories' Layers: the project's story files, in folders by their titles, and their stories. */
@@ -423,8 +431,8 @@ function LayerList({ part }: { part: LayerPart }) {
     }
   }
 
-  // The app's routes come first, then the screens designed for it, then the project's own components on their boards, then
-  // frames (PAR-1076).
+  // Each lens's Layers lists what its canvas draws: Pages' the app's routes, Components' the boards, Stories' the story
+  // files, and Screens' the screens designed for the app, then frames (PAR-1076).
   const groups = useMemo((): Group[] => {
     const routes = entries.filter((entry) => entry.path === routePagesFile)
 
@@ -449,6 +457,13 @@ function LayerList({ part }: { part: LayerPart }) {
     // Pages lists the app's routes, as its router says, and nothing else.
     if (part === "pages") {
       return [{ id: "routes", title: "Routes", kind: "screen", none: "No routes yet.", entries: routes }]
+    }
+
+    // Components lists the project's components on their boards, drawn from its code, so there's nothing to add.
+    if (part === "components") {
+      return [
+        { id: "components", title: "Components", kind: "component", none: "No components yet.", entries: components }
+      ]
     }
 
     // Stories lists the project's stories, a group for each tool they're read from, named as its extension's manifest
@@ -476,11 +491,6 @@ function LayerList({ part }: { part: LayerPart }) {
       none: "No screens yet.",
       entries: screens
     })
-
-    // The project's components are listed once it has some, drawn from its code, so there's nothing to add.
-    if (components.length > 0) {
-      listed.push({ id: "components", title: "Components", kind: "component", none: "", entries: components })
-    }
 
     // Frames are listed once there are some; the frame tool draws them on the canvas.
     if (frames.length > 0) {

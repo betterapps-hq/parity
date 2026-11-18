@@ -50,12 +50,6 @@ export function useShell(): Shell {
   return shell
 }
 
-/** What can be done with the lenses, inside a `LensWorkspace`, or nothing outside one, as in a story of a panel alone. */
-export function useLensActions<Id extends string = string>(): LensActions<Id> | undefined {
-  // SAFETY: as `useLensWorkspace`'s.
-  return use(ShellContext)?.actions as LensActions<Id> | undefined
-}
-
 /** What can be done with the lenses, for the title bar's menus and a lens's own views inside a `LensWorkspace`. */
 export function useLensWorkspace<Id extends string = string>(): LensActions<Id> {
   // SAFETY: the workspace's actions take the ids of the lenses it was given, which are the caller's.

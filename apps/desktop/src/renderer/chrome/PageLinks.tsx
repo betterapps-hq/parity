@@ -1,67 +1,75 @@
 import { componentUses } from "@parity-app/editor"
-import { Columns2, Component } from "lucide-react"
-import { boardKeyOf } from "../canvas/component-boards.ts"
+import { AppWindow, Bookmark, Component, Route } from "lucide-react"
+import { useMemo } from "react"
+import { boardKeyOf, isComponentBoard } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { kindColors } from "../canvas/kinds.tsx"
-import { useLensActions } from "../lenses/shell.ts"
-import type { ContainerEntry } from "../project-doc.ts"
-import { Hint } from "./Hint.tsx"
-import { IconButton } from "./IconButton.tsx"
-import { Name } from "./Name.tsx"
-import { PanelSection } from "./PanelSection.tsx"
-import { revealOnceShown } from "./reveal.ts"
+import { isRoutePage, routePageRoute } from "../canvas/route-pages.ts"
+import { isStoryScreen } from "../canvas/story-screens.ts"
+import { type ContainerEntry, useContainerEntries } from "../project-doc.ts"
+import { type DesignLink, DesignLinks } from "./DesignLinks.tsx"
 
 /**
- * A page's links to the other lenses: the components it places, each on its board in Screens, its route's own first. A
- * click shows one there, selected, as a link does; Show beside splits Screens to the right. Outside the lens shell,
- * there's nowhere to show them.
+ * A page's links to the other lenses: the components it places, each on its board in Components, its route's own first.
  */
 export function PageLinks({ entry, route: id }: { entry: ContainerEntry; route: string }) {
   const session = useProject()
-  const actions = useLensActions()
   const own = session.info.routes.find((each) => each.id === id)?.component
   const placed = [...componentUses([entry.container.root]).keys()]
 
-  const linked = [...new Set(own === undefined ? placed : [own, ...placed])].flatMap((component) => {
+  const links = [...new Set(own === undefined ? placed : [own, ...placed])].flatMap((component): DesignLink[] => {
     const board = boardKeyOf(session.id, component)
 
-    return board ? [{ component, board }] : []
+    return board ? [{ key: board, name: component, Icon: Component, color: kindColors.component }] : []
   })
 
-  if (!actions || linked.length === 0) {
-    return null
+  return <DesignLinks title="Components" links={links} />
+}
+
+/**
+ * Where one of the project's components is used: each page whose route draws it, and each page, screen, story and
+ * component designed that places it, as links to their lenses. A page is drawn from the app's code, so what it renders
+ * inside its route's component isn't known; its route's own component is.
+ */
+export function ComponentUses({ component }: { component: string }) {
+  const session = useProject()
+  const entries = useContainerEntries(session)
+  const { id, routes } = session.info
+
+  const links = useMemo(() => {
+    const drawsIt = (entry: ContainerEntry) => {
+      if (isRoutePage(entry.key)) {
+        const route = routePageRoute(id, entry.key)
+
+        if (routes.some((each) => each.id === route && each.component === component)) {
+          return true
+        }
+      }
+
+      return componentUses([entry.container.root]).has(component)
+    }
+
+    return entries.flatMap((entry): DesignLink[] =>
+      !isComponentBoard(entry.key) && drawsIt(entry)
+        ? [{ key: entry.key, name: entry.container.name, ...kindLook(entry) }]
+        : []
+    )
+  }, [entries, component, id, routes])
+
+  return <DesignLinks title="Used in" links={links} />
+}
+
+/** How a link draws a design: a page with the route icon, a story with the story's, a component with the component's. */
+function kindLook(entry: ContainerEntry): Pick<DesignLink, "Icon" | "color"> {
+  if (isRoutePage(entry.key)) {
+    return { Icon: Route, color: kindColors.screen }
   }
 
-  const show = (board: string, beside: boolean) => {
-    // Shown first, so the selection finds it there rather than following the board to Screens in Pages' place.
-    actions.followLink("screens", beside)
-    session.selection.set({ design: board })
-    revealOnceShown(board)
+  if (isStoryScreen(entry.key)) {
+    return { Icon: Bookmark, color: "var(--canvas-story)" }
   }
 
-  return (
-    <PanelSection title="Components">
-      <ul className="-mx-1.5 flex flex-col">
-        {linked.map(({ component, board }) => (
-          <li key={board} className="group/link flex h-8 items-center gap-0.5 rounded-md hover:bg-accent/50">
-            <Hint label="Show in Screens" wait>
-              <button
-                type="button"
-                onClick={() => show(board, false)}
-                className="flex h-full min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 text-left text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-              >
-                <Component className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
-                <Name className="min-w-0">{component}</Name>
-              </button>
-            </Hint>
-            <span className="opacity-0 group-focus-within/link:opacity-100 group-hover/link:opacity-100">
-              <IconButton label="Show beside" onClick={() => show(board, true)}>
-                <Columns2 />
-              </IconButton>
-            </span>
-          </li>
-        ))}
-      </ul>
-    </PanelSection>
-  )
+  return entry.container.kind === "component"
+    ? { Icon: Component, color: kindColors.component }
+    : { Icon: AppWindow, color: kindColors.screen }
 }

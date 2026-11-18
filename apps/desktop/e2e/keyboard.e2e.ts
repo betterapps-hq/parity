@@ -271,10 +271,9 @@ describe("next and previous design", () => {
   })
 
   it("goes round from the last design to the first, components first", async () => {
-    // Components come first, then screens. The app's pages are on Pages' canvas and its stories on Stories', not Screens'.
-    const designs = (await app.designs()).filter(
-      (design) => !design.key.startsWith("(pages)#") && !design.key.startsWith("(stories)#")
-    )
+    // Components designed in the project come first, then screens. The app's pages, its components' boards and its
+    // stories are on their own lenses' canvases, not Screens'.
+    const designs = (await app.designs()).filter((design) => !/^\((pages|components|stories)\)#/.test(design.key))
 
     const first = designs.find((design) => design.kind === "component")!
     const last = designs.findLast((design) => design.kind !== "component")!

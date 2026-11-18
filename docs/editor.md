@@ -3190,7 +3190,7 @@ mode, with one state, and isn't written to code.
   what goes (states after the first, previews beside the main one, params, and each design's instances, which become
   plain layers), with Cancel and Convert to frame. Each is one undo step, and converting a component detaches its
   instances in the same step.
-- **Screens' Layers lists Frames** after Screens and Components once there are any; its + picks the frame tool.
+- **Screens' Layers lists Frames** after Screens once there are any; its + picks the frame tool.
 
 Code: the rules are `packages/editor/src/frames.ts` (`drawnFrame`, `nextFrameName`, `snapToEdges`, `draggedBox`,
 `framePresets`, `frameOfText`, `textFrameRenamed`, `hugsContent`, `fittedFrame`, `withFrameSize`, `frameRootShown` and
@@ -8474,10 +8474,10 @@ The open project shows in the lens shell, as [lens-layout.md](proposals/lens-lay
 lens bar down the window's left edge, each open lens a tab over its canvas, and the left panel and inspector of the lens
 in focus beside them, over the status bar. The title bar stays above, as on Home.
 
-- **Pages, Screens and Stories are the lenses so far,** and the lens bar lists only lenses that are built. Screens is
-  today's canvas, Layers with its asset tabs, and the inspector with Modes: it draws the designs and component boards
-  until Components has a lens of its own. Pages and Stories have canvases of their own (see Pages, a lens of its own,
-  and Stories, a lens of its own). Opening a project shows Screens.
+- **Pages, Screens, Components and Stories are the lenses so far,** and the lens bar lists only lenses that are built.
+  Screens is today's canvas, Layers with its asset tabs, and the inspector with Modes, holding the project's own
+  designs. Pages, Components and Stories have canvases of their own (see their sections below). Opening a project shows
+  Screens.
 - **Each lens has a canvas of its own,** a tldraw editor drawing its part of the project. The project holds the editor
   of the lens in focus, which Layers, the inspector, the menus and the shortcuts act on; N and Shift+N step through the
   designs on it. What draws over a canvas, its outlines, the zoom bar, the drawing toolbar, extensions' layers and the
@@ -8485,8 +8485,9 @@ in focus beside them, over the status bar. The title bar stays above, as on Home
   and go.
 - **The lens bar works as links do in a browser.** A click shows a lens in the tab in focus, and Ctrl+click or a middle
   click opens it in a new tab; one that's open is revealed where it is. Clicking the lens in front hides or shows the
-  left panel. Ctrl and a lens's number shows it: Ctrl+1 for Pages, Ctrl+2 for Screens and Ctrl+4 for Stories. The arrow
-  keys, Home and End move between lenses. Right-clicking one offers Show, Open in new tab, Split right and Close.
+  left panel. Ctrl and a lens's number shows it: Ctrl+1 for Pages, Ctrl+2 for Screens, Ctrl+3 for Components and Ctrl+4
+  for Stories. The arrow keys, Home and End move between lenses. Right-clicking one offers Show, Open in new tab, Split
+  right and Close.
 - **Tabs** drag onto another group's tabs to join them, or onto a canvas's side to split. A tab's close button, or a
   middle click, closes it, the last one too.
 - **Every tab closed empties the window:** the left panel and the inspector go, and the canvas's place says No lens
@@ -8550,8 +8551,8 @@ Code: `lenses/pages.tsx` (`pagesLens`); `RouteLayerTree` in `chrome/LayerTree.ts
 following its lens in `ProjectCanvas`, with `revealOnceShown` in `chrome/reveal.ts`; `drawnInFocus` in
 `chrome/actions.ts` for the commands that select designs; `drawing` in `extension-editor.ts`, with `refDesign` in
 `chrome/reveal.ts` and `lensOf` in `lenses/lens-requests.ts`, for an extension's reveal and zoom; `onOtherTab` on
-`SidePanel`, heard through `onTabAsked` in `chrome/layout.ts`, for a tab Pages' panel lacks; `useLensActions` in
-`lenses/shell.ts` for views that may be shown outside the shell.
+`SidePanel`, heard through `onTabAsked` in `chrome/layout.ts`, for a tab Pages' panel lacks; `DesignLinks` in
+`chrome/DesignLinks.tsx`, which lists nothing outside the shell.
 
 Tests: `e2e/window.e2e.ts` (Screens drawing none of the pages, Ctrl+1 showing Pages in Screens' tab with every page and
 nothing else, Layers there without Screens, and its camera kept through Ctrl+2 and back; a page selected with Screens in
@@ -8591,17 +8592,18 @@ at the zoom it had, Badge still selected.
 
 ### Screens, holding only designs (PAR-1251)
 
-With Pages and Stories out, Screens holds the project's own designs, as
+With Pages, Stories and Components out, Screens holds the project's own designs, as
 [lens-layout.md](proposals/lens-layout.md#lenses-down-the-left) has it.
 
-- **Its Layers** lists Screens, then the component boards under Components, then Frames, and the text on the canvas,
-  with the asset tabs, Components, Icons, Media and Tokens, beside it. The routes, API routes and story files are listed
-  in Pages' and Stories' Layers instead. The boards stay on Screens until Components has a lens of its own (PAR-1245).
+- **Its Layers** lists Screens, then Frames, and the text on the canvas, with the asset tabs, Components, Icons, Media
+  and Tokens, beside it. The routes, API routes, component boards and story files are listed in Pages', Components' and
+  Stories' Layers instead.
 - **Its inspector** is today's, with Modes beside it.
-- **Its canvas** draws the screens, frames, component boards, notes and references. It's drawn the first time its tab is
-  in front, like every lens's: a lens open behind another tab loads nothing until it's shown, so a project opened on
-  another lens draws none of Screens' frames. Shown again after another lens took its place, it's where its camera was,
-  with what was selected still selected. Closing its tab, or another lens taking its place, lets its frames go.
+- **Its canvas** draws the screens, frames, the components designed in the project, notes and references. It's drawn the
+  first time its tab is in front, like every lens's: a lens open behind another tab loads nothing until it's shown, so a
+  project opened on another lens draws none of Screens' frames. Shown again after another lens took its place, it's
+  where its camera was, with what was selected still selected. Closing its tab, or another lens taking its place, lets
+  its frames go.
 
 Code: `ProjectCanvas` in `lenses/project-canvas.tsx` (`shownOnce`); `LayerList` in `chrome/LayerTree.tsx`, which lists
 API routes only for `part` `pages`.
@@ -8612,6 +8614,39 @@ with Screens back); Parity/Left panel/API routes and Parity/Canvas/Page tree, wh
 its Layers headed Screens and Components; Ctrl+1 showed Pages with its 8 pages and none of Screens' boards or frames,
 Layers headed Routes alone; Ctrl+2 drew Screens' 64 boards and 122 frames again. In Storybook, Under the pages, Marked
 and Page selected passed, the API routes listed in Pages' Layers under Routes.
+
+### Components, a lens of its own (PAR-1245)
+
+The project's own components, on their boards, have a lens of their own, Components, as
+[lens-layout.md](proposals/lens-layout.md#lenses-down-the-left) has it. Screens no longer draws them.
+
+- **Its canvas** draws each component on its board, its states side by side, as Screens drew them before. It's drawn the
+  first time Components shows. Shown again after another lens took its place, it's where its camera was, with what was
+  selected still selected. A board is drawn from the project's code, so the canvas has no drawing toolbar.
+- **Its Layers** lists the boards under Components, as Screens' Layers did, with their layers inside. A project without
+  components of its own says No components yet. Components designed in the project, as App sidebar, are designs, and
+  stay on Screens. As on Pages, asking for another panel tab there, such as Show Components for the library, shows
+  Screens in its place with that tab open.
+- **Selecting stays on its canvas,** as on Pages: Select all and its kin select only boards, and a board selected while
+  another lens shows, from Search, the Components panel or a page's links, shows Components in that lens's place.
+- **The inspector** shows the selected component as before, its file, export and props from its code, and under them
+  Used in: each page whose route draws it, and each page, screen, story and designed component that places it, as links.
+  A page is drawn from the app's code, so the components its route's component renders inside it aren't listed yet. A
+  click shows the design in its lens, selected; Show beside splits that lens to the right. A page's links to the
+  components it places show their boards in Components.
+
+Code: `lenses/components.tsx` (`componentsLens`); `ComponentLayerTree` in `chrome/LayerTree.tsx`, which lists `part`
+`components`; `isComponentBoard` in `canvas/component-boards.ts`, which `canvasOf` reads; `ComponentUses` and
+`PageLinks` in `chrome/PageLinks.tsx`, both drawn with `DesignLinks` in `chrome/DesignLinks.tsx`, which shows a link's
+lens by `lensOf`.
+
+Tests: `e2e/window.e2e.ts` (Screens drawing none of the boards, Ctrl+3 showing Components in Screens' tab with every
+board and nothing else, Layers there without Screens, its camera kept through Ctrl+2 and back, and a board's Used in
+link showing the design in its lens, selected); `e2e/keyboard.e2e.ts` (N going round Screens' designs, without the
+boards). Tried in `pnpm dev` on 2026-11-17 on the example: the lens bar listed Pages, Screens, Components and Stories;
+Screens drew none of the boards; Ctrl+3 showed Components in Screens' tab with PageHeader, PlanCard and StatusBadge and
+the Components group alone in Layers; selecting PlanCard there showed its file, export, props and Used in, listing the
+Plan card story; clicking it showed Stories in Components' place with Plan card selected.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 
@@ -9149,9 +9184,9 @@ group in the panel: the UI kit's by file, as Card with CardHeader and CardTitle,
   in the same color, though it's a frame.
 - **Only the project's own.** A component from a library, or from a dependency in `node_modules`, gets no board; it's
   still listed in the Components panel.
-- **Listed in Layers and the Components panel.** Screens' Layers lists the boards under Components, after Screens.
-  Pressing one of the project's components in the Components panel selects and shows its board. Dragging it still
-  inserts it, and pressing a library's component still adds it where the selection is.
+- **Listed in Layers and the Components panel.** Components' Layers lists the boards. Pressing one of the project's
+  components in the Components panel selects its board and shows it in Components. Dragging it still inserts it, and
+  pressing a library's component still adds it where the selection is.
 - **Every layer inside.** A board is the component, so its row in Layers opens straight to what the component draws,
   with no layer for the board's padding or for the component around it: Card opens to `card` and its Text. Each element
   it draws is a layer, read from the page each time the board is drawn live. `img`, `svg` and `canvas` are images,
