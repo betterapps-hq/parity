@@ -10385,8 +10385,11 @@ Settings > Diagnostics > Share diagnostics is on by default. Off, nothing Parity
 errors, crashes, traces and a recording of the window go to the Parity team. It takes effect at once, without a restart,
 and is remembered between runs. Its description stays the same on and off, so the row keeps its height (PAR-703). When
 `PARITY_TELEMETRY` or `DO_NOT_TRACK` is set, the switch shows what that run does, is disabled, and names the variable.
-Turning it off also starts a new install ID. Settings shows the install ID under the switch, to copy. About lists
-Diagnostics and the Install ID with the versions, and Copy details includes them.
+Turning it off also starts a new install ID. Record sessions, under it, turns off Session Replay on its own while errors
+and crashes are still sent; it's on by default and disabled while Share diagnostics is off (PAR-1319). Settings shows
+the install ID under the switches, to copy. About lists Diagnostics and the Install ID with the versions, and Copy
+details includes them. `renderer/replay.test.ts` "Record sessions" covers when Replay records, stops and starts again,
+and the Settings view's Diagnostics story checks the switch is disabled while sharing is off.
 
 `@parity-app/telemetry`'s `settings.test.ts` covers how the variables and the saved setting decide a run, reading
 `settings.json`'s `diagnostics` and `installId` and finding the app's data folder on each system. The setting and the

@@ -294,6 +294,12 @@ Storybook or the CLI.
   (`App.holdRecording`, PAR-1047), since the attributes Replay reads are nodes too.
 - **While they're off, nothing is recorded,** and the recorder isn't loaded. Turning them off in Settings stops it at
   once, and turning them on starts it.
+- **Settings > Diagnostics > Record sessions turns Replay off on its own** (PAR-1319), while errors and crashes go on
+  being sent. It's on by default, an ordinary setting in `settings.json` (`sessionReplay`), and disabled while Share
+  diagnostics is off, whether the setting or `PARITY_TELEMETRY` turned it off. Off stops the recorder at once, CI's
+  buffer included; on starts it again. `replayMode` in `replay.ts` decides from both, and `receiveTelemetry` in
+  `chrome/telemetry-setting.ts` follows both as they change. Recording over a long session slows the canvas zoom
+  (PAR-1315), which is what the switch is for.
 - **The window's own canvases are recorded,** such as the selection overlay, as pictures twice a second while they
   change. Sentry's canvas recorder is added before Replay, since Replay looks for it only as it's added itself; added
   after, no canvas was recorded and Sentry showed each one as an empty box.

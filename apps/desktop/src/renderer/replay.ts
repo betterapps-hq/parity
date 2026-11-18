@@ -197,15 +197,39 @@ export const replayPrivacy = {
   beforeAddRecordingEvent: <T>(event: T) => scrubber.value(event)
 } satisfies Parameters<typeof Sentry.replayIntegration>[0]
 
+/** How the window records: whole sessions, a buffer kept in memory, or not at all. */
+export type ReplayMode = "session" | "buffer" | "off"
+
 /**
- * Records the editor window with Session Replay while diagnostics are on, its secrets scrubbed and its canvases
- * included, and stops while they're off (PAR-624). CI, which sends only errors and reports (PAR-777), keeps a buffer
- * of a minute at most in memory instead and sends it only when `sendReplay` asks, as the end-to-end suite does for a
- * failed test (PAR-1043). The recorder is added the first time they're on, so with them off it never loads. Only the
- * editor window calls this, as it learns the setting and each time it changes; the offscreen renderers never record.
+ * How the window records, from diagnostics and Settings' Record sessions (PAR-1319): not at all unless both are on;
+ * a buffer in CI, which sends only errors and reports (PAR-1043); otherwise whole sessions.
  */
-export function followTelemetry({ level, errorsOnly }: Pick<ResolvedTelemetry, "level" | "errorsOnly">): void {
-  if (level === "off") {
+export function replayMode(
+  { level, errorsOnly }: Pick<ResolvedTelemetry, "level" | "errorsOnly">,
+  recordSessions: boolean
+): ReplayMode {
+  if (level === "off" || !recordSessions) {
+    return "off"
+  }
+
+  return errorsOnly ? "buffer" : "session"
+}
+
+/**
+ * Records the editor window with Session Replay while diagnostics and Record sessions are on, its secrets scrubbed and
+ * its canvases included, and stops while either is off (PAR-624, PAR-1319). CI, which sends only errors and reports
+ * (PAR-777), keeps a buffer of a minute at most in memory instead and sends it only when `sendReplay` asks, as the
+ * end-to-end suite does for a failed test (PAR-1043). The recorder is added the first time it records, so with either
+ * off it never loads. Only the editor window calls this, as it learns either setting and each time one changes; the
+ * offscreen renderers never record.
+ */
+export function followTelemetry(
+  telemetry: Pick<ResolvedTelemetry, "level" | "errorsOnly">,
+  recordSessions = true
+): void {
+  const mode = replayMode(telemetry, recordSessions)
+
+  if (mode === "off") {
     if (recording) {
       void Sentry.getReplay()?.stop()
     }
@@ -238,7 +262,7 @@ export function followTelemetry({ level, errorsOnly }: Pick<ResolvedTelemetry, "
 
   const replay = Sentry.getReplay()
 
-  if (errorsOnly) {
+  if (mode === "buffer") {
     replay?.startBuffering()
   } else if (Math.random() < replaySessionRate) {
     replay?.start()
