@@ -527,6 +527,8 @@ This is how an extension works with Parity's UX rather than beside it.
 
 Extensions don't put React components into Parity's window. That would tie them to Parity's React and kit versions, let
 one freeze the editor, and give their code the window's access. A web view gives the same freedom without those.
+Parity's own internal extensions are the exception: they ship in the app's build and draw directly, as
+[extensions-in-the-window.md](extensions-in-the-window.md) sets out.
 
 ## Developer experience
 

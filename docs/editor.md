@@ -6514,8 +6514,8 @@ Tests:
 ### The canvas surface: colors, the camera and boxes (PAR-1236)
 
 Three core services that people's and agents' presence draws through, as docs/proposals/extensions-in-the-window.md sets
-out. They're in the window for core today; internal extensions reach them through `parity.canvas` once window modules
-land (PAR-1233). The project's canvas starts its own as it mounts (`surfaceOf(editor)`).
+out. Internal extensions reach them through `parity.canvas` and `parity.colors` (PAR-1257). The project's canvas starts
+its own as it mounts (`surfaceOf(editor)`).
 
 - **Colors never run out.** People and agents get colors by key, never by color: `claim(key)` gives the lowest-numbered
   palette no other key in the project holds, a released number goes out again first, and past the hand-tuned palettes
