@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Benchmarks and CI budgets for one remote change in a live room",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}
