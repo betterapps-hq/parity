@@ -8542,9 +8542,10 @@ it dressed (`dress`, `onThemeChange`). `LensContent` wraps each canvas in `Windo
 a portal that never opens whose container moves to the body of the window the lens is in, which Base UI's menus,
 tooltips and dialogs inside take as theirs. `window-sheets.ts` (`followSheetsIntoWindows`, from `main.tsx`) gives a
 shadow root or document in a lens window copies of the main window's constructed stylesheets, made in that window and
-kept in step, and `readopt` gives what moved between windows its sheets again. Gestures follow the window the press came
-from: `followPress` in `canvas/gesture.ts` takes it from the press's `view` (`pressWindow`), as `ResizeHandles` and
-`layer-drag.ts` do (`windowOf`).
+kept in step, and `readopt` gives what moved between windows its sheets again; a token preview, which edits a rule's
+declarations in place (`previewToken` in `guest.ts`), tells the copies with `copyEdits`. Gestures follow the window the
+press came from: `followPress` in `canvas/gesture.ts` takes it from the press's `view` (`pressWindow`), as
+`ResizeHandles` and `layer-drag.ts` do (`windowOf`).
 
 Tests: `e2e/lens-windows.e2e.ts` (Screens moved to a window of its own, named Screens and the project in its title and
 title bar, the main window left with no tab; its frames each drawn with stylesheets; Ctrl+A there selecting designs; the

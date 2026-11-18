@@ -21,6 +21,7 @@ import {
   type TokenChange
 } from "@parity-app/tokens"
 import { guardPage, type PageStyles, pageStyles } from "./page-styles.ts"
+import { copyEdits } from "./window-sheets.ts"
 
 export interface LoadedGuest extends FrameCss {
   guest: Guest
@@ -336,6 +337,9 @@ export function previewToken(sheet: CSSStyleSheet, name: string, theme: string, 
     for (const rule of declaring) {
       rule.style.setProperty(property, drawn)
     }
+
+    // A declaration's edit isn't the sheet's, so its copies in lens windows are told.
+    copyEdits(sheet)
   } else {
     // A rule of its own, with the selector the theme already uses, so `[data-theme="dark"]` stays an attribute.
     const selector = rules[0]?.selectorText ?? (theme === "default" ? ":host" : `.${theme}`)

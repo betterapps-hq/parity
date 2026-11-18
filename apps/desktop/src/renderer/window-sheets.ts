@@ -181,8 +181,12 @@ function textOf(sheet: CSSStyleSheet): string {
   return Array.from(sheet.cssRules, (rule) => rule.cssText).join("\n")
 }
 
-/** Brings a sheet's copies up to date with it, dropping those whose windows have closed. */
-function copyEdits(sheet: CSSStyleSheet): void {
+/**
+ * Brings a sheet's copies in lens windows up to date with it, dropping those whose windows have closed. Edits through the
+ * sheet's own methods reach them by themselves; one made to a rule's declarations, as `rule.style.setProperty`, is told
+ * here.
+ */
+export function copyEdits(sheet: CSSStyleSheet): void {
   const byDocument = copies.get(sheet)
 
   if (!byDocument) {
