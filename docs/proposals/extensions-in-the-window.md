@@ -612,6 +612,7 @@ Only about this person. Showing other people is the extension's job, in its laye
 export interface Presence {
   /** The person signed in, as others should see them. */
   readonly self: { name: string; avatar?: string; own?: OwnLook } // own: the account avatar's look, for this window only
+  onSelfChange(listener: (self: Self) => void): Disposable // signing in, out or switching accounts
   onPointer(listener: (pointer: { at: Point; over: boolean }) => void): Disposable
   onGesture(listener: (gesture: Gesture) => void): Disposable
   onViewing(listener: (viewing: Viewing) => void): Disposable

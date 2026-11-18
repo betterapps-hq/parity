@@ -4,7 +4,7 @@ import { agentStepOf, type AgentsPort } from "@parity-app/extension-host/window-
 import { targetOf } from "@parity-app/extension-host/window-canvas"
 import type { Pointer, PresencePort } from "@parity-app/extension-host/window-presence"
 import type { Self, Viewing } from "@parity-app/extension/internal"
-import { firstName, signedInPerson } from "./account/account.ts"
+import { firstName, onAccountChange, signedInPerson } from "./account/account.ts"
 import { lookOf } from "./account/look.ts"
 import { presence } from "./agent/presence.ts"
 import { onGestures } from "./canvas/presence-gestures.ts"
@@ -23,6 +23,8 @@ import type { ProjectSession } from "./workspace.ts"
 export function windowPresencePort(slot: TabSlot): PresencePort {
   return {
     self,
+    // Signing in, out or switching accounts changes `self`; `windowPresence` tells modules only when it did.
+    onSelfChange: onAccountChange,
     onPointer: (listener) => slot.when((session) => followPointer(session, listener)),
     onGesture: (listener) => slot.when((session) => onGestures(session, listener)),
     onViewing: (listener) => slot.when((session) => viewingOf(session, listener)),

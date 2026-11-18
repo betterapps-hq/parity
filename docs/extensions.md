@@ -380,12 +380,14 @@ are two.
   are counted per extension and tab: a key claimed twice keeps its color until it's released twice, and an extension's
   claims are given back when it stops in the tab.
 - **`parity.presence`** (`presence`) is this person in the tab: `self` (their name, and, while they're signed in, how
-  their account avatar looks in `own`, only for drawing them in their own window), the pointer on the page at most once
-  a frame (the latest, with its leaving told at once), every gesture in order (a move of layers, with each change of
-  where they'd land, a resize and a box drawn to select, each started, ended or called off), and the design, state and
-  mode selected, on each change. Nothing is listened to while no module listens. A move's drop names the frame the
-  layers would land in, which may be another state or mode, and is told again when only that frame changes. A move's
-  drop and end are told after the changes committed before them.
+  their account avatar looks in `own`, only for drawing them in their own window), told again through `onSelfChange`
+  each time that changes, as when they sign in, out or switch accounts, with `self` the same object until it does
+  (PAR-1310), the pointer on the page at most once a frame (the latest, with its leaving told at once), every gesture in
+  order (a move of layers, with each change of where they'd land, a resize and a box drawn to select, on a frame's
+  background or the empty canvas, each started, ended or called off), and the design, state and mode selected, on each
+  change. Nothing is listened to while no module listens. A move's drop names the frame the layers would land in, which
+  may be another state or mode, and is told again when only that frame changes. A move's drop and end are told after the
+  changes committed before them.
 - **`parity.agents`** (`agents`) tells every step this copy's agents take in the tab, with no `from`, before the write
   it describes is applied, and other copies' steps with that copy, which the extension that brings the room passes in
   with `receive(steps, { from })`. Steps from another copy are never told again as this copy's, so nothing echoes back
@@ -626,16 +628,18 @@ names, and sets Shadcn up through shadcn-sync (PAR-1226, PAR-1227).
   owners by their files.
 - [window-seams.test.ts](../packages/extension-host/src/window-seams.test.ts) (PAR-1257), through the same test-only
   extension: the pointer at most once a frame with its leaving kept, gestures in order with committed changes told
-  before a move's drop and end, viewing told only on a change, nothing listened to without a listener, a throwing
-  listener counted; agents' steps here without a copy, and passed-in ones and the development room's with theirs, steps
-  naming what's gone dropped and recorded, the minute's activity, and today's agent events mapped to steps and back; and
-  `parity.sync` opening from files or a snapshot, alone when nothing answers, calls made before the open applied in
-  order once it does, changes framed with their lineage, other lineages refused, pending changes recorded, files written
-  as the room says, the document kept open alone when the module stops, alone at once when it stops before the document
-  is attached, with a late opening refused, nothing detached as the project closes, a second `onOpen` refused, the
-  minute's traffic, and the room described for `extensions.json` for the extension that brings it.
+  before a move's drop and end, viewing told only on a change, who's signed in told only on a change (PAR-1310), nothing
+  listened to without a listener, a throwing listener counted; agents' steps here without a copy, and passed-in ones and
+  the development room's with theirs, steps naming what's gone dropped and recorded, the minute's activity, and today's
+  agent events mapped to steps and back; and `parity.sync` opening from files or a snapshot, alone when nothing answers,
+  calls made before the open applied in order once it does, changes framed with their lineage, other lineages refused,
+  pending changes recorded, files written as the room says, the document kept open alone when the module stops, alone at
+  once when it stops before the document is attached, with a late opening refused, nothing detached as the project
+  closes, a second `onOpen` refused, the minute's traffic, and the room described for `extensions.json` for the
+  extension that brings it.
 - [presence-gestures.test.ts](../apps/desktop/src/renderer/canvas/presence-gestures.test.ts) (PAR-1280): a move's drop
-  naming the frame the layers would land in, and told again when only that frame changes.
+  naming the frame the layers would land in, and told again when only that frame changes; a box drawn on the empty
+  canvas told as a marquee, ended when let go and called off otherwise (PAR-1311).
 - [frame-loop.test.ts](../packages/canvas-layer/src/frame-loop.test.ts): every `measure` before any `draw`, the time
   since the frame before, resting while nothing runs or the tab is hidden, and a throwing frame given to its own
   handler.
