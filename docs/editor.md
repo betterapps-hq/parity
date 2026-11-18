@@ -1227,7 +1227,8 @@ in the window, have no unit test of their own.
 
 React Router runs as an extension too, through Parity's public API alone, with the same router provider, Routes in
 Layers, Open in browser on each page and route count in the status bar as TanStack Router. It's found by its peer
-dependency, `react-router`, at 7 or 8. It reads the routes without running the app, in this order:
+dependencies, `react-router` at 7 or 8, or `react-router-dom` at 7 (PAR-1299), which React Router 8 doesn't have. It
+reads the routes without running the app, in this order:
 
 - **Framework mode's `routes.ts`,** in the folder `appDirectory` in `react-router.config` names (`app` by default):
   arrays of `route`, `index`, `layout` and `prefix` from `@react-router/dev/routes`, renamed or through a namespace,
@@ -8712,10 +8713,11 @@ A screen is named for the component its route draws, else its path.
   so its module waits for a write carrying a new tree, redirected anywhere, and not for the app's own writes, which
   carry none or a copy of the last, and the Pages Router's `push` resolves once the new page has committed. Library mode
   puts no router on the page's window, so Vite and the webpack-compatible builders serve the app's own imports of
-  `react-router` through Parity's module (`pageWraps` in the manifest), which re-exports React Router and hands what
-  `createBrowserRouter` and `createHashRouter` make to `window.__parityDataRouter`. That module gets the app's own copy
-  of React Router, and packages' own imports are left alone. A page whose router isn't found, as with React Router's
-  `<BrowserRouter>`, says so in `page.ready`, and is moved only by loading it at the route.
+  `react-router` and `react-router-dom` through Parity's modules (`pageWraps` in the manifest), which re-export the
+  package and hand what `createBrowserRouter` and `createHashRouter` make to `window.__parityDataRouter`. Each module
+  gets the app's own copy of its package, and packages' own imports are left alone. `react-router-dom` 7 re-exports
+  React Router's routers, and React Router 8 has no `react-router-dom` (PAR-1299). A page whose router isn't found, as
+  with React Router's `<BrowserRouter>`, says so in `page.ready`, and is moved only by loading it at the route.
 - **Modes reach the page, without a reload.** The frame opens in its mode, and when the mode changes Parity sends it
   with `mode.set`: the runtime puts the mode's classes and attributes on `<html>`, takes off the last mode's, and
   answers `prefers-color-scheme` with the mode's scheme, telling the app's queries when the answer changes. An app that
@@ -8928,7 +8930,7 @@ shared with the render window's `renderPage` in `render.ts`, the `pageJob` schem
 `appPage` in `packages/extension-vite/src/builder.ts`. The page runtime: `startPageRuntime` and the protocol in
 `packages/page-runtime/src/`; `PageRouter` and `PageHydration` in `packages/extension/src/page.ts`; `tanstackRouterPage`
 in `packages/extension-tanstack-router/src/page.ts`; `reactRouterPage` in `packages/extension-react-router/src/page.ts`,
-with library mode's wrapped `react-router` in `src/page-wrap/react-router.ts`; `nextjsPage` in
+with library mode's wrapped `react-router` and `react-router-dom` in `src/page-wrap/`; `nextjsPage` in
 `packages/extension-nextjs/src/page.ts`; `reactHydration` in `packages/extension-react/src/page.ts`; each manifest's
 `page` and `pageWraps`, carried by `pageRouters` in `packages/extension-host/src/hosts.ts` and `pageModules` in
 `apps/desktop/src/utility/projects.ts` into the project's config; `pageEntrySource` in
@@ -8998,56 +9000,59 @@ for an unmatched path and a loader's error; a navigation resolved once React com
 one React commits without changing the page; one waiting as long as React takes to commit, as when a route suspends; not
 done by another root's commit or one of the old location; without React's hook, the page's first change or a moment
 without one; one given up when aborted while a loader is pending; the watcher told until it stops),
-`packages/extension-nextjs/src/page.test.ts` (11: either router found or not; where the page is; an App Router
-navigation resolved when it commits, redirected or not, a redirect back to where it started included, and not by the
-app's own writes to the address; its not-found and other fallbacks; one given up when aborted, with `history` left as it
-was; a Pages Router navigation with its 404 and error pages; one given up when aborted; each router's watcher told until
-it stops), `packages/extension-vite/src/app-page.test.ts` (6: a wrapped package served to the app's own modules, not to
-packages'; the wrapping module's own import sent to the app's copy; nothing without wrapped packages; the wrapping
-modules' folders allowed; and, through a real Vite server, the app's import reaching the wrapper ahead of Vite's own
-resolver and the wrapper's reaching the app's installed copy), `packages/extension-react/src/page.test.ts` (4: the first
-commit to the app's root, never to a root in a shadow root, as Next's overlay's, with real React; giving up when
-aborted; the document and an element in the page as roots; only `#__next` or the document under Next),
-`packages/project/src/page-entry.test.ts` (2), `guest-config.test.ts` ("runs the page runtime first in each of the app's
-entries" and "serves a wrapped package to the app's own modules"), `server.test.ts` (`isPageOrigin`),
-`guest-app.test.ts` ("runs the page runtime in the browser before a page's own code"), `hosts.test.ts` ("gives the
-routers' page modules" and "gives the packages a router's page module wraps") and `built-in-extensions.test.ts`
-("bundles the page runtime and the built-in page modules"). Hydration and navigation in the fixtures' real apps are left
-to the end-to-end suite. Live boards (PAR-1263): `packages/frames/src/live.test.ts` (9: the frame warming on the board
-first, then a spare on its route, then one sent there only when the app can be moved, then one loading, then a new one;
-the live window at the board's top, following the view down in the page's pixels, and kept within the board; live ending
-after 10 s out of view), `runtime.test.ts` (4 more: `page.scrolled` only once `role.set` makes the page live; the zoom
-wheel the page didn't take passed back, never zooming the page; Escape and a shortcut the page didn't handle passed
-back, and text keys kept; `passesBack`), `apps/desktop/src/main/page-frames.test.ts` (3: a frame stopped leaving its
-page's origin, with where it tried to go; moves on its origin let through; the window, a frame's first load and the
-app's own embeds left alone), and `e2e/route-boards.e2e.ts` (2: going live and engaged on a press with Interact, zooming
-with Ctrl and the wheel, and letting go on Escape; engaging again on a press and letting go on a press outside). The
-pool itself (`live-frames.ts`) has no unit test; it was tried in the app. Pictures (PAR-1200):
-`packages/frames/src/planners.test.ts` (each tier, and the gap between them), `packages/project/src/page-trace.test.ts`
-(11: a route's file and its parents', its own first; none for an unknown route, and a loop stopped; what the builder
-says the files load, with their scan, styles and shared files; every file under the route's folder, and those directly
-in the folders above it and their parallel slots, for routes named by folder; the whole project where the builder can't
-say or the route isn't known, and for a page that didn't land; `pageTrace`: the whole project as `"all"`, the route's
-own files where the builder says, and a folder router's folders), `apps/desktop/src/utility/page-traces.test.ts` (11:
-the route's files, imports, loads, stylesheets and shared config; the whole project without the builder's word; none
-when a file changed after the copy's page started loading; holding until a file it lists changes; stopping when a file
-it would now list is added; a Next template's imports scanned; what mounts the app and its imports outside the routes; a
-copy's trace of the route's own files, the whole project without the builder's word or for a page that didn't land,
-`changed` for a file changed while its page loaded, and a file added since the builder started), `render.test.ts` (5,
-"canvasRender with a page's copy": built at the mode's width and the page's full height with viewport units measuring
-the window; sanitized again so nothing in it runs; lazy images loaded at once; clipped at the frame's own height; why
-when there's no copy), `render-job.test.ts` (3, "a page's picture's name": by path and query, not the builder's address;
-changed by the mode, state and scale; without the copy), `bitmap-store.test.ts` (2, "a page's picture in the store":
-kept while its trace holds and stale after; apart from frames' bitmaps and the page in another mode),
-`frame-bitmaps.test.ts` (a page's picture asked of the service again each time, so a stale verdict holds) and
-`copy-sheets.test.ts`, which moved from `freezer.test.ts`. Gaps: reading routes when the project opens, the page frames,
-the freezer (its stale copies, markup groups and second hello included), building and selecting copies, a board's tier
-as the camera moves, `usePagePicture`, drawing the lines, groups, landing warning and the titles' backdrop, Layers'
-route tree, and the bundling have no test of their own; all were tried in the app. The lines were checked on the example
-at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting its page's top edge. Each page frame
-was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was
-checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example opened with its own routes and Settings'
-redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and hovering Projects.
+`packages/extension-react-router/src/page-wrap/react-router-dom.test.ts` (2, with `react-router-dom` 7: the routers
+`createBrowserRouter` and `createHashRouter` make handed to the page router, which moves the hash router, with the rest
+of the package passed through), `packages/extension-nextjs/src/page.test.ts` (11: either router found or not; where the
+page is; an App Router navigation resolved when it commits, redirected or not, a redirect back to where it started
+included, and not by the app's own writes to the address; its not-found and other fallbacks; one given up when aborted,
+with `history` left as it was; a Pages Router navigation with its 404 and error pages; one given up when aborted; each
+router's watcher told until it stops), `packages/extension-vite/src/app-page.test.ts` (6: a wrapped package served to
+the app's own modules, not to packages'; the wrapping module's own import sent to the app's copy; nothing without
+wrapped packages; the wrapping modules' folders allowed; and, through a real Vite server, the app's import reaching the
+wrapper ahead of Vite's own resolver and the wrapper's reaching the app's installed copy),
+`packages/extension-react/src/page.test.ts` (4: the first commit to the app's root, never to a root in a shadow root, as
+Next's overlay's, with real React; giving up when aborted; the document and an element in the page as roots; only
+`#__next` or the document under Next), `packages/project/src/page-entry.test.ts` (2), `guest-config.test.ts` ("runs the
+page runtime first in each of the app's entries" and "serves a wrapped package to the app's own modules"),
+`server.test.ts` (`isPageOrigin`), `guest-app.test.ts` ("runs the page runtime in the browser before a page's own
+code"), `hosts.test.ts` ("gives the routers' page modules" and "gives the packages a router's page module wraps") and
+`built-in-extensions.test.ts` ("bundles the page runtime and the built-in page modules"). Hydration and navigation in
+the fixtures' real apps are left to the end-to-end suite. Live boards (PAR-1263): `packages/frames/src/live.test.ts` (9:
+the frame warming on the board first, then a spare on its route, then one sent there only when the app can be moved,
+then one loading, then a new one; the live window at the board's top, following the view down in the page's pixels, and
+kept within the board; live ending after 10 s out of view), `runtime.test.ts` (4 more: `page.scrolled` only once
+`role.set` makes the page live; the zoom wheel the page didn't take passed back, never zooming the page; Escape and a
+shortcut the page didn't handle passed back, and text keys kept; `passesBack`),
+`apps/desktop/src/main/page-frames.test.ts` (3: a frame stopped leaving its page's origin, with where it tried to go;
+moves on its origin let through; the window, a frame's first load and the app's own embeds left alone), and
+`e2e/route-boards.e2e.ts` (2: going live and engaged on a press with Interact, zooming with Ctrl and the wheel, and
+letting go on Escape; engaging again on a press and letting go on a press outside). The pool itself (`live-frames.ts`)
+has no unit test; it was tried in the app. Pictures (PAR-1200): `packages/frames/src/planners.test.ts` (each tier, and
+the gap between them), `packages/project/src/page-trace.test.ts` (11: a route's file and its parents', its own first;
+none for an unknown route, and a loop stopped; what the builder says the files load, with their scan, styles and shared
+files; every file under the route's folder, and those directly in the folders above it and their parallel slots, for
+routes named by folder; the whole project where the builder can't say or the route isn't known, and for a page that
+didn't land; `pageTrace`: the whole project as `"all"`, the route's own files where the builder says, and a folder
+router's folders), `apps/desktop/src/utility/page-traces.test.ts` (11: the route's files, imports, loads, stylesheets
+and shared config; the whole project without the builder's word; none when a file changed after the copy's page started
+loading; holding until a file it lists changes; stopping when a file it would now list is added; a Next template's
+imports scanned; what mounts the app and its imports outside the routes; a copy's trace of the route's own files, the
+whole project without the builder's word or for a page that didn't land, `changed` for a file changed while its page
+loaded, and a file added since the builder started), `render.test.ts` (5, "canvasRender with a page's copy": built at
+the mode's width and the page's full height with viewport units measuring the window; sanitized again so nothing in it
+runs; lazy images loaded at once; clipped at the frame's own height; why when there's no copy), `render-job.test.ts` (3,
+"a page's picture's name": by path and query, not the builder's address; changed by the mode, state and scale; without
+the copy), `bitmap-store.test.ts` (2, "a page's picture in the store": kept while its trace holds and stale after; apart
+from frames' bitmaps and the page in another mode), `frame-bitmaps.test.ts` (a page's picture asked of the service again
+each time, so a stale verdict holds) and `copy-sheets.test.ts`, which moved from `freezer.test.ts`. Gaps: reading routes
+when the project opens, the page frames, the freezer (its stale copies, markup groups and second hello included),
+building and selecting copies, a board's tier as the camera moves, `usePagePicture`, drawing the lines, groups, landing
+warning and the titles' backdrop, Layers' route tree, and the bundling have no test of their own; all were tried in the
+app. The lines were checked on the example at 5%, 10% and 22%: every page's name and path read clearly, with each line
+meeting its page's top edge. Each page frame was checked on the example at 1280 wide: App at 849 tall with no scrollbar,
+the rest at 800. Bringing lines forward was checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the
+example opened with its own routes and Settings' redirect) at 5% and 10%, by selecting Pricing, Settings' group and
+Billing and hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 

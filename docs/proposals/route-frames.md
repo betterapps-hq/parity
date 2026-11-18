@@ -798,8 +798,9 @@ Each is an issue, in this order.
    for library mode. Built: React Router's reads `__reactRouterDataRouter`, or in library mode `__parityDataRouter`,
    which Parity's `react-router` sets. A manifest's `pageWraps` names the packages a router serves in place of the
    app's, which Vite and the webpack-compatible builders serve to the app's own modules alone, resolving the wrapper's
-   own import from the app. Only `react-router` is wrapped, so an app importing `react-router-dom` stays parked. React
-   Router's move is done when React commits the new location in the `RouterProvider` given the app's router, heard on
+   own import from the app. `react-router` and `react-router-dom` 7 are both wrapped (PAR-1299), and an app that lists
+   only `react-router-dom` is React Router's too; React Router 8 has no `react-router-dom`. React Router's move is done
+   when React commits the new location in the `RouterProvider` given the app's router, heard on
    `__REACT_DEVTOOLS_GLOBAL_HOOK__`, since `RouterProvider` renders in a transition. Next's reads `window.next.router`:
    the App Router's move is done when it writes the address with the new tree it commits, and the Pages Router's when
    `push` resolves. Not-found comes from React Router's 404, the App Router's development marker and the Pages Router's

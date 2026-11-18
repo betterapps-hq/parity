@@ -15,7 +15,12 @@ describe("the React Router extension", () => {
     ])
     expect(found.manifest.contributes.nodeTypes?.map((type) => type.id)).toEqual(["route"])
     expect(found.manifest.permissions?.read).toEqual(["**"])
-    expect(found.versions).toEqual({ packages: ["react-router"], range: "^7.0.0 || ^8.0.0" })
+    // `react-router-dom` stops at 7: React Router 8 has none (PAR-1299).
+    expect(found.versions).toEqual({
+      packages: ["react-router", "react-router-dom"],
+      range: "^7.0.0 || ^8.0.0",
+      ranges: { "react-router-dom": "^7.0.0" }
+    })
   })
 
   it("offers Open in browser only for routes", () => {

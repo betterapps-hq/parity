@@ -327,15 +327,15 @@ page, so a page changes mode without loading again and says how tall it is and w
 under a `.localhost` name of its own, so they run in a process of their own; Vite, webpack-compatible builders and Next
 all serve those names. What the runtime knows of the app comes from its extensions' page modules:
 
-| Router or renderer                                   | Page module                                                                                                                                                              | Status |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| TanStack Router                                      | Moves the app with its own router, read from `window.__TSR_ROUTER__`                                                                                                     | ✅     |
-| React Router, framework mode                         | Moves the app with its own router, read from `window.__reactRouterDataRouter`, which `HydratedRouter` sets in v7 and v8                                                  | ✅     |
-| React Router, data library mode                      | Moves the app with the router its `createBrowserRouter` or `createHashRouter` made, which Vite and the webpack-compatible builders serve through Parity's `react-router` | ✅     |
-| React Router, declarative or from `react-router-dom` | None: `<BrowserRouter>` makes no router object, and only `react-router` is wrapped, so the page is moved only by loading it at the route                                 | ◐      |
-| Next.js, App and Pages Routers                       | Moves the app with its own router, read from `window.next.router`                                                                                                        | ✅     |
-| React, Next.js's included                            | Says when the app has hydrated, from React's first commit to its root                                                                                                    | ✅     |
-| Any other renderer                                   | None: the page counts as hydrated once loaded and quiet for 150 ms                                                                                                       | ◐      |
+| Router or renderer              | Page module                                                                                                                                                                                          | Status |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| TanStack Router                 | Moves the app with its own router, read from `window.__TSR_ROUTER__`                                                                                                                                 | ✅     |
+| React Router, framework mode    | Moves the app with its own router, read from `window.__reactRouterDataRouter`, which `HydratedRouter` sets in v7 and v8                                                                              | ✅     |
+| React Router, data library mode | Moves the app with the router its `createBrowserRouter` or `createHashRouter` made, which Vite and the webpack-compatible builders serve through Parity's `react-router`, or `react-router-dom` in 7 | ✅     |
+| React Router, declarative       | None: `<BrowserRouter>` makes no router object, so the page is moved only by loading it at the route                                                                                                 | ◐      |
+| Next.js, App and Pages Routers  | Moves the app with its own router, read from `window.next.router`                                                                                                                                    | ✅     |
+| React, Next.js's included       | Says when the app has hydrated, from React's first commit to its root                                                                                                                                | ✅     |
+| Any other renderer              | None: the page counts as hydrated once loaded and quiet for 150 ms                                                                                                                                   | ◐      |
 
 The routers' globals aren't public API, so each page module checks what it finds, and a page whose global is missing or
 changed is moved only by loading it. Each says a move is done once the new page is in the DOM: TanStack Router once it
