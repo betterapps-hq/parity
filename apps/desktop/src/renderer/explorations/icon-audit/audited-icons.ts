@@ -517,8 +517,8 @@ export const auditedIcons: AuditedIcon[] = [
     },
     alternatives: [
       {
-        name: "AlignSpaceAroundHorizontal",
-        file: "align-space-around-horizontal",
+        name: "AlignSpaceAroundVertical",
+        file: "align-space-around-vertical",
         sizes: [20],
         unsized: true,
         color: false
@@ -2157,24 +2157,24 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "AppsAddIn",
-      file: "apps-add-in",
+      name: "Apps",
+      file: "apps",
       sizes: [16, 20, 24, 28, 32, 48],
       unsized: true,
-      color: false
+      color: true
     },
     alternatives: [
+      {
+        name: "AppsAddIn",
+        file: "apps-add-in",
+        sizes: [16, 20, 24, 28, 32, 48],
+        unsized: true,
+        color: false
+      },
       {
         name: "PuzzlePiece",
         file: "puzzle-piece",
         sizes: [12, 16, 20, 24, 28, 32, 48],
-        unsized: true,
-        color: true
-      },
-      {
-        name: "Apps",
-        file: "apps",
-        sizes: [16, 20, 24, 28, 32, 48],
         unsized: true,
         color: true
       },
@@ -3761,17 +3761,17 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "RadioButton",
-      file: "radio-button",
-      sizes: [16, 20, 24],
+      name: "Record",
+      file: "record",
+      sizes: [12, 16, 20, 24, 28, 32, 48],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "Record",
-        file: "record",
-        sizes: [12, 16, 20, 24, 28, 32, 48],
+        name: "RadioButton",
+        file: "radio-button",
+        sizes: [16, 20, 24],
         unsized: true,
         color: false
       },
@@ -4062,10 +4062,10 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "ClipboardArrowRight",
-      file: "clipboard-arrow-right",
-      sizes: [16, 20, 24],
-      unsized: true,
+      name: "ClipboardMultiple",
+      file: "clipboard-multiple",
+      sizes: [16],
+      unsized: false,
       color: false
     },
     alternatives: [
@@ -4077,16 +4077,16 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "ClipboardMultiple",
-        file: "clipboard-multiple",
-        sizes: [16],
-        unsized: false,
+        name: "ClipboardPaste",
+        file: "clipboard-paste",
+        sizes: [16, 20, 24, 28, 32],
+        unsized: true,
         color: false
       },
       {
-        name: "LayoutAddAbove",
-        file: "layout-add-above",
-        sizes: [16, 20, 24, 32],
+        name: "ClipboardArrowRight",
+        file: "clipboard-arrow-right",
+        sizes: [16, 20, 24],
         unsized: true,
         color: false
       },
@@ -4654,19 +4654,19 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 20,
     fluent: {
-      name: "Cube",
-      file: "cube",
-      sizes: [12, 16, 20, 24, 28, 32, 48],
+      name: "Apps",
+      file: "apps",
+      sizes: [16, 20, 24, 28, 32, 48],
       unsized: true,
-      color: false
+      color: true
     },
     alternatives: [
       {
-        name: "Apps",
-        file: "apps",
-        sizes: [16, 20, 24, 28, 32, 48],
+        name: "Cube",
+        file: "cube",
+        sizes: [12, 16, 20, 24, 28, 32, 48],
         unsized: true,
-        color: true
+        color: false
       },
       {
         name: "PuzzleCube",
@@ -4683,10 +4683,10 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "Shapes",
-        file: "shapes",
-        sizes: [16, 20, 24, 28, 32, 48],
-        unsized: true,
+        name: "GridCircles",
+        file: "grid-circles",
+        sizes: [24, 28],
+        unsized: false,
         color: false
       }
     ]
@@ -4707,17 +4707,24 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "TransparencySquare",
-      file: "transparency-square",
-      sizes: [16, 20, 24],
+      name: "CircleHalfFill",
+      file: "circle-half-fill",
+      sizes: [12, 16, 20, 24],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "CircleHalfFill",
-        file: "circle-half-fill",
-        sizes: [12, 16, 20, 24],
+        name: "TransparencySquare",
+        file: "transparency-square",
+        sizes: [16, 20, 24],
+        unsized: true,
+        color: false
+      },
+      {
+        name: "DarkTheme",
+        file: "dark-theme",
+        sizes: [20, 24],
         unsized: true,
         color: false
       },
@@ -4732,13 +4739,6 @@ export const auditedIcons: AuditedIcon[] = [
         name: "Blur",
         file: "blur",
         sizes: [16, 20, 24, 28],
-        unsized: true,
-        color: false
-      },
-      {
-        name: "DarkTheme",
-        file: "dark-theme",
-        sizes: [20, 24],
         unsized: true,
         color: false
       }
@@ -4914,24 +4914,24 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "TextWrap",
-      file: "text-wrap",
-      sizes: [16, 20, 24],
+      name: "ArrowWrap",
+      file: "arrow-wrap",
+      sizes: [20, 32],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "ArrowWrap",
-        file: "arrow-wrap",
-        sizes: [20, 32],
+        name: "ArrowEnterLeft",
+        file: "arrow-enter-left",
+        sizes: [20, 24],
         unsized: true,
         color: false
       },
       {
-        name: "ArrowEnterLeft",
-        file: "arrow-enter-left",
-        sizes: [20, 24],
+        name: "TextWrap",
+        file: "text-wrap",
+        sizes: [16, 20, 24],
         unsized: true,
         color: false
       },
@@ -4943,9 +4943,9 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "ArrowReply",
-        file: "arrow-reply",
-        sizes: [16, 20, 24, 28, 32, 48],
+        name: "ArrowWrapUpToDown",
+        file: "arrow-wrap-up-to-down",
+        sizes: [20, 32],
         unsized: true,
         color: false
       }
@@ -5127,13 +5127,20 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "Target",
-      file: "target",
-      sizes: [16, 20, 24, 32],
+      name: "MyLocation",
+      file: "my-location",
+      sizes: [12, 16, 20, 24],
       unsized: true,
       color: false
     },
     alternatives: [
+      {
+        name: "Target",
+        file: "target",
+        sizes: [16, 20, 24, 32],
+        unsized: true,
+        color: false
+      },
       {
         name: "LocationTargetSquare",
         file: "location-target-square",
@@ -5142,23 +5149,16 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "MyLocation",
-        file: "my-location",
-        sizes: [12, 16, 20, 24],
+        name: "ScanDash",
+        file: "scan-dash",
+        sizes: [12, 16, 20, 24, 28, 32, 48],
         unsized: true,
         color: false
       },
       {
-        name: "Scan",
-        file: "scan",
-        sizes: [16, 20, 24],
-        unsized: true,
-        color: false
-      },
-      {
-        name: "CenterVertical",
-        file: "center-vertical",
-        sizes: [20, 24],
+        name: "Add",
+        file: "add",
+        sizes: [12, 16, 20, 24, 28, 32, 48],
         unsized: true,
         color: false
       }
@@ -5399,17 +5399,17 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "CubeAdd",
-      file: "cube-add",
-      sizes: [20],
+      name: "AppsAddIn",
+      file: "apps-add-in",
+      sizes: [16, 20, 24, 28, 32, 48],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "PuzzleCubePiece",
-        file: "puzzle-cube-piece",
-        sizes: [16, 20, 24, 28, 32, 48],
+        name: "CubeAdd",
+        file: "cube-add",
+        sizes: [20],
         unsized: true,
         color: false
       },
@@ -5421,8 +5421,8 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "DiamondLink",
-        file: "diamond-link",
+        name: "PuzzleCubePiece",
+        file: "puzzle-cube-piece",
         sizes: [16, 20, 24, 28, 32, 48],
         unsized: true,
         color: false
@@ -7462,19 +7462,19 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "Diamond",
-      file: "diamond",
-      sizes: [12, 16, 20, 24, 28, 32, 48],
+      name: "Premium",
+      file: "premium",
+      sizes: [12, 16, 20, 24, 28, 32],
       unsized: true,
-      color: false
+      color: true
     },
     alternatives: [
       {
-        name: "Premium",
-        file: "premium",
-        sizes: [12, 16, 20, 24, 28, 32],
+        name: "Diamond",
+        file: "diamond",
+        sizes: [12, 16, 20, 24, 28, 32, 48],
         unsized: true,
-        color: true
+        color: false
       },
       {
         name: "Star",
@@ -7763,24 +7763,17 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "BorderAll",
-      file: "border-all",
-      sizes: [16, 20, 24],
+      name: "Table",
+      file: "table",
+      sizes: [16, 20, 24, 28, 32, 48],
       unsized: true,
-      color: false
+      color: true
     },
     alternatives: [
       {
-        name: "Table",
-        file: "table",
-        sizes: [16, 20, 24, 28, 32, 48],
-        unsized: true,
-        color: true
-      },
-      {
-        name: "TableSimple",
-        file: "table-simple",
-        sizes: [16, 20, 24, 28, 32, 48],
+        name: "BorderAll",
+        file: "border-all",
+        sizes: [16, 20, 24],
         unsized: true,
         color: false
       },
@@ -7792,9 +7785,16 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "LayoutColumnFour",
-        file: "layout-column-four",
-        sizes: [16, 20, 24],
+        name: "Grid",
+        file: "grid",
+        sizes: [16, 20, 24, 28],
+        unsized: true,
+        color: false
+      },
+      {
+        name: "TableSimple",
+        file: "table-simple",
+        sizes: [16, 20, 24, 28, 32, 48],
         unsized: true,
         color: false
       }
@@ -7958,17 +7958,17 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "Wrench",
-      file: "wrench",
-      sizes: [16, 20, 24],
+      name: "WrenchScrewdriver",
+      file: "wrench-screwdriver",
+      sizes: [20, 24, 28, 32],
       unsized: true,
       color: true
     },
     alternatives: [
       {
-        name: "WrenchScrewdriver",
-        file: "wrench-screwdriver",
-        sizes: [20, 24, 28, 32],
+        name: "Wrench",
+        file: "wrench",
+        sizes: [16, 20, 24],
         unsized: true,
         color: true
       },
@@ -7987,11 +7987,11 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "Settings",
-        file: "settings",
-        sizes: [16, 20, 24, 28, 32, 48],
+        name: "WrenchSettings",
+        file: "wrench-settings",
+        sizes: [20, 24],
         unsized: true,
-        color: true
+        color: false
       }
     ]
   },
@@ -8088,24 +8088,17 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "HandLeft",
-      file: "hand-left",
-      sizes: [16, 20, 24, 28],
+      name: "Drag",
+      file: "drag",
+      sizes: [20, 24],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "Drag",
-        file: "drag",
-        sizes: [20, 24],
-        unsized: true,
-        color: false
-      },
-      {
-        name: "ArrowMove",
-        file: "arrow-move",
-        sizes: [20, 24],
+        name: "HandLeft",
+        file: "hand-left",
+        sizes: [16, 20, 24, 28],
         unsized: true,
         color: false
       },
@@ -8113,6 +8106,13 @@ export const auditedIcons: AuditedIcon[] = [
         name: "HandRight",
         file: "hand-right",
         sizes: [16, 20, 24, 28],
+        unsized: true,
+        color: false
+      },
+      {
+        name: "ArrowMove",
+        file: "arrow-move",
+        sizes: [20, 24],
         unsized: true,
         color: false
       },
@@ -8271,17 +8271,17 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "TextHeader1",
-      file: "text-header",
-      sizes: [20, 24],
+      name: "TextHeader1Lines",
+      file: "text-header-1-lines",
+      sizes: [16, 20, 24],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "TextHeader1Lines",
-        file: "text-header-1-lines",
-        sizes: [16, 20, 24],
+        name: "TextHeader1",
+        file: "text-header",
+        sizes: [20, 24],
         unsized: true,
         color: false
       },
@@ -8709,17 +8709,17 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "SaveImage",
-      file: "save-image",
-      sizes: [20],
+      name: "ImageArrowForward",
+      file: "image-arrow-forward",
+      sizes: [20, 24],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "ImageArrowForward",
-        file: "image-arrow-forward",
-        sizes: [20, 24],
+        name: "SaveImage",
+        file: "save-image",
+        sizes: [20],
         unsized: true,
         color: false
       },
@@ -8738,11 +8738,11 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "Image",
-        file: "image",
-        sizes: [16, 20, 24, 28, 32, 48],
+        name: "ArrowExport",
+        file: "arrow-export",
+        sizes: [16, 20, 24],
         unsized: true,
-        color: true
+        color: false
       }
     ]
   },
@@ -8839,16 +8839,23 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "ImageMultiple",
-      file: "image-multiple",
-      sizes: [16, 20, 24, 28, 32, 48],
+      name: "FilmstripImage",
+      file: "filmstrip-image",
+      sizes: [20, 24],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "FilmstripImage",
-        file: "filmstrip-image",
+        name: "ImageMultiple",
+        file: "image-multiple",
+        sizes: [16, 20, 24, 28, 32, 48],
+        unsized: true,
+        color: false
+      },
+      {
+        name: "SlidePlay",
+        file: "slide-play",
         sizes: [20, 24],
         unsized: true,
         color: false
@@ -8864,13 +8871,6 @@ export const auditedIcons: AuditedIcon[] = [
         name: "PlayCircle",
         file: "play-circle",
         sizes: [16, 20, 24, 28, 48],
-        unsized: true,
-        color: false
-      },
-      {
-        name: "ImageStack",
-        file: "image-stack",
-        sizes: [16, 20],
         unsized: true,
         color: false
       }
@@ -9396,17 +9396,17 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "LocalLanguage",
-      file: "local-language",
-      sizes: [16, 20, 24, 28],
+      name: "Translate",
+      file: "translate",
+      sizes: [16, 20, 24, 28, 32, 48],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "Translate",
-        file: "translate",
-        sizes: [16, 20, 24, 28, 32, 48],
+        name: "LocalLanguage",
+        file: "local-language",
+        sizes: [16, 20, 24, 28],
         unsized: true,
         color: false
       },
@@ -9418,18 +9418,18 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "Globe",
-        file: "globe",
-        sizes: [12, 16, 20, 24, 28, 32, 48],
-        unsized: true,
-        color: true
-      },
-      {
         name: "LocalLanguageGlobe",
         file: "local-language-globe",
         sizes: [20],
         unsized: true,
         color: false
+      },
+      {
+        name: "Globe",
+        file: "globe",
+        sizes: [12, 16, 20, 24, 28, 32, 48],
+        unsized: true,
+        color: true
       }
     ]
   },
@@ -9650,17 +9650,17 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 29,
     fluent: {
-      name: "LayerDiagonal",
-      file: "layer-diagonal",
-      sizes: [16, 20, 24],
+      name: "Layer",
+      file: "layer",
+      sizes: [20, 24],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "Layer",
-        file: "layer",
-        sizes: [20, 24],
+        name: "LayerDiagonal",
+        file: "layer-diagonal",
+        sizes: [16, 20, 24],
         unsized: true,
         color: false
       },
@@ -9679,9 +9679,9 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "TextBulletListTree",
-        file: "text-bullet-list-tree",
-        sizes: [16, 20, 24],
+        name: "StackVertical",
+        file: "stack-vertical",
+        sizes: [16, 20, 24, 28, 32],
         unsized: true,
         color: false
       }
@@ -10258,26 +10258,26 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "PersonSupport",
-      file: "person-support",
-      sizes: [16, 20, 24, 28, 32],
+      name: "Headset",
+      file: "headset",
+      sizes: [16, 20, 24, 28, 32, 48],
       unsized: true,
-      color: false
+      color: true
     },
     alternatives: [
+      {
+        name: "PersonSupport",
+        file: "person-support",
+        sizes: [16, 20, 24, 28, 32],
+        unsized: true,
+        color: false
+      },
       {
         name: "ChatHelp",
         file: "chat-help",
         sizes: [16, 20, 24],
         unsized: true,
         color: false
-      },
-      {
-        name: "Headset",
-        file: "headset",
-        sizes: [16, 20, 24, 28, 32, 48],
-        unsized: true,
-        color: true
       },
       {
         name: "QuestionCircle",
@@ -10287,11 +10287,11 @@ export const auditedIcons: AuditedIcon[] = [
         color: true
       },
       {
-        name: "ChatBubblesQuestion",
-        file: "chat-bubbles-question",
-        sizes: [16, 20, 24, 28, 32],
+        name: "PersonQuestionMark",
+        file: "person-question-mark",
+        sizes: [16, 20, 24],
         unsized: true,
-        color: true
+        color: false
       }
     ]
   },
@@ -10608,17 +10608,17 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 9,
     fluent: {
-      name: "List",
-      file: "list",
-      sizes: [16, 20, 24, 28],
+      name: "TextBulletListLtr",
+      file: "text-bullet-list-ltr",
+      sizes: [16, 20, 24, 90],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "TextBulletListLtr",
-        file: "text-bullet-list-ltr",
-        sizes: [16, 20, 24, 90],
+        name: "List",
+        file: "list",
+        sizes: [16, 20, 24, 28],
         unsized: true,
         color: false
       },
@@ -10637,9 +10637,9 @@ export const auditedIcons: AuditedIcon[] = [
         color: true
       },
       {
-        name: "TextBulletList",
-        file: "text-bullet-list",
-        sizes: [16, 20, 24, 90],
+        name: "TaskListLtr",
+        file: "task-list-ltr",
+        sizes: [20, 24],
         unsized: true,
         color: false
       }
@@ -11530,17 +11530,17 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "ZoomFit",
-      file: "zoom-fit",
-      sizes: [16, 20, 24],
+      name: "FullScreenMaximize",
+      file: "full-screen-maximize",
+      sizes: [16, 20, 24, 28, 32],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "FullScreenMaximize",
-        file: "full-screen-maximize",
-        sizes: [16, 20, 24, 28, 32],
+        name: "ZoomFit",
+        file: "zoom-fit",
+        sizes: [16, 20, 24],
         unsized: true,
         color: false
       },
@@ -11559,9 +11559,9 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "PageFit",
-        file: "page-fit",
-        sizes: [16, 20, 24],
+        name: "ScanDash",
+        file: "scan-dash",
+        sizes: [12, 16, 20, 24, 28, 32, 48],
         unsized: true,
         color: false
       }
@@ -11701,16 +11701,16 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "LineHorizontal3",
-      file: "line-horizontal",
+      name: "Navigation",
+      file: "navigation",
       sizes: [16, 20, 24, 28, 32, 48],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "Navigation",
-        file: "navigation",
+        name: "LineHorizontal3",
+        file: "line-horizontal",
         sizes: [16, 20, 24, 28, 32, 48],
         unsized: true,
         color: false
@@ -11730,11 +11730,11 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "Apps",
-        file: "apps",
+        name: "LineHorizontal4",
+        file: "line-horizontal",
         sizes: [16, 20, 24, 28, 32, 48],
         unsized: true,
-        color: true
+        color: false
       }
     ]
   },
@@ -11760,19 +11760,19 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "Chat",
-      file: "chat",
+      name: "ChatEmpty",
+      file: "chat-empty",
       sizes: [12, 16, 20, 24, 28, 32, 48],
       unsized: true,
-      color: true
+      color: false
     },
     alternatives: [
       {
-        name: "ChatEmpty",
-        file: "chat-empty",
+        name: "Chat",
+        file: "chat",
         sizes: [12, 16, 20, 24, 28, 32, 48],
         unsized: true,
-        color: false
+        color: true
       },
       {
         name: "Comment",
@@ -11789,11 +11789,11 @@ export const auditedIcons: AuditedIcon[] = [
         color: true
       },
       {
-        name: "ChatBubblesQuestion",
-        file: "chat-bubbles-question",
-        sizes: [16, 20, 24, 28, 32],
+        name: "CommentText",
+        file: "comment-text",
+        sizes: [16, 20, 24, 28, 32, 48],
         unsized: true,
-        color: true
+        color: false
       }
     ]
   },
@@ -12328,9 +12328,9 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "ShareScreenStart",
-      file: "share-screen-start",
-      sizes: [16, 20, 24, 28, 48],
+      name: "SlidePlay",
+      file: "slide-play",
+      sizes: [20, 24],
       unsized: true,
       color: false
     },
@@ -12350,16 +12350,16 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "DesktopPulse",
-        file: "desktop-pulse",
-        sizes: [16, 20, 24, 28, 32, 48],
+        name: "ShareScreenStart",
+        file: "share-screen-start",
+        sizes: [16, 20, 24, 28, 48],
         unsized: true,
         color: false
       },
       {
-        name: "Live",
-        file: "live",
-        sizes: [16, 20, 24],
+        name: "WindowPlay",
+        file: "window-play",
+        sizes: [20],
         unsized: true,
         color: false
       }
@@ -14254,9 +14254,9 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "Pen",
-      file: "pen",
-      sizes: [16, 20, 24, 28, 32, 48],
+      name: "CalligraphyPen",
+      file: "calligraphy-pen",
+      sizes: [20, 24],
       unsized: true,
       color: false
     },
@@ -14269,6 +14269,13 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
+        name: "Pen",
+        file: "pen",
+        sizes: [16, 20, 24, 28, 32, 48],
+        unsized: true,
+        color: false
+      },
+      {
         name: "InkingTool",
         file: "inking-tool",
         sizes: [16, 20, 24, 32],
@@ -14276,16 +14283,9 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "CalligraphyPen",
-        file: "calligraphy-pen",
-        sizes: [20, 24],
-        unsized: true,
-        color: false
-      },
-      {
-        name: "DrawShape",
-        file: "draw-shape",
-        sizes: [20, 24],
+        name: "PenSparkle",
+        file: "pen-sparkle",
+        sizes: [16, 20, 24, 28, 32, 48],
         unsized: true,
         color: false
       }
@@ -15862,17 +15862,17 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "SaveCopy",
-      file: "save-copy",
-      sizes: [20, 24],
+      name: "SaveMultiple",
+      file: "save-multiple",
+      sizes: [16, 20, 24],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "SaveMultiple",
-        file: "save-multiple",
-        sizes: [16, 20, 24],
+        name: "SaveCopy",
+        file: "save-copy",
+        sizes: [20, 24],
         unsized: true,
         color: false
       },
@@ -15884,16 +15884,16 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "DocumentCopy",
-        file: "document-copy",
-        sizes: [16, 20, 24, 48],
+        name: "SaveArrowRight",
+        file: "save-arrow-right",
+        sizes: [20, 24],
         unsized: true,
         color: false
       },
       {
-        name: "CopyArrowRight",
-        file: "copy-arrow-right",
-        sizes: [16, 20, 24],
+        name: "DocumentCopy",
+        file: "document-copy",
+        sizes: [16, 20, 24, 48],
         unsized: true,
         color: false
       }
@@ -16234,13 +16234,27 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "TextGrammarCheckmark",
-      file: "text-grammar-checkmark",
-      sizes: [20, 24],
-      unsized: true,
+      name: "BracesCheckmark",
+      file: "braces-checkmark",
+      sizes: [16],
+      unsized: false,
       color: false
     },
     alternatives: [
+      {
+        name: "TextGrammarCheckmark",
+        file: "text-grammar-checkmark",
+        sizes: [20, 24],
+        unsized: true,
+        color: false
+      },
+      {
+        name: "DocumentCheckmark",
+        file: "document-checkmark",
+        sizes: [16, 20, 24],
+        unsized: true,
+        color: false
+      },
       {
         name: "DocumentSearch",
         file: "document-search",
@@ -16252,20 +16266,6 @@ export const auditedIcons: AuditedIcon[] = [
         name: "CheckmarkCircleSquare",
         file: "checkmark-circle-square",
         sizes: [16, 20, 24],
-        unsized: true,
-        color: false
-      },
-      {
-        name: "ScanText",
-        file: "scan-text",
-        sizes: [16, 20, 24, 28, 32, 48],
-        unsized: true,
-        color: false
-      },
-      {
-        name: "SearchShield",
-        file: "search-shield",
-        sizes: [20],
         unsized: true,
         color: false
       }
@@ -16352,13 +16352,20 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "LineHorizontal1",
-      file: "line-horizontal",
-      sizes: [16, 20, 24, 28],
+      name: "SplitHorizontal",
+      file: "split-horizontal",
+      sizes: [12, 16, 20, 24, 28, 32, 48],
       unsized: true,
       color: false
     },
     alternatives: [
+      {
+        name: "LineHorizontal1",
+        file: "line-horizontal",
+        sizes: [16, 20, 24, 28],
+        unsized: true,
+        color: false
+      },
       {
         name: "LineHorizontal1Dashes",
         file: "line-horizontal-1-dashes",
@@ -16374,16 +16381,9 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "Subtract",
-        file: "subtract",
-        sizes: [12, 16, 20, 24, 28, 48],
-        unsized: true,
-        color: false
-      },
-      {
-        name: "LineDashes",
-        file: "line-dashes",
-        sizes: [20, 24, 32, 48],
+        name: "DividerTall",
+        file: "divider-tall",
+        sizes: [16, 20, 24],
         unsized: true,
         color: false
       }
@@ -16441,13 +16441,20 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "Server",
-      file: "server",
-      sizes: [12, 16, 20, 24],
+      name: "Storage",
+      file: "storage",
+      sizes: [16, 20, 24, 28, 32, 48],
       unsized: true,
       color: false
     },
     alternatives: [
+      {
+        name: "Server",
+        file: "server",
+        sizes: [12, 16, 20, 24],
+        unsized: true,
+        color: false
+      },
       {
         name: "ServerMultiple",
         file: "server-multiple",
@@ -16456,10 +16463,10 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "ServerSurface",
-        file: "server-surface",
-        sizes: [16],
-        unsized: false,
+        name: "HardDrive",
+        file: "hard-drive",
+        sizes: [16, 20, 24, 28, 32, 48],
+        unsized: true,
         color: false
       },
       {
@@ -16468,13 +16475,6 @@ export const auditedIcons: AuditedIcon[] = [
         sizes: [16, 20, 24, 32, 48],
         unsized: true,
         color: true
-      },
-      {
-        name: "HardDrive",
-        file: "hard-drive",
-        sizes: [16, 20, 24, 28, 32, 48],
-        unsized: true,
-        color: false
       }
     ]
   },
@@ -17542,17 +17542,24 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "WindowNew",
-      file: "window-new",
-      sizes: [16, 20, 24, 28, 32, 48],
+      name: "Open",
+      file: "open",
+      sizes: [12, 16, 20, 24, 28, 32, 48],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "Open",
-        file: "open",
-        sizes: [12, 16, 20, 24, 28, 32, 48],
+        name: "WindowNew",
+        file: "window-new",
+        sizes: [16, 20, 24, 28, 32, 48],
+        unsized: true,
+        color: false
+      },
+      {
+        name: "ArrowSquareUpRight",
+        file: "arrow-square-up-right",
+        sizes: [20, 24],
         unsized: true,
         color: false
       },
@@ -17560,13 +17567,6 @@ export const auditedIcons: AuditedIcon[] = [
         name: "PictureInPictureEnter",
         file: "picture-in-picture-enter",
         sizes: [16, 20, 24],
-        unsized: true,
-        color: false
-      },
-      {
-        name: "ArrowUpRight",
-        file: "arrow-up-right",
-        sizes: [12, 16, 20, 24, 28, 32, 48],
         unsized: true,
         color: false
       },
@@ -18127,13 +18127,27 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "Square",
-      file: "square",
-      sizes: [12, 16, 20, 24, 28, 32, 48],
+      name: "Tab",
+      file: "tab",
+      sizes: [16, 20, 24, 28],
       unsized: true,
       color: false
     },
     alternatives: [
+      {
+        name: "CheckboxUnchecked",
+        file: "checkbox-unchecked",
+        sizes: [12, 16, 20, 24],
+        unsized: true,
+        color: false
+      },
+      {
+        name: "Square",
+        file: "square",
+        sizes: [12, 16, 20, 24, 28, 32, 48],
+        unsized: true,
+        color: false
+      },
       {
         name: "Circle",
         file: "circle",
@@ -18142,22 +18156,8 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "Oval",
-        file: "oval",
-        sizes: [16, 20, 24, 28, 32, 48],
-        unsized: true,
-        color: false
-      },
-      {
-        name: "SquareShadow",
-        file: "square-shadow",
-        sizes: [12, 16, 20, 24],
-        unsized: true,
-        color: false
-      },
-      {
-        name: "Shapes",
-        file: "shapes",
+        name: "ShapeOrganic",
+        file: "shape-organic",
         sizes: [16, 20, 24, 28, 32, 48],
         unsized: true,
         color: false
@@ -18487,17 +18487,17 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "LayoutRowTwo",
-      file: "layout-row-two",
-      sizes: [16, 20, 24, 28, 32, 48],
+      name: "AlignSpaceAroundHorizontal",
+      file: "align-space-around-horizontal",
+      sizes: [20],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "List",
-        file: "list",
-        sizes: [16, 20, 24, 28],
+        name: "LayoutRowTwo",
+        file: "layout-row-two",
+        sizes: [16, 20, 24, 28, 32, 48],
         unsized: true,
         color: false
       },
@@ -18509,18 +18509,18 @@ export const auditedIcons: AuditedIcon[] = [
         color: true
       },
       {
-        name: "TextBulletList",
-        file: "text-bullet-list",
-        sizes: [16, 20, 24, 90],
+        name: "AlignStretchVertical",
+        file: "align-stretch-vertical",
+        sizes: [16, 20],
         unsized: true,
         color: false
       },
       {
-        name: "AppsList",
-        file: "apps-list",
-        sizes: [20, 24, 32],
+        name: "TextAlignJustify",
+        file: "text-align-justify",
+        sizes: [20, 24],
         unsized: true,
-        color: true
+        color: false
       }
     ]
   },
@@ -18593,31 +18593,24 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "DarkTheme",
-      file: "dark-theme",
-      sizes: [20, 24],
+      name: "Color",
+      file: "color",
+      sizes: [16, 20, 24, 28, 32],
       unsized: true,
       color: false
     },
     alternatives: [
       {
+        name: "DarkTheme",
+        file: "dark-theme",
+        sizes: [20, 24],
+        unsized: true,
+        color: false
+      },
+      {
         name: "WeatherMoon",
         file: "weather-moon",
         sizes: [12, 16, 20, 24, 28, 32, 48],
-        unsized: true,
-        color: false
-      },
-      {
-        name: "WeatherSunny",
-        file: "weather-sunny",
-        sizes: [16, 20, 24, 28, 32, 48],
-        unsized: true,
-        color: false
-      },
-      {
-        name: "CircleHalfFill",
-        file: "circle-half-fill",
-        sizes: [12, 16, 20, 24],
         unsized: true,
         color: false
       },
@@ -18627,6 +18620,13 @@ export const auditedIcons: AuditedIcon[] = [
         sizes: [16, 20, 24, 28, 32, 48],
         unsized: true,
         color: false
+      },
+      {
+        name: "WeatherSunnyLow",
+        file: "weather-sunny-low",
+        sizes: [20, 24, 48],
+        unsized: true,
+        color: true
       }
     ]
   },
@@ -18894,26 +18894,26 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "SearchSquare",
-      file: "search-square",
-      sizes: [16, 20, 24],
+      name: "TextBulletListSquareSearch",
+      file: "text-bullet-list-square-search",
+      sizes: [20],
       unsized: true,
       color: false
     },
     alternatives: [
+      {
+        name: "SearchSquare",
+        file: "search-square",
+        sizes: [16, 20, 24],
+        unsized: true,
+        color: false
+      },
       {
         name: "DocumentSearch",
         file: "document-search",
         sizes: [16, 20, 24, 32],
         unsized: true,
         color: false
-      },
-      {
-        name: "LinkMultiple",
-        file: "link-multiple",
-        sizes: [16, 20, 24],
-        unsized: true,
-        color: true
       },
       {
         name: "Search",
@@ -18923,11 +18923,11 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "BranchFork",
-        file: "branch-fork",
-        sizes: [16, 20, 24, 32],
+        name: "LinkMultiple",
+        file: "link-multiple",
+        sizes: [16, 20, 24],
         unsized: true,
-        color: false
+        color: true
       }
     ]
   },
@@ -19006,17 +19006,17 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "TextT",
-      file: "text-t",
-      sizes: [12, 16, 20, 24, 28, 32, 48],
+      name: "Rename",
+      file: "rename",
+      sizes: [16, 20, 24, 28],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "TextField",
-        file: "text-field",
-        sizes: [16, 20, 24],
+        name: "TextT",
+        file: "text-t",
+        sizes: [12, 16, 20, 24, 28, 32, 48],
         unsized: true,
         color: false
       },
@@ -19028,9 +19028,9 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "Textbox",
-        file: "textbox",
-        sizes: [16, 20, 24, 28, 32, 48],
+        name: "TextField",
+        file: "text-field",
+        sizes: [16, 20, 24],
         unsized: true,
         color: false
       },
@@ -19059,31 +19059,24 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "TextField",
-      file: "text-field",
-      sizes: [16, 20, 24],
+      name: "Rename",
+      file: "rename",
+      sizes: [16, 20, 24, 28],
       unsized: true,
       color: false
     },
     alternatives: [
       {
+        name: "TextField",
+        file: "text-field",
+        sizes: [16, 20, 24],
+        unsized: true,
+        color: false
+      },
+      {
         name: "Textbox",
         file: "textbox",
         sizes: [16, 20, 24, 28, 32, 48],
-        unsized: true,
-        color: false
-      },
-      {
-        name: "TextboxSettings",
-        file: "textbox-settings",
-        sizes: [20, 24],
-        unsized: true,
-        color: false
-      },
-      {
-        name: "Rename",
-        file: "rename",
-        sizes: [16, 20, 24, 28],
         unsized: true,
         color: false
       },
@@ -19093,6 +19086,13 @@ export const auditedIcons: AuditedIcon[] = [
         sizes: [20, 24, 28, 32, 48],
         unsized: true,
         color: true
+      },
+      {
+        name: "TextboxSettings",
+        file: "textbox-settings",
+        sizes: [20, 24],
+        unsized: true,
+        color: false
       }
     ]
   },
@@ -19112,17 +19112,24 @@ export const auditedIcons: AuditedIcon[] = [
     ],
     moreSites: 0,
     fluent: {
-      name: "SelectAllOn",
-      file: "select-all-on",
+      name: "SelectObject",
+      file: "select-object",
       sizes: [16, 20, 24],
       unsized: true,
       color: false
     },
     alternatives: [
       {
-        name: "SelectObject",
-        file: "select-object",
+        name: "SelectAllOn",
+        file: "select-all-on",
         sizes: [16, 20, 24],
+        unsized: true,
+        color: false
+      },
+      {
+        name: "SquareHint",
+        file: "square-hint",
+        sizes: [16, 20, 24, 28, 32, 48],
         unsized: true,
         color: false
       },
@@ -19134,16 +19141,9 @@ export const auditedIcons: AuditedIcon[] = [
         color: false
       },
       {
-        name: "CopySelect",
-        file: "copy-select",
-        sizes: [20, 24],
-        unsized: true,
-        color: false
-      },
-      {
-        name: "SquareHint",
-        file: "square-hint",
-        sizes: [16, 20, 24, 28, 32, 48],
+        name: "TextboxAlignCenter",
+        file: "textbox-align-center",
+        sizes: [16, 20, 24],
         unsized: true,
         color: false
       }

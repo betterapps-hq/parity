@@ -190,22 +190,49 @@ interface IconAuditProps {
 }
 
 /**
- * Icons whose picks were marked to verify in the review of rows 1 to 120, by Lucide name so the marks survive
- * renumbering.
+ * Icons whose picks are waiting for review, by Lucide name so the marks survive renumbering: those marked in the review
+ * of rows 1 to 120, and those picked again after it from where they're used and how the candidates look.
  */
 const toVerify = new Set([
   "AlignHorizontalSpaceAround",
-  "Bird",
   "Blocks",
   "ChevronsDownUp",
   "CircleDot",
+  "ClipboardPlus",
   "Component",
   "Contrast",
   "CornerDownLeft",
   "Crosshair",
   "Database",
   "DiamondPlus",
-  "Gem"
+  "Gem",
+  "Grid3x3",
+  "Hammer",
+  "HandGrab",
+  "Heading",
+  "ImageDown",
+  "ImagePlay",
+  "Languages",
+  "Layers",
+  "LifeBuoy",
+  "List",
+  "Maximize",
+  "Menu",
+  "MessageCircle",
+  "MonitorPlay",
+  "PenTool",
+  "SaveAll",
+  "SearchCheck",
+  "SeparatorHorizontal",
+  "Server",
+  "SquareArrowOutUpRight",
+  "Squircle",
+  "StretchHorizontal",
+  "SunMoon",
+  "Telescope",
+  "TextCursor",
+  "TextCursorInput",
+  "TextSelect"
 ])
 
 /**
@@ -218,25 +245,18 @@ const lessConfident = new Set([
   "Bird",
   "ClipboardPlus",
   "Component",
-  "Contrast",
-  "CornerDownLeft",
-  "Crosshair",
   "DiamondPlus",
   "FileJson",
-  "Gem",
   "GitMerge",
-  "Grid3x3",
   "Hammer",
   "HandGrab",
-  "ImagePlay",
   "Magnet",
-  "MonitorPlay",
   "OctagonAlert",
-  "PenTool",
   "Route",
   "SearchCheck",
   "Skull",
   "Squircle",
+  "SunMoon",
   "Swords",
   "Telescope",
   "TextCursor"
