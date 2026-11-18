@@ -6546,7 +6546,12 @@ Tests:
 - `packages/extension-host/src/window-seams.test.ts`: `parity.sync`'s opening, changes, catching up, lineage and the
   room going away.
 - `packages/multiplayer-loro/src/backend.test.ts`: opening on a snapshot as the replica holds it; two documents kept in
-  step through each one's local updates, delivered late as a relay does, with a merge repaired the same on both.
+  step through each one's local updates, delivered late as a relay does, with a merge repaired the same on both; others'
+  field, record key and text changes applied from Loro's events without reading designs back, tree changes and fields
+  repairs follow read back whole and counted, the notes changed named, and undo kept apart from others' changes
+  (PAR-1326).
+- `packages/multiplayer/src/boards.test.ts`: the boards a change names for the canvas to update, none for a change
+  inside a design's layers, and every board checked for a file added, removed or replaced (PAR-1326).
 - `packages/multiplayer-loro/src/takeover-save.test.ts`, "a copy that takes over a live room" (2): a copy opened on the
   host's snapshot takes over and saves an edit, and the text matches a copy that opened the file alone and saved the
   same edit, byte for byte, with only the edited line changed from the file on disk (PAR-1288).

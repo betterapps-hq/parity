@@ -357,12 +357,17 @@ function syncRecord(record: FieldMap, before: JsonRecord | undefined, after: Jso
 
 /** A field's value as plain JSON: a record field's keys, or a text layer's text. An empty record reads as absent. */
 function readValue(value: NodeValue | undefined): JsonValue | undefined {
+  return plainValue(value instanceof LoroText || value instanceof LoroMap ? keep(value) : value)
+}
+
+/** `readValue` on a value already kept to free, as an event's are. */
+export function plainValue(value: NodeValue | undefined): JsonValue | undefined {
   if (value instanceof LoroText) {
-    return keep(value).toString()
+    return value.toString()
   }
 
   if (value instanceof LoroMap) {
-    const json = recordJson(keep(value))
+    const json = recordJson(value)
 
     return Object.keys(json).length > 0 ? json : undefined
   }

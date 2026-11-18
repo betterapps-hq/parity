@@ -41,7 +41,9 @@ interface Built {
   entries: readonly ContainerEntry[]
   byKey: ReadonlyMap<DesignKey, ContainerEntry>
   notes: readonly NoteEntry[]
+  noteByKey: ReadonlyMap<string, NoteEntry>
   references: readonly ReferenceEntry[]
+  referenceByKey: ReadonlyMap<string, ReferenceEntry>
 }
 
 /** What was built last for each document, to keep what didn't change. */
@@ -60,8 +62,16 @@ export function noteEntries(doc: ProjectDoc): readonly NoteEntry[] {
   return build(doc).notes
 }
 
+export function noteEntry(doc: ProjectDoc, key: string): NoteEntry | undefined {
+  return build(doc).noteByKey.get(key)
+}
+
 export function referenceEntries(doc: ProjectDoc): readonly ReferenceEntry[] {
   return build(doc).references
+}
+
+export function referenceEntry(doc: ProjectDoc, key: string): ReferenceEntry | undefined {
+  return build(doc).referenceByKey.get(key)
 }
 
 const libraries = new WeakMap<
@@ -169,7 +179,9 @@ function build(doc: ProjectDoc): Built {
     entries: sameList(entries, previous?.entries) ? previous!.entries : entries,
     byKey: new Map(entries.map((entry) => [entry.key, entry])),
     notes: sameList(notes, previous?.notes) ? previous!.notes : notes,
-    references: sameList(references, previous?.references) ? previous!.references : references
+    noteByKey: new Map(notes.map((entry) => [entry.key, entry])),
+    references: sameList(references, previous?.references) ? previous!.references : references,
+    referenceByKey: new Map(references.map((entry) => [entry.key, entry]))
   }
 
   built.set(doc, { files, built: next })

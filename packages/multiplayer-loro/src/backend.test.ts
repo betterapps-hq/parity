@@ -6,7 +6,7 @@ import {
   emptyDocument,
   type ModeSettings
 } from "@parity-app/core"
-import { createProjectDoc, type DocOp, type ProjectDoc } from "@parity-app/multiplayer"
+import { createProjectDoc, type DocChange, type DocOp, type ProjectDoc } from "@parity-app/multiplayer"
 import { LoroMap, LoroText } from "loro-crdt"
 import { describe, expect, it } from "vite-plus/test"
 import { type LoroBackend, openLoro } from "./backend.ts"
@@ -428,5 +428,123 @@ describe("loroProvider's backend", () => {
     expect(a.files().get("app.par")?.containers[0]?.states).toBeUndefined()
     expect(b.files().get("app.par")?.containers[0]?.states).toBeUndefined()
     expectInStep(a)
+  })
+})
+
+describe("taking in others' changes", () => {
+  /** A replica opened on another's snapshot, with a `ProjectDoc`, taking in what the first one commits. */
+  const pair = () => {
+    const a = openLoro({ files: files(), main: "app.par", modes: defaultModeSettings })
+    const b = openLoro({ files: files(), main: "app.par", modes: defaultModeSettings }, a.snapshot())
+    const docB = createProjectDoc(b, { undoLimit: 200, main: "app.par" })
+    const changes: DocChange[] = []
+    docB.subscribe((change) => changes.push(change))
+
+    const send = (ops: DocOp[]) => {
+      const since = b.versionVector()
+      a.apply(ops, "edit")
+      b.receive(a.updates(since))
+    }
+
+    return { a, b, docB, changes, send }
+  }
+
+  it("applies fields, record keys and text from Loro's events, without reading designs back", () => {
+    const { a, b, changes, send } = pair()
+
+    const steps: DocOp[][] = [
+      [{ op: "set", design: "app.par#home", node: "title", path: ["style", "opacity"], value: { value: 0.5 } }],
+      [{ op: "set", design: "app.par#home", node: "title", path: ["style", "fontWeight"] }],
+      [{ op: "set", design: "app.par#home", node: "a", path: ["style", "left"], value: { value: 4, unit: "px" } }],
+      [{ op: "set", design: "app.par#home", node: "title", path: ["style"] }],
+      [{ op: "set", design: "app.par#home", node: "title", path: ["name"], value: "Title" }],
+      [{ op: "set", design: "app.par#home", node: "title", path: ["text"], value: "Hi there" }],
+      [
+        {
+          op: "editText",
+          design: "app.par#home",
+          node: "title",
+          edit: { kind: "splice", at: 2, remove: 6, insert: "!" }
+        }
+      ],
+      [{ op: "setDesign", design: "app.par#home", path: ["position"], value: { x: 5, y: 6 } }],
+      [{ op: "setDesign", design: "app.par#home", path: ["name"], value: "Start" }],
+      [{ op: "setDesign", design: "app.par#home", path: ["frames", "wide"], value: { width: 1440 } }],
+      [{ op: "set", design: "app.par#home", node: "go", path: ["text"], value: "Go now" }]
+    ]
+
+    for (const ops of steps) {
+      send(ops)
+      expect(b.files()).toEqual(a.files())
+      expectInStep(b)
+    }
+
+    expect(b.counts()).toEqual({ fromEvents: steps.length, readWhole: 0, filesReplaced: 0 })
+    expect(changes.map((change) => change.layers.changed.flatMap(({ fields }) => fields))).toEqual([
+      ["style"],
+      ["style"],
+      ["style"],
+      ["style"],
+      ["name"],
+      ["text"],
+      ["text"],
+      [],
+      [],
+      [],
+      ["text"]
+    ])
+    expect(changes[7]?.designs.changed).toEqual([{ design: "app.par#home", fields: ["position"] }])
+  })
+
+  it("reads a design back whole, repaired, for what the events can't say, and counts it", () => {
+    const { a, b, send } = pair()
+    send([
+      { op: "insert", design: "app.par#home", parent: "row", node: { type: "text", id: "x", text: "X" } },
+      { op: "set", design: "app.par#home", node: "x", path: ["name"], value: "New" }
+    ])
+    send([{ op: "move", design: "app.par#home", node: "a", parent: "root" }])
+    send([{ op: "set", design: "app.par#home", node: "row", path: ["slot"], value: "body" }])
+    send([{ op: "setDesign", design: "app.par#card", path: ["states"] }])
+    send([{ op: "addSlot", design: "app.par#home", node: "cta", slot: "first", before: "actions" }])
+    send([{ op: "addDesign", file: "more.par", design: frame("copy") }])
+    send([{ op: "moveDesign", design: "more.par#copy", file: "app.par" }])
+    expect(b.files()).toEqual(a.files())
+    expectInStep(b)
+    expect(b.counts()).toMatchObject({ fromEvents: 0, readWhole: 7, filesReplaced: 0 })
+
+    // A field the events say, on a design read whole in the same import, is read with it.
+    const since = b.versionVector()
+    a.apply([{ op: "remove", design: "app.par#home", node: "b" }], "edit")
+    a.apply([{ op: "set", design: "app.par#home", node: "title", path: ["name"], value: "Both" }], "edit")
+    b.receive(a.updates(since))
+    expect(b.files()).toEqual(a.files())
+    expect(b.counts()).toMatchObject({ fromEvents: 0, readWhole: 8 })
+  })
+
+  it("says which notes and references changed", () => {
+    const { changes, send } = pair()
+    send([{ op: "setNote", file: "app.par", note: note("n3") }])
+    send([{ op: "removeNote", file: "app.par", id: "n1" }])
+    expect(changes.map((change) => change.items)).toEqual([
+      { notes: ["app.par#n3"], references: [] },
+      { notes: ["app.par#n1"], references: [] }
+    ])
+  })
+
+  it("keeps this person's undo apart from others' changes taken in from events", () => {
+    const { a, b, docB, send } = pair()
+    apply(docB, [
+      { op: "set", design: "app.par#home", node: "title", path: ["style", "opacity"], value: { value: 0.2 } }
+    ])
+    a.receive(b.updates(a.versionVector()))
+    send([{ op: "set", design: "app.par#home", node: "title", path: ["name"], value: "Theirs" }])
+    send([{ op: "set", design: "app.par#home", node: "title", path: ["style", "fontWeight"], value: { value: 700 } }])
+    docB.undo()
+    expect(docB.node({ design: "app.par#home", node: "title" })).toMatchObject({
+      name: "Theirs",
+      style: { fontWeight: { value: 700 } }
+    })
+    expect(docB.node({ design: "app.par#home", node: "title" })?.style).not.toHaveProperty("opacity")
+    expectInStep(b)
   })
 })

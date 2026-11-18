@@ -53,10 +53,13 @@ import {
   type JsonRecord,
   layerRecords,
   type Node,
+  type NodeData,
+  type NodeValue,
   readDesign,
   readFile,
   readModes,
   readTokens,
+  plainValue,
   sameJson,
   type ProjectContainers,
   recordIn,
@@ -92,6 +95,16 @@ interface DesignEntry {
 /** A design's entry once its layers are indexed. */
 type IndexedEntry = DesignEntry & { layers: Map<string, TreeID> }
 
+/**
+ * How others' changes were taken in: designs changed from Loro's events, and designs read back whole and files replaced
+ * whole, the fallbacks for what the events can't say.
+ */
+export interface RemoteCounts {
+  fromEvents: number
+  readWhole: number
+  filesReplaced: number
+}
+
 /** A Loro backend, with what replicas exchange. */
 export interface LoroBackend extends DocBackend {
   /** Loro's updates since `version`, or everything. */
@@ -102,6 +115,8 @@ export interface LoroBackend extends DocBackend {
   receive(bytes: Uint8Array): void
   /** What the last `receive` repaired. */
   repairs(): readonly Repair[]
+  /** How others' changes have been taken in so far. */
+  counts(): Readonly<RemoteCounts>
   /** Whether the last `receive` left changes waiting for others this replica hasn't got yet. */
   pending(): boolean
   /** Every file and the modes as Loro holds them, read whole: what the plain values must equal. */
@@ -145,6 +160,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
   let drawnChanges = 0
   let lastRepairs: Repair[] = []
   let lastPending = false
+  const counts: RemoteCounts = { fromEvents: 0, readWhole: 0, filesReplaced: 0 }
   const listeners = new Set<(change: BackendChange) => void>()
 
   const version = (): DocVersion => ({
@@ -722,10 +738,141 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
     return undefined
   }
 
+  /** Design fields that repairs follow, or that change the design's key: a change to one reads the design back whole. */
+  const wholeDesignFields: ReadonlySet<string> = new Set(["id", fileKey, "kind", "states", "params"])
+  /** Layer fields that repairs follow, or that make it another layer: a change to one reads its design back whole. */
+  const wholeLayerFields: ReadonlySet<string> = new Set(["id", "type", "slot", slotKey])
+
+  /** Whether a node's field holds the container an event is for, rather than one taken out and replaced. */
+  const holds = (data: LoroMap<NodeData>, field: string, target: string): boolean => {
+    const value = data.get(field)
+
+    return (value instanceof LoroMap || value instanceof LoroText) && keep(value).id === target
+  }
+
+  /** A design's field, or a layer's, set to what others left: removed when it's `undefined`. */
+  const fieldOp = (
+    design: DesignKey,
+    layer: string | undefined,
+    path: string[],
+    value: JsonValue | undefined
+  ): DocOp => {
+    const op: DocOp = layer === undefined ? { op: "setDesign", design, path } : { op: "set", design, node: layer, path }
+
+    return value === undefined ? op : { ...op, value }
+  }
+
+  /**
+   * The operations that say an event on a design's or a layer's data, which never needs a repair, or undefined when
+   * they can't say it and the design is read back whole: a slot node's change, or a field that repairs follow.
+   */
+  const opsOf = (event: LoroEvent, id: TreeID, root: TreeID): DocOp[] | undefined => {
+    const entry = designs.get(root)
+
+    if (!entry || !alive(id) || !alive(root)) {
+      return undefined
+    }
+
+    const data = dataOf(node(id))
+    const design = id === root
+    const layer = design ? undefined : textOf(data.get("id"))
+
+    if (!design && (layer === undefined || data.get(slotKey) !== undefined)) {
+      return undefined
+    }
+
+    const [, , field, ...deeper] = event.path
+    const { diff } = event
+
+    if (field === undefined) {
+      if (diff.type !== "map") {
+        return undefined
+      }
+
+      const ops: DocOp[] = []
+
+      for (const [name, value] of Object.entries(diff.updated)) {
+        if ((design ? wholeDesignFields : wholeLayerFields).has(name)) {
+          return undefined
+        }
+
+        // SAFETY: a node's data holds plain values, record maps and texts, which `plainValue` reads.
+        ops.push(fieldOp(entry.key, layer, [name], plainValue(value as NodeValue | undefined)))
+      }
+
+      return ops
+    }
+
+    // A field's container is named by the field: a map key, never a list's place.
+    const record = String(field)
+
+    if (deeper.length > 0 || !holds(data, record, event.target)) {
+      return undefined
+    }
+
+    if (diff.type === "map" && (design ? record === "frames" : layerRecords.has(record))) {
+      return Object.entries(diff.updated).map(([key, value]) =>
+        // SAFETY: a record field's map holds JSON values only.
+        fieldOp(entry.key, layer, [record, key], value as JsonValue | undefined)
+      )
+    }
+
+    if (diff.type === "text" && layer !== undefined && record === "text") {
+      return splicesOf(diff.diff).map((splice): DocOp => ({
+        op: "editText",
+        design: entry.key,
+        node: layer,
+        edit: { kind: "splice", at: splice.start, remove: splice.end - splice.start, insert: splice.insert }
+      }))
+    }
+
+    return undefined
+  }
+
+  /** Repairs designs to read back whole, and adds the files they were and are in to `files`. */
+  const repairWhole = (roots: ReadonlySet<TreeID>, files: Set<string>) => {
+    const repairs = repairDesigns(tree, roots)
+
+    if (repairs.length > 0) {
+      doc.commit({ origin: "repair" })
+      lastRepairs.push(...repairs)
+    }
+
+    for (const root of roots) {
+      const oldPath = splitKey(designs.get(root)?.key ?? "")?.path
+
+      if (oldPath !== undefined) {
+        files.add(oldPath)
+      }
+
+      if (alive(root)) {
+        files.add(textOf(dataOf(node(root)).get(fileKey)) ?? "")
+      }
+    }
+
+    for (const path of drawn) {
+      files.delete(path)
+    }
+  }
+
+  /** The operations that make files what Loro holds, reading the designs in `roots` back whole. */
+  const wholeFileOps = (files: ReadonlySet<string>, roots: ReadonlySet<TreeID>): DocOp[] =>
+    [...files].flatMap((path) => fileOps(path, state.files.get(path), fileFrom(path, roots)))
+
+  const tryPlain = (ops: readonly DocOp[], recorder: Recorder): DocState | undefined => {
+    try {
+      return applyPlain(state, ops, recorder)
+    } catch {
+      return undefined
+    }
+  }
+
   const receive = (bytes: Uint8Array) => {
     // Subscribed only while importing: with a subscription, Loro builds the events of every local commit too, which
     // costs more than the commit on a large one. An import's events arrive before `import` returns.
     const events: LoroEvent[] = []
+    /** Containers others made, set whole in their parent's event: that value says what their own events would. */
+    const madeContainers = new Set<string>()
 
     const unsubscribe = doc.subscribe((batch) => {
       if (batch.by === "import") {
@@ -736,7 +883,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
           if (event.diff.type === "map") {
             for (const value of Object.values(event.diff.updated)) {
               if (value instanceof LoroMap || value instanceof LoroText || value instanceof LoroMovableList) {
-                keep(value)
+                madeContainers.add(keep(value).id)
               }
             }
           }
@@ -755,7 +902,10 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
       return
     }
 
-    const roots = new Set<TreeID>()
+    /** Designs whose change the events can't say: repaired, then read back whole. */
+    const whole = new Set<TreeID>()
+    /** The operations the events say, by design. */
+    const fromEvents = new Map<TreeID, DocOp[]>()
     const touchedFiles = new Set<string>()
     /** Others' changes to texts, by the node whose text they changed, for undo to follow (PAR-1258). */
     const textChanges = new Map<TreeID, TextSplice[]>()
@@ -776,7 +926,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
               const design = designFor(id)
 
               if (design !== undefined) {
-                roots.add(design)
+                whole.add(design)
               }
             }
           }
@@ -784,8 +934,14 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
           const id = treeIdIn(second)
           const design = designFor(id)
 
-          if (design !== undefined) {
-            roots.add(design)
+          if (id !== undefined && design !== undefined && !whole.has(design) && !madeContainers.has(event.target)) {
+            const ops = opsOf(event, id, design)
+
+            if (ops) {
+              fromEvents.set(design, [...(fromEvents.get(design) ?? []), ...ops])
+            } else {
+              whole.add(design)
+            }
           }
 
           if (id !== undefined && event.diff.type === "text") {
@@ -805,41 +961,19 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
       }
     }
 
-    lastRepairs = repairDesigns(tree, roots)
-
-    if (lastRepairs.length > 0) {
-      doc.commit({ origin: "repair" })
+    for (const design of whole) {
+      fromEvents.delete(design)
     }
 
-    for (const root of roots) {
-      const old = designs.get(root)
-
-      const oldPath = old && splitKey(old.key)?.path
-
-      if (oldPath !== undefined) {
-        touchedFiles.add(oldPath)
-      }
-
-      if (alive(root)) {
-        touchedFiles.add(textOf(dataOf(node(root)).get(fileKey)) ?? "")
-      }
-    }
-
-    for (const path of drawn) {
-      touchedFiles.delete(path)
-    }
-
-    const ops: DocOp[] = []
-
-    for (const path of touchedFiles) {
-      ops.push(...fileOps(path, state.files.get(path), fileFrom(path, roots)))
-    }
+    lastRepairs = []
+    repairWhole(whole, touchedFiles)
+    const others: DocOp[] = []
 
     if (modesTouched) {
       const modes = readModes(modesMap)
 
       if (!sameJson(jsonOf(fieldsOf(modes)), jsonOf(fieldsOf(state.modes)))) {
-        ops.push({ op: "setModes", modes })
+        others.push({ op: "setModes", modes })
       }
     }
 
@@ -847,14 +981,28 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
       const tokens = readTokens(tokensMap)
 
       if (!sameTokenEdits(tokens, state.tokens)) {
-        ops.push({ op: "setTokens", tokens })
+        others.push({ op: "setTokens", tokens })
       }
     }
 
-    const recorder = new Recorder()
-    state = applyRemote(state, ops, recorder, touchedFiles, roots)
+    let recorder = new Recorder()
+    let next = tryPlain([...wholeFileOps(touchedFiles, whole), ...[...fromEvents.values()].flat(), ...others], recorder)
 
-    for (const root of roots) {
+    // The events didn't fit the plain values, which they always should: the designs they changed are read back whole.
+    if (next === undefined && fromEvents.size > 0) {
+      const more = new Set(fromEvents.keys())
+      fromEvents.clear()
+      repairWhole(more, touchedFiles)
+      more.forEach((root) => whole.add(root))
+      recorder = new Recorder()
+      next = tryPlain([...wholeFileOps(touchedFiles, whole), ...others], recorder)
+    }
+
+    counts.fromEvents += fromEvents.size
+    counts.readWhole += whole.size
+    state = next ?? replaceFiles(recorder, touchedFiles, whole)
+
+    for (const root of whole) {
       if (alive(root)) {
         const design = node(root)
         index(design, keyOf(design))
@@ -915,37 +1063,42 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
   }
 
   /**
-   * Applies the operations that make the plain values what Loro holds. Should a merge leave something the operations
-   * can't express, the touched files are replaced whole and every design in them counted as changed.
+   * Should a merge leave something the operations can't say, the touched files are replaced whole and every design in
+   * them counted as changed.
    */
-  const applyRemote = (
-    from: DocState,
-    ops: readonly DocOp[],
-    recorder: Recorder,
-    paths: ReadonlySet<string>,
-    roots: ReadonlySet<TreeID>
-  ): DocState => {
-    try {
-      return applyPlain(from, ops, recorder)
-    } catch {
-      const files = new Map(from.files)
+  const replaceFiles = (recorder: Recorder, paths: ReadonlySet<string>, roots: ReadonlySet<TreeID>): DocState => {
+    counts.filesReplaced += paths.size
+    const files = new Map(state.files)
 
-      for (const path of paths) {
-        const file = fileFrom(path, roots)
+    for (const path of paths) {
+      const before = state.files.get(path)
+      const file = fileFrom(path, roots)
 
-        if (file) {
-          files.set(path, file)
+      if (file) {
+        files.set(path, file)
+        const ids = new Set(file.containers.map((design) => design.id))
 
-          for (const design of file.containers) {
-            recorder.designField(designKey(path, design.id), path, "root")
+        for (const design of before?.containers ?? []) {
+          if (!ids.has(design.id)) {
+            recorder.designRemoved(designKey(path, design.id), path)
           }
-        } else if (files.delete(path)) {
-          recorder.fileRemoved(path)
         }
-      }
 
-      return { ...from, files, modes: readModes(modesMap), tokens: readTokens(tokensMap) }
+        for (const design of file.containers) {
+          recorder.designField(designKey(path, design.id), path, "root")
+        }
+
+        for (const list of ["notes", "references"] as const) {
+          for (const item of [...(before?.[list] ?? []), ...(file[list] ?? [])]) {
+            recorder.item(list, path, item.id)
+          }
+        }
+      } else if (files.delete(path)) {
+        recorder.fileRemoved(path)
+      }
     }
+
+    return { ...state, files, modes: readModes(modesMap), tokens: readTokens(tokensMap) }
   }
 
   /** Every file and the modes as Loro holds them. */
@@ -1005,6 +1158,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
       scoped(() => receive(bytes))
     },
     repairs: () => lastRepairs,
+    counts: () => ({ ...counts }),
     pending: () => lastPending,
     read: readWhole,
     snapshot: () => doc.export({ mode: "snapshot" }),

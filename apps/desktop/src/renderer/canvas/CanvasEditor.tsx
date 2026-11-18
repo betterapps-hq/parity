@@ -10,9 +10,17 @@ import {
 } from "@parity-app/editor"
 import type { Gesture } from "@parity-app/extension/internal"
 import {
+  type ChangedBoards,
+  type ContainerEntry,
+  changedBoards,
   containerEntries,
+  containerEntry,
+  type NoteEntry,
   noteEntries,
+  noteEntry,
+  type ReferenceEntry,
   referenceEntries,
+  referenceEntry,
   setPosition,
   updateNote,
   updateReference
@@ -465,88 +473,130 @@ export function CanvasEditor({
       setEditor(editor)
 
       // Designs, notes and references come and go with undo and agents, so shapes follow the document rather than
-      // being made once.
-      const sync = () => {
-        const wanted = new Map<CanvasId, Projected>()
+      // being made once. A change that names its boards updates only those; one that can't checks every board.
+      const designBoard = ({ key, container }: ContainerEntry): Projected => {
+        // A board an agent moved stays where it was until the agent's cursor drags it over, and one someone else is
+        // dragging follows their pointer (`placedBoards`).
+        const at = placedBoards.at(tab, key) ?? container.position
+        // A locked design's board is a locked shape, which tldraw neither selects nor moves (PAR-192).
+        const locked = container.locked === true
 
-        for (const { key, container } of containerEntries(doc)) {
-          if (!drawsDesign(draws, key)) {
-            continue
+        return { type: "canvas-container", key, ...at, locked }
+      }
+
+      const noteBoard = ({ key, note }: NoteEntry): Projected => ({ type: "canvas-note", key, ...note.position })
+
+      const referenceBoard = ({ key, reference }: ReferenceEntry): Projected => {
+        const { width: w, height: h } = referenceSize(reference)
+
+        return { type: "canvas-reference", key, ...reference.position, size: { w, h }, link: reference.link }
+      }
+
+      // The lines of the app's page tree, behind everything (PAR-1076).
+      const pageLines = createCanvasId("page-links")
+
+      const pageLinesBoard = (): Projected | undefined =>
+        draws === "pages" && routePageLinks(tab).length > 0
+          ? { type: "canvas-page-links", key: tab, x: 0, y: 0, locked: true }
+          : undefined
+
+      /** Makes a shape what the project wants, or takes it away when the project has nothing there. */
+      const place = (id: CanvasId, wanted: Projected | undefined, dragged: ReadonlySet<string>) => {
+        const placed = editor.getShape(id)
+
+        if (!wanted) {
+          if (placed) {
+            editor.deleteShapes([id])
           }
 
-          // A board an agent moved stays where it was until the agent's cursor drags it over, and one someone else is
-          // dragging follows their pointer (`placedBoards`).
-          const at = placedBoards.at(tab, key) ?? container.position
-          // A locked design's board is a locked shape, which tldraw neither selects nor moves (PAR-192).
-          const locked = container.locked === true
-          wanted.set(canvasIdFor(key), { type: "canvas-container", key, ...at, locked })
+          return
         }
 
-        for (const { key, note } of draws === "designs" ? noteEntries(doc) : []) {
-          wanted.set(canvasIdFor(key), { type: "canvas-note", key, ...note.position })
+        const { type, key, x, y, locked = false, size, link } = wanted
+        const meta = link ? { link } : {}
+        const moved = !dragged.has(id) && (Math.abs((placed?.x ?? x) - x) >= 1 || Math.abs((placed?.y ?? y) - y) >= 1)
+
+        if (!placed) {
+          editor.createShape({ id, type, x, y, isLocked: locked, props: { key, ...size }, meta })
+        } else if (moved || placed.isLocked !== locked) {
+          editor.updateShape(
+            moved ? { id, type: placed.type, x, y, isLocked: locked } : { id, type: placed.type, isLocked: locked }
+          )
         }
 
-        for (const { key, reference } of draws === "designs" ? referenceEntries(doc) : []) {
-          const { width: w, height: h } = referenceSize(reference)
-          const size = { w, h }
-          wanted.set(canvasIdFor(key), {
-            type: "canvas-reference",
-            key,
-            ...reference.position,
-            size,
-            link: reference.link
-          })
+        if (!placed && type === "canvas-page-links") {
+          editor.sendToBack([id])
         }
 
-        // The lines of the app's page tree, behind everything (PAR-1076).
-        const pageLines = createCanvasId("page-links")
+        if (placed?.type === "canvas-reference" && size) {
+          const { w, h } = placed.props
 
-        if (draws === "pages" && routePageLinks(tab).length > 0) {
-          wanted.set(pageLines, { type: "canvas-page-links", key: tab, x: 0, y: 0, locked: true })
+          if (w !== size.w || h !== size.h || placed.meta.link !== link) {
+            editor.updateShape({ id, type: "canvas-reference", props: size, meta })
+          }
         }
+      }
 
+      const sync = (boards?: ChangedBoards) => {
         editor.run(
           () => {
+            // What the person is dragging stays under their pointer: their drag wins over a hold they grabbed.
+            const dragged = new Set<string>([
+              ...(editor.isIn("select.translating") ? editor.getSelectedShapeIds() : []),
+              ...[...designDrag.designs].map(canvasIdFor)
+            ])
+
+            if (boards) {
+              for (const key of boards.designs) {
+                const entry = drawsDesign(draws, key) ? containerEntry(doc, key) : undefined
+                place(canvasIdFor(key), entry && designBoard(entry), dragged)
+              }
+
+              for (const key of draws === "designs" ? boards.notes : []) {
+                const entry = noteEntry(doc, key)
+                place(canvasIdFor(key), entry && noteBoard(entry), dragged)
+              }
+
+              for (const key of draws === "designs" ? boards.references : []) {
+                const entry = referenceEntry(doc, key)
+                place(canvasIdFor(key), entry && referenceBoard(entry), dragged)
+              }
+
+              place(pageLines, pageLinesBoard(), dragged)
+
+              return
+            }
+
+            const wanted = new Map<CanvasId, Projected>()
+
+            for (const entry of containerEntries(doc)) {
+              if (drawsDesign(draws, entry.key)) {
+                wanted.set(canvasIdFor(entry.key), designBoard(entry))
+              }
+            }
+
+            for (const entry of draws === "designs" ? noteEntries(doc) : []) {
+              wanted.set(canvasIdFor(entry.key), noteBoard(entry))
+            }
+
+            for (const entry of draws === "designs" ? referenceEntries(doc) : []) {
+              wanted.set(canvasIdFor(entry.key), referenceBoard(entry))
+            }
+
+            const lines = pageLinesBoard()
+
+            if (lines) {
+              wanted.set(pageLines, lines)
+            }
+
             const stale = editor.getCurrentPageShapes().filter((item) => !wanted.has(item.id))
 
             if (stale.length > 0) {
               editor.deleteShapes(stale.map((item) => item.id))
             }
 
-            // What the person is dragging stays under their pointer: their drag wins over a hold they grabbed.
-            const dragged = new Set([
-              ...(editor.isIn("select.translating") ? editor.getSelectedShapeIds() : []),
-              ...[...designDrag.designs].map(canvasIdFor)
-            ])
-
-            for (const [id, { type, key, x, y, locked = false, size, link }] of wanted) {
-              const placed = editor.getShape(id)
-              const meta = link ? { link } : {}
-
-              const moved =
-                !dragged.has(id) && (Math.abs((placed?.x ?? x) - x) >= 1 || Math.abs((placed?.y ?? y) - y) >= 1)
-
-              if (!placed) {
-                editor.createShape({ id, type, x, y, isLocked: locked, props: { key, ...size }, meta })
-              } else if (moved || placed.isLocked !== locked) {
-                editor.updateShape(
-                  moved
-                    ? { id, type: placed.type, x, y, isLocked: locked }
-                    : { id, type: placed.type, isLocked: locked }
-                )
-              }
-
-              if (!placed && type === "canvas-page-links") {
-                editor.sendToBack([id])
-              }
-
-              if (placed?.type === "canvas-reference" && size) {
-                const { w, h } = placed.props
-
-                if (w !== size.w || h !== size.h || placed.meta.link !== link) {
-                  editor.updateShape({ id, type: "canvas-reference", props: size, meta })
-                }
-              }
+            for (const [id, board] of wanted) {
+              place(id, board, dragged)
             }
           },
           { history: "ignore" }
@@ -577,8 +627,14 @@ export function CanvasEditor({
       const stopSurface = startCanvasSurface(editor)
       const stopZoomedOut = markZoomedOut(editor)
       const stopOverlays = sizeOverlays(editor)
-      const stopDoc = doc.subscribe(() => sync())
-      const stopHeld = placedBoards.subscribe(sync)
+      const stopDoc = doc.subscribe((change) => sync(changedBoards(change)))
+
+      // Only the board placed or let go, as someone else's drag moves it every frame.
+      const stopHeld = placedBoards.subscribe((placedTab, key) => {
+        if (placedTab === tab) {
+          sync({ designs: new Set([key]), notes: new Set(), references: new Set() })
+        }
+      })
 
       // A pan or a zoom is a gesture of its own, recorded once the camera settles (PAR-640).
       const camera = new CameraGestures()
