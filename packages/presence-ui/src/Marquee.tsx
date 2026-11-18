@@ -2,7 +2,8 @@ import { hairline, type Member } from "./member.ts"
 
 interface MarqueeProps {
   member: Member
-  rect: { x: number; y: number; w: number; h: number }
+  /** Where it's drawn in its parent. Without one it fills its parent, for a parent that's moved as it's drawn out. */
+  rect?: { x: number; y: number; w: number; h: number }
 }
 
 /**
@@ -15,12 +16,9 @@ export function Marquee({ member, rect }: MarqueeProps) {
   return (
     <span
       aria-hidden
-      className="pointer-events-none absolute rounded-[1px]"
+      className={`pointer-events-none absolute rounded-[1px] ${rect ? "" : "inset-0"}`}
       style={{
-        left: rect.x,
-        top: rect.y,
-        width: rect.w,
-        height: rect.h,
+        ...(rect && { left: rect.x, top: rect.y, width: rect.w, height: rect.h }),
         border: `1px solid ${color}`,
         boxShadow: hairline(ink),
         background: `color-mix(in oklch, ${color} 12%, transparent)`

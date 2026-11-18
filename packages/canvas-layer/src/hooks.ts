@@ -73,6 +73,29 @@ export function useCamera(): { zoom: number; view: Rect } {
   return useSyncExternalStore(store.subscribe, store.get)
 }
 
+function zoomStore(layer: CanvasLayerContextValue): Store<number> {
+  return {
+    subscribe(changed) {
+      const listening = layer.onView(changed)
+
+      return () => listening.dispose()
+    },
+    // A number, so a pan, which keeps it, draws nothing again.
+    get: () => layer.view().zoom
+  }
+}
+
+/**
+ * The camera's zoom, for what's drawn on the page at screen size. Unlike `useCamera`, it doesn't re-render as the
+ * camera pans, only as it zooms, at most once a frame.
+ */
+export function useZoom(): number {
+  const layer = useLayer("useZoom")
+  const store = useMemo(() => zoomStore(layer), [layer])
+
+  return useSyncExternalStore(store.subscribe, store.get)
+}
+
 function boxStore(layer: CanvasLayerContextValue, key: string): Store<BoxResult> {
   // SAFETY: `key` is `useBox`'s own JSON of the ref and options it was given.
   const [ref, options] = JSON.parse(key) as [NodeRef, BoxOptions | null]
