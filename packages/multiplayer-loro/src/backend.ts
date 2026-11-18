@@ -119,6 +119,8 @@ export interface LoroBackend extends DocBackend {
   counts(): Readonly<RemoteCounts>
   /** Whether the last `receive` left changes waiting for others this replica hasn't got yet. */
   pending(): boolean
+  /** What the last `receive` took, before telling subscribers (PAR-1325). */
+  timings(): ReceiveTimings
   /** Every file and the modes as Loro holds them, read whole: what the plain values must equal. */
   read(): { files: ReadonlyMap<string, CanvasDocument>; modes: ModeSettings }
   /** The whole document, for another replica to open on. */
@@ -130,6 +132,14 @@ export interface LoroBackend extends DocBackend {
   subscribeLocalUpdates(listener: (bytes: Uint8Array) => void): () => void
   /** The Loro document, for this package's tests. */
   readonly doc: LoroDoc<ProjectContainers>
+}
+
+/** What taking in others' changes took, in milliseconds. */
+export interface ReceiveTimings {
+  /** Loro's import, with the events it builds. */
+  importMs: number
+  /** Turning the events into operations and applying them, and repairing and reading back what they can't say. */
+  readMs: number
 }
 
 /** Opens a project in a new Loro document, or, given another replica's snapshot, on that. */
@@ -161,6 +171,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
   let lastRepairs: Repair[] = []
   let lastPending = false
   const counts: RemoteCounts = { fromEvents: 0, readWhole: 0, filesReplaced: 0 }
+  let lastTimings: ReceiveTimings = { importMs: 0, readMs: 0 }
   const listeners = new Set<(change: BackendChange) => void>()
 
   const version = (): DocVersion => ({
@@ -891,12 +902,17 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
       }
     })
 
+    const began = performance.now()
+
     try {
       // Changes that need others not here yet wait inside Loro, and are applied once those arrive.
       lastPending = (doc.import(bytes).pending?.size ?? 0) > 0
     } finally {
       unsubscribe()
     }
+
+    const imported = performance.now()
+    lastTimings = { importMs: imported - began, readMs: 0 }
 
     if (events.length === 0) {
       return
@@ -1010,6 +1026,8 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
         unindex(root)
       }
     }
+
+    lastTimings = { importMs: imported - began, readMs: performance.now() - imported }
 
     if (!recorder.touched()) {
       return
@@ -1160,6 +1178,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
     repairs: () => lastRepairs,
     counts: () => ({ ...counts }),
     pending: () => lastPending,
+    timings: () => lastTimings,
     read: readWhole,
     snapshot: () => doc.export({ mode: "snapshot" }),
     subscribeLocalUpdates: (listener) => doc.subscribeLocalUpdates(listener),
