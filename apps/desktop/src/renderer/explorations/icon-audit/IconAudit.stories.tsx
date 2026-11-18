@@ -269,7 +269,7 @@ const numbered = auditedIcons.map((icon, index) => ({ icon, number: index + 1 })
 const reusedPicks = new Set(
   auditedIcons
     .map((icon) => icon.fluent.name)
-    .filter((name, index, names) => names.indexOf(name) !== names.lastIndexOf(name))
+    .filter((name, _, names) => names.indexOf(name) !== names.lastIndexOf(name))
 )
 
 interface AuditTableProps {
