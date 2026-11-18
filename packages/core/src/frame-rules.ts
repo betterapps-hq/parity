@@ -22,6 +22,8 @@ export interface PreviewRulesOptions extends FrameRulesOptions {
    * drawn by other rules, as a frozen copy's are by its page's own CSS, which the rest would override.
    */
   changedOnly?: boolean
+  /** Each declaration `!important`, for an element whose page may set the same property inline or more specifically. */
+  important?: boolean
   /** The selector of a node's elements, `nodeSelector` unless given. */
   selector?: (nodeId: string) => string
 }
@@ -66,14 +68,15 @@ export function frameRules(tree: readonly RenderNode[], options: FrameRulesOptio
  * frame's rule for it and a class's are both passed over. Those come first, so taking away a shorthand, as a fill's
  * `background` going to `background-color` and `background-image`, doesn't clear the longhands set after it. Elements
  * in only one of the trees are left out: adding or removing nodes isn't a change of style. With `changedOnly`, a rule
- * holds only what changed and what's taken away.
+ * holds only what changed and what's taken away, and with `important` each declaration is `!important`, to win over an
+ * inline style or a more specific selector.
  */
 export function previewRules(
   drawn: readonly RenderNode[],
   next: readonly RenderNode[],
   options: PreviewRulesOptions = {}
 ): string {
-  const { changedOnly = false, selector = nodeSelector } = options
+  const { changedOnly = false, important = false, selector = nodeSelector } = options
 
   const was = new Map(elementsOf(drawn).map((element) => [element.nodeId, element.declarations]))
   const rules: string[] = []
@@ -97,7 +100,11 @@ export function previewRules(
         )
       : declarations
 
-    rules.push(cssPrinter({ selector: selector(nodeId) }).print([...gone, ...shown]).output)
+    const printed = [...gone, ...shown].map((declaration) =>
+      important ? { ...declaration, value: `${declaration.value} !important` } : declaration
+    )
+
+    rules.push(cssPrinter({ selector: selector(nodeId) }).print(printed).output)
   }
 
   return inLayer(rules.join("\n"), options)

@@ -1,4 +1,11 @@
-import type { DesignNode, DrawnNodes, FrameGeometry, ResolvedMode } from "@parity-app/core"
+import {
+  type ContainerSpec,
+  type DesignNode,
+  type DrawnNodes,
+  type FrameGeometry,
+  mapNode,
+  type ResolvedMode
+} from "@parity-app/core"
 import {
   elementLayers,
   frozenSnapshots,
@@ -443,6 +450,24 @@ export function withCopyStyle<Entry extends { key: string; path: string }>(
   const type = node.type === "text" || node.type === "image" ? node.type : "layout"
 
   return { ...node, style: styleOfElement({ style }, type) }
+}
+
+/**
+ * A page's layers with the ones in `ids` styled as their copy draws them (`withCopyStyle`), for a style edit to start
+ * from what's shown rather than from no style at all.
+ */
+export function withCopyStyles<Entry extends { key: string; path: string }>(
+  entry: Entry,
+  container: ContainerSpec,
+  ids: readonly string[]
+): ContainerSpec {
+  if (entry.path !== routePagesFile) {
+    return container
+  }
+
+  const root = ids.reduce((each, id) => mapNode(each, id, (node) => withCopyStyle(entry, id, node)), container.root)
+
+  return root === container.root ? container : { ...container, root }
 }
 
 /** Every layer's id in a tree of layers. */

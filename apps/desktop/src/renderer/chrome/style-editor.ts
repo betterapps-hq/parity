@@ -16,6 +16,7 @@ import { useEffect, useReducer, useRef } from "react"
 import { useProject } from "../canvas/context.ts"
 import { projectLibrary } from "../canvas/layers.ts"
 import { routePagesFile } from "../canvas/route-pages.ts"
+import { withCopyStyles } from "../canvas/RouteBoard.tsx"
 import { useStylePreview } from "../canvas/style-preview.ts"
 import { watchFrame } from "../frame-host.ts"
 import { findFrames, subscribeFrames } from "../frame.ts"
@@ -217,7 +218,12 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
   const unit = spacingUnit(tokens)
   // A frame is its root layout, so its root's size rows are the frame's own size (see `frameRootShown`).
   const frameRoot = entry.container.kind === "frame" && ids.length === 1 && ids[0] === entry.container.root.id
-  const shown = frameRoot ? frameRootShown(entry.container, unit) : entry.container
+  // A page's layers are what its copies drew from the app's code: an edit previews on them while it's typed or scrubbed,
+  // and is never made. It starts from their style as the copy draws it, which the layers don't hold.
+  const previewOnly = entry.path === routePagesFile
+  const drawn = (container: ContainerSpec) => withCopyStyles(entry, container, ids)
+  const base = previewOnly ? drawn(entry.container) : entry.container
+  const shown = frameRoot ? frameRootShown(base, unit) : base
 
   const within = (edit: (container: ContainerSpec) => ContainerSpec) =>
     frameRoot ? (container: ContainerSpec) => frameRootStored(edit(frameRootShown(container, unit)), unit) : edit
@@ -267,10 +273,6 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
   const applying = (changes: readonly StyleChange[]) => (container: ContainerSpec) =>
     changes.reduce((each, change) => within(selection.edit(change.row, change.edit, measure))(each), container)
 
-  // A page's layers are what its copies drew from the app's code: an edit previews on them while it's typed or scrubbed,
-  // and is never made.
-  const previewOnly = entry.path === routePagesFile
-
   return {
     selection,
     make: (changes, gesture) => {
@@ -297,7 +299,7 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
       updateContainer(doc, entry.key, count > 1 ? "Reset changes" : "Reset change", within(selection.reset(row)))
       recordRow(row)
     },
-    preview: (changes) => preview.show(applying(changes)),
+    preview: (changes) => preview.show(applying(changes), previewOnly ? drawn : undefined),
     endPreview: () => preview.cancel(),
     checkpoint: (gesture) => {
       if (previewOnly) {
