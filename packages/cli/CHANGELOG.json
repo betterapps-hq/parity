@@ -2,6 +2,27 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Wed, 18 Nov 2026 21:48:28 GMT",
+      "version": "0.86.1",
+      "tag": "@parity-app/cli_v0.86.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "7a4d0b9111bf8ab22fafab058481f0afd6757643",
+            "comment": "Put the page runtime in pages Vite's server renders, as TanStack Start's, so their route boards get copies and spares"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "4222f125a4f4b24b8540e02c2f572b956ba8f65e",
+            "comment": "Keep a live page's state in its board's copy when live ends"
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 18 Nov 2026 13:03:57 GMT",
       "version": "0.86.0",
       "tag": "@parity-app/cli_v0.86.0",

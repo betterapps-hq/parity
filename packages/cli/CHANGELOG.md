@@ -1,8 +1,18 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Wed, 18 Nov 2026 13:03:57 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 18 Nov 2026 21:48:28 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.86.1
+
+Wed, 18 Nov 2026 21:48:28 GMT
+
+### Patches
+
+- Put the page runtime in pages Vite's server renders, as TanStack Start's, so their route boards get copies and spares
+  (ajcraswell@gmail.com)
+- Keep a live page's state in its board's copy when live ends (ajcraswell@gmail.com)
 
 ## 0.86.0
 
