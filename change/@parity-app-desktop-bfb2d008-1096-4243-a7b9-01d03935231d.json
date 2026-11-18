@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Line up the menus' toggles, such as Performance stats, with the items beside them, at the same icon size.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

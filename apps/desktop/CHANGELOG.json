@@ -2,6 +2,33 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Wed, 18 Nov 2026 07:38:17 GMT",
+      "version": "0.109.1",
+      "tag": "@parity-app/desktop_v0.109.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "3a2f7bbd9345eea2657c435e62865a4ba2eb8409",
+            "comment": "Agents' activity strips are gone from the canvas; each agent's pointer and badge remain"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e35e3e4a1dd8892d407c26c170b49d7d846a58fe",
+            "comment": "The unsaved-changes dialog asks \"Save changes?\", names the projects in one sentence, and has no Cancel button; Escape still cancels."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e1a70d92f72a96e5b2c24e666599ce3ec1327739",
+            "comment": "Line up the menus' toggles, such as Performance stats, with the items beside them, at the same icon size."
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 18 Nov 2026 01:16:11 GMT",
       "version": "0.109.0",
       "tag": "@parity-app/desktop_v0.109.0",

@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "The unsaved-changes dialog asks \"Save changes?\", names the projects in one sentence, and has no Cancel button; Escape still cancels.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,8 +1,20 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Wed, 18 Nov 2026 01:16:11 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 18 Nov 2026 07:38:17 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.109.1
+
+Wed, 18 Nov 2026 07:38:17 GMT
+
+### Patches
+
+- Agents' activity strips are gone from the canvas; each agent's pointer and badge remain (ajcraswell@gmail.com)
+- The unsaved-changes dialog asks "Save changes?", names the projects in one sentence, and has no Cancel button; Escape
+  still cancels. (ajcraswell@gmail.com)
+- Line up the menus' toggles, such as Performance stats, with the items beside them, at the same icon size.
+  (ajcraswell@gmail.com)
 
 ## 0.109.0
 
