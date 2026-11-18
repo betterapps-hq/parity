@@ -7,6 +7,7 @@ import { blurFrame, type MountedFrame, mountFrame } from "./frame-host.ts"
 import type { FrameMode } from "./frame-setup.ts"
 import { registerFrame, setFrameViewport } from "./frame.ts"
 import type { LoadedGuest } from "./guest.ts"
+import { isKeyboardEvent } from "./lens-windows.ts"
 
 interface ModeViewProps {
   /** The project, by id, whose console lists the frame's failing layers. */
@@ -133,12 +134,7 @@ export function ModeView({
     const stop = (event: Event) => {
       event.stopPropagation()
 
-      if (
-        event instanceof KeyboardEvent &&
-        event.type === "keydown" &&
-        event.key === "Escape" &&
-        !event.defaultPrevented
-      ) {
+      if (isKeyboardEvent(event) && event.type === "keydown" && event.key === "Escape" && !event.defaultPrevented) {
         blurFrame(host)
       }
     }

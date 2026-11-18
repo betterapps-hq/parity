@@ -22,7 +22,7 @@ import { DesignIcon, designColor, kindColors, NodeIcon, nodeColor } from "../can
 import { pickLayer } from "../canvas/pick.ts"
 import { useExtensions } from "../extensions.ts"
 import { allFrames } from "../frame.ts"
-import { isElement, isNode } from "../lens-windows.ts"
+import { isElement, isMouseEvent, isNode, windowOf } from "../lens-windows.ts"
 import { useContainerEntries, useNotes } from "../project-doc.ts"
 import { useInteracting, useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -117,7 +117,7 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
     const before = pressed?.selection ?? session.selection.get()
     const under = designUnder(session, event.currentTarget, point, before, { deep: pressed?.deep ?? false })
     // A selected layer's resize handle is part of the selection, though it reaches a little past the layer's box.
-    const handle = from instanceof Element && !!from.closest(".resize-handle")
+    const handle = isElement(from) && !!from.closest(".resize-handle")
 
     if (under) {
       session.selection.set(handle ? before : rightClickSelection(before, under.target, under.clicked, under.root))
@@ -132,7 +132,7 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
   // under the backdrop gets the `contextmenu` tldraw would have sent, which moves the menu to the press. Anywhere else,
   // the press closes the menu.
   const reopensOnCanvas = (event: Event): boolean => {
-    if (!(event instanceof MouseEvent) || event.button !== 2 || !area) {
+    if (!isMouseEvent(event) || event.button !== 2 || !area) {
       return false
     }
 
@@ -144,7 +144,8 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
 
     const selection = session.selection.get()
     const deep = event.ctrlKey || event.metaKey
-    onGestureEnd(window, (how) => {
+    // The press's own window, the main one or a lens's.
+    onGestureEnd(windowOf(event), (how) => {
       if (how !== "release") {
         return
       }

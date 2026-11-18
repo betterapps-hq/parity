@@ -183,3 +183,13 @@ export function isDocumentFragment(value: Maybe): value is DocumentFragment {
 export function isShadowRoot(value: Maybe): value is ShadowRoot {
   return isDocumentFragment(value) && "host" in value && "mode" in value
 }
+
+/** Whether `event` is a key event, from any of the app's windows. */
+export function isKeyboardEvent(event: Event): event is KeyboardEvent {
+  return "key" in event && "repeat" in event
+}
+
+/** Whether `event` is a mouse or pointer event, from any of the app's windows. */
+export function isMouseEvent(event: Event): event is MouseEvent {
+  return "button" in event && "clientX" in event && "buttons" in event
+}
