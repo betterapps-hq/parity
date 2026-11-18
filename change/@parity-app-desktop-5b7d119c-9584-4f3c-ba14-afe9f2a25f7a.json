@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Test the react-router-dom page wrap against a declared react-router-dom 7 dev dependency",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}
