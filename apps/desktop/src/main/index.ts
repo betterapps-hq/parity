@@ -715,6 +715,12 @@ function createWindow(): void {
         void shell.openExternal(event.url)
       }
     })
+    // A lens's route frames are the editor window's as well: kept on their builder's origin, with the editor window
+    // hearing where one tried to go and when its process went.
+    const childFrames = pageFrameGuard((stop) => window.webContents.send(ipc.pageStopped, stop))
+    child.webContents.on("will-frame-navigate", childFrames)
+    child.webContents.on("will-redirect", childFrames)
+    watchPageProcesses(child, (host) => window.webContents.send(ipc.pageGone, { host }))
     child.webContents.setWindowOpenHandler(({ url: opened }) => {
       if (opensInBrowser(opened)) {
         void shell.openExternal(opened)
