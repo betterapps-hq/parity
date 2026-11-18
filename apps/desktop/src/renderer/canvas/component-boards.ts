@@ -16,6 +16,11 @@ import { storyLayer } from "./story-screens.ts"
  */
 export const componentBoardsFile = "(components)"
 
+/** Whether a design is one of the project's components on its board, by its key. */
+export function isComponentBoard(key: string): boolean {
+  return key.startsWith(`${componentBoardsFile}#`)
+}
+
 type BoardsInfo = Pick<ProjectInfo, "id" | "sources" | "documents" | "routes"> & Partial<Pick<ProjectInfo, "entities">>
 
 /** Each open project's component boards: the component and file of each, by design id. */
