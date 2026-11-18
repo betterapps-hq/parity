@@ -16,6 +16,9 @@ const given = new WeakMap<Adopting, readonly CSSStyleSheet[]>()
 /** Each sheet's copy in each lens window's document. */
 const copies = new WeakMap<CSSStyleSheet, Map<Document, CSSStyleSheet>>()
 
+/** The sheets each lens window's document has copies of, so they're let go as it closes. */
+const copiedIn = new Map<Document, Set<CSSStyleSheet>>()
+
 /** What each copy is a copy of. */
 const originals = new WeakMap<CSSStyleSheet, CSSStyleSheet>()
 
@@ -111,6 +114,12 @@ export function addLensDocument(page: Document): () => void {
 
   return () => {
     lensDocuments.delete(page)
+
+    for (const original of copiedIn.get(page) ?? []) {
+      copies.get(original)?.delete(page)
+    }
+
+    copiedIn.delete(page)
   }
 }
 
@@ -189,6 +198,9 @@ function sheetIn(sheet: CSSStyleSheet, page: Document): CSSStyleSheet {
     copy.replaceSync(textOf(original))
     originals.set(copy, original)
     byDocument.set(page, copy)
+    const copied = copiedIn.get(page) ?? new Set<CSSStyleSheet>()
+    copied.add(original)
+    copiedIn.set(page, copied)
   }
 
   return copy
@@ -217,6 +229,7 @@ export function copyEdits(sheet: CSSStyleSheet): void {
       copy.replaceSync(text)
     } else {
       byDocument.delete(page)
+      copiedIn.delete(page)
     }
   }
 }
