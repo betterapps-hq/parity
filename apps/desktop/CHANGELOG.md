@@ -1,8 +1,20 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Wed, 18 Nov 2026 12:00:18 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 18 Nov 2026 12:14:58 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.113.0
+
+Wed, 18 Nov 2026 12:14:58 GMT
+
+### Minor changes
+
+- Components has a lens of its own: the project's component boards on a canvas of their own, with Used in links from
+  each component to the pages, screens and stories that place it. The Screens canvas no longer draws them.
+  (ajcraswell@gmail.com)
+- Stories has a lens of its own: the project's story files on a canvas of their own, listed by file in its panel, with
+  the selected story in the inspector. The Screens canvas no longer draws stories. (ajcraswell@gmail.com)
 
 ## 0.112.1
 
