@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { liveExpired, liveWindowTop, pickLive, type LiveChoice } from "./live.ts"
+import { keepsLiveCopy, liveExpired, liveWindowTop, pickLive, type LiveChoice } from "./live.ts"
 import type { PoolFrame } from "./pool.ts"
 
 describe("pickLive", () => {
@@ -67,5 +67,28 @@ describe("liveExpired", () => {
     expect(liveExpired(undefined, 50_000)).toBe(false)
     expect(liveExpired(1000, 10_999)).toBe(false)
     expect(liveExpired(1000, 11_000)).toBe(true)
+  })
+})
+
+describe("keepsLiveCopy", () => {
+  const at = (path: string, search = "", outcome: "landed" | "redirected" = "landed") => ({
+    path,
+    search,
+    hash: "",
+    outcome
+  })
+
+  it("keeps the snapshot of a page still on its board's route, whatever its hash", () => {
+    expect(keepsLiveCopy("/pricing?plan=pro", { ...at("/pricing", "?plan=pro"), hash: "#faq" })).toBe(true)
+  })
+
+  it("leaves the board's copy when a link moved the page to another route or query", () => {
+    expect(keepsLiveCopy("/pricing", at("/about"))).toBe(false)
+    expect(keepsLiveCopy("/pricing?plan=pro", at("/pricing", "?plan=team"))).toBe(false)
+  })
+
+  it("leaves the board's copy when a redirect took the page elsewhere, or it never said where it is", () => {
+    expect(keepsLiveCopy("/account", at("/sign-in", "", "redirected"))).toBe(false)
+    expect(keepsLiveCopy("/pricing", undefined)).toBe(false)
   })
 })

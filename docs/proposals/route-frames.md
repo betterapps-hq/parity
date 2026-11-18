@@ -110,8 +110,8 @@ them. So a live page takes events only once someone has clicked into it, and giv
   is stopped in main (`will-frame-navigate`), and the board says where it tried to go. Signing in is
   [impersonation.md](impersonation.md)'s.
 
-When live ends, the frame is closed. If it's still on the board's route and nobody used it, its snapshot stands in for
-the copy until the freezer's replaces it. A menu left open or a typed value never becomes the copy.
+When live ends, the frame is closed. If it's still on the board's route, its snapshot becomes the board's copy, so what
+was done in the page stays on the board until a code change makes the copy stale.
 
 ### Going live
 
@@ -755,10 +755,12 @@ Each is an issue, in this order.
    except the ones that edit or move through text, which stay the page's. The live frame is placed over its board from
    the board's box each animation frame while it's live, in a layer in tldraw's page space, and `page.zoom` reaches the
    canvas as tldraw's own wheel event. A navigation off the builder's origin is stopped on `will-frame-navigate` and
-   `will-redirect`, and the board says "Tried to open" with the host. When live ends the board's frozen copy stays: the
-   live page's snapshot doesn't stand in for it yet, since nothing makes copies stale before step 7. The freezer waits 2
-   s after each `page.used` and 1.5 s after a board goes live or spares open or move. The events are `routeFrame.live`
-   and `routeFrame.miss`.
+   `will-redirect`, and the board says "Tried to open" with the host. When live ends on the board's route, its path and
+   query, the live page's snapshot becomes the copy of every board of that route and mode, with its trace, kept as the
+   freezer's would be (PAR-1304, after step 7 made copies go stale): what was done in the page stays, where the plan had
+   it stand in only when nobody used the page. Its frame stays over the board, taking nothing, until the copy is kept,
+   and the snapshot leaves the markup groups be. The freezer waits 2 s after each `page.used` and 1.5 s after a board
+   goes live or spares open or move. The events are `routeFrame.live` and `routeFrame.miss`.
 6. **Pictures** (PAR-1200), done: page jobs in the render pool built from copies, `RenderJob` as a union, page bitmap
    names, traces by builder, and tiers by size on screen. Built: the page job is
    `{ kind: "page", projectId, route, path, state, mode, scale }`, with `route` the route's id for its trace and `path`

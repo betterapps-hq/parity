@@ -27,6 +27,7 @@ export {
 export type { PageMode } from "./mode.ts"
 
 export {
+  keepsLiveCopy,
   type LiveChoice,
   liveExpired,
   type LiveFrom,

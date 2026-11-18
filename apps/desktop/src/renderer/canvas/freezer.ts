@@ -191,6 +191,28 @@ export function useFrozenCopy(
   return copy?.drawn === drawn ? copy : undefined
 }
 
+/** The live page whose snapshot becomes its board's copy when live ends: its channel and what it was loaded as. */
+export interface LivePage {
+  channel: Channel<ParityMethods, PageMethods>
+  /** The board's URL, which its copy is kept under. */
+  url: string
+  mode: PageMode
+  viewport: PageViewport
+  /** The builder's origin, which the snapshot is sanitized against. */
+  origin: string
+  /** When the page last started loading, in milliseconds since 1970. */
+  loadedAt: number
+}
+
+/**
+ * Takes the live page's snapshot as its board's copy when live ends (PAR-1304), so what was done in it stays on the
+ * board: every board of its route and mode as drawn takes it, as a frozen copy would. It's kept as the freezer's would
+ * be, with its trace, until a code change makes it stale. Resolves once it's kept or refused, never failing.
+ */
+export async function keepLiveCopy(project: string, page: LivePage): Promise<void> {
+  await freezerFor(project).keepLive(page)
+}
+
 function freezerFor(project: string): Freezer {
   let freezer = freezers.get(project)
 
@@ -299,6 +321,23 @@ class Freezer {
     this.unhear()
     window.clearTimeout(this.timer)
     this.frame?.remove()
+  }
+
+  /** The live page's snapshot, as its board's copy, for every board that draws its route and mode (`keepLiveCopy`). */
+  async keepLive(page: LivePage): Promise<void> {
+    const drawn = drawnAs(page.mode, page.viewport)
+    const needs = [...this.needs.values()].filter((need) => need.url === page.url && need.drawn === drawn)
+    const [unit] = units(needs)
+
+    if (!unit) {
+      return
+    }
+
+    try {
+      await this.snapshot(page.channel, page.url, unit, page, this.changes, [], "live")
+    } catch {
+      // A live page that's stuck or gone when live ends leaves its board the copy it has.
+    }
   }
 
   /**
@@ -587,7 +626,8 @@ class Freezer {
   /**
    * Takes one mode's snapshot, checks and sanitizes it, gets the sheets it lists, and keeps its copy for every board
    * that draws the mode, and as a stand-in for the `group`'s other modes, which keep their own heights until they're
-   * checked.
+   * checked. A `"live"` page's snapshot holds what was done in it, so it leaves the markup groups be, and one that's
+   * refused leaves the freezer free to freeze its route.
    */
   private async snapshot(
     channel: Channel<ParityMethods, PageMethods>,
@@ -595,8 +635,10 @@ class Freezer {
     unit: FreezeUnit,
     page: Pick<FrozenCopy, "origin" | "loadedAt">,
     changes: number,
-    group: readonly FreezeUnit[]
+    group: readonly FreezeUnit[],
+    from: "freezer" | "live" = "freezer"
   ): Promise<void> {
+    const refuse = (reason: Refusal, refused?: FreezeUnit) => this.refuse(reason, from === "live" ? undefined : refused)
     const { origin, loadedAt } = page
     let taken: unknown
 
@@ -607,7 +649,7 @@ class Freezer {
       )
     } catch (error) {
       if (error instanceof Deadline) {
-        this.refuse("deadline")
+        refuse("deadline")
       }
 
       throw error
@@ -618,7 +660,7 @@ class Freezer {
     try {
       snapshot = parsePageSnapshot(taken)
     } catch (error) {
-      this.refuse(String(error).includes("at most") ? "cap" : "schema", unit)
+      refuse(String(error).includes("at most") ? "cap" : "schema", unit)
 
       return
     }
@@ -642,7 +684,7 @@ class Freezer {
       }
 
       // A sheet past its cap, or one that isn't what the schema reads.
-      this.refuse(String(error).includes("at most") ? "cap" : "schema", unit)
+      refuse(String(error).includes("at most") ? "cap" : "schema", unit)
 
       return
     }
@@ -663,7 +705,9 @@ class Freezer {
       trace
     }
 
-    this.groups = withMarkup(this.groups, url, unit.drawn, snapshot.markup)
+    if (from === "freezer") {
+      this.groups = withMarkup(this.groups, url, unit.drawn, snapshot.markup)
+    }
 
     const next = new Map(copies.get())
 
