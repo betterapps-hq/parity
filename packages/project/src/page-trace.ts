@@ -56,59 +56,101 @@ export function routeChain(route: string, routes: readonly TracedRoute[]): strin
 }
 
 /**
- * The files a route's page trace lists, sorted:
+ * Where a router that names routes by folder draws a route from beside its imports: under one of `prefixes`, and
+ * directly in one of `folders`. A file added there counts for the route's copies, as no import names it.
+ */
+export interface RouteFolders {
+  prefixes: string[]
+  folders: string[]
+}
+
+/**
+ * A route's page trace as its frozen copies keep it: the files it lists, or `"all"` for the whole project, so a file
+ * added anywhere counts too; and, for a router that names routes by folder, the folders where an added file counts.
+ */
+export interface PageTrace {
+  files: string[] | "all"
+  folders?: RouteFolders
+}
+
+/** The root's `public` folder: a page reaches its files by URL, so one added there, as a missing logo, counts too. */
+const publicFolder = "public/"
+
+/**
+ * A route's page trace:
  *
  * - Where the builder says what the route's files load (Vite, the webpack-compatible builders): those, the route's and
  *   its parents' files, and Parity's scan of their imports, which reaches the modules a loader or server function reads
  *   that the page never loads.
  * - Where the router names routes by folder (Next.js, which has no `loadedFiles`): every file under the route's folder,
- *   its parents' files (the layouts), what wraps it from the folders above (`folderRouteFiles`), and the scan.
+ *   its parents' files (the layouts), what wraps it from the folders above (`routeFolders`), and the scan, with those
+ *   folders.
  * - Otherwise, for a route that isn't known, or for a page that didn't land on its own route: the whole project.
  *
  * Each with the stylesheets, the files every page depends on, and the files in the root's `public` folder, which pages
- * reach by URL rather than by import, as an image or a font, so no scan finds which one a page draws.
+ * reach by URL rather than by import, as an image or a font, so no scan finds which one a page draws, and a file added
+ * there counts too. Its files are sorted.
  */
-export function pageTraceFiles(input: PageTraceInput): string[] {
+export function pageTrace(input: PageTraceInput): PageTrace {
   const chain = routeChain(input.route, input.routes)
-  const sorted = (files: Iterable<string>) => [...new Set(files)].sort((a, b) => a.localeCompare(b, "en"))
 
   if (chain.length === 0 || !input.landed || (input.loaded === undefined && !input.folderRoutes)) {
-    return sorted(input.files)
+    return { files: "all" }
   }
 
   const assets = input.files.filter((path) => path.startsWith("public/"))
   const common = [...chain, ...input.scanned, ...input.styles, ...input.shared, ...assets]
 
   if (input.loaded !== undefined) {
-    return sorted([...common, ...input.loaded])
+    return { files: sorted([...common, ...input.loaded]), folders: { prefixes: [publicFolder], folders: [] } }
   }
 
-  return sorted([...common, ...folderRouteFiles(chain[0]!, input.files)])
+  const folders = routeFolders(chain[0]!)
+  const files = sorted([...common, ...input.files.filter((path) => inFolders(folders, path))])
+
+  return { files, folders: { prefixes: [...folders.prefixes, publicFolder], folders: folders.folders } }
+}
+
+/** The files a route's page trace lists, sorted (`pageTrace`), every file of the project for the whole project. */
+export function pageTraceFiles(input: PageTraceInput): string[] {
+  const { files } = pageTrace(input)
+
+  return files === "all" ? sorted(input.files) : files
 }
 
 /**
- * The files a router that names routes by folder draws a route from beside its imports: every file under the route's
- * folder, and the files directly in each folder above it, not in their subfolders, where it keeps what wraps every
- * route below, as Next's templates, loading, error and not-found files, which no import reaches; and every file in
- * those folders' parallel slots (`@team/`), which their layouts draw beside the route. The project's root folder's own
- * files are left out, as they're config.
+ * Where a router that names routes by folder draws a route from beside its imports: every file under the route's
+ * folder, and the files directly in each folder above it, not in their subfolders, where it keeps what wraps every route
+ * below, as Next's templates, loading, error and not-found files, which no import reaches; and every file in those
+ * folders' parallel slots (`@team/`), which their layouts draw beside the route. The project's root folder's own files
+ * are left out, as they're config.
  */
-export function folderRouteFiles(route: string, files: readonly string[]): string[] {
+export function routeFolders(route: string): RouteFolders {
   const own = folderOf(route)
-  const folders = new Set<string>()
+  const folders: string[] = []
 
   for (let folder = folderOf(own); folder !== ""; folder = folderOf(folder)) {
-    folders.add(folder)
+    folders.push(folder)
   }
 
-  const slots = [...folders].map((folder) => `${folder}/@`)
+  return { prefixes: [own === "" ? "" : `${own}/`, ...folders.map((folder) => `${folder}/@`)], folders }
+}
 
-  return files.filter(
-    (path) =>
-      (own === "" ? !path.startsWith("../") : path.startsWith(`${own}/`)) ||
-      folders.has(folderOf(path)) ||
-      slots.some((slot) => path.startsWith(slot))
+/** The files of `files` a router that names routes by folder draws a route from beside its imports (`routeFolders`). */
+export function folderRouteFiles(route: string, files: readonly string[]): string[] {
+  const folders = routeFolders(route)
+
+  return files.filter((path) => inFolders(folders, path))
+}
+
+function inFolders({ prefixes, folders }: RouteFolders, path: string): boolean {
+  return (
+    !path.startsWith("../") && (folders.includes(folderOf(path)) || prefixes.some((prefix) => path.startsWith(prefix)))
   )
+}
+
+function sorted(files: Iterable<string>): string[] {
+  return [...new Set(files)].sort((a, b) => a.localeCompare(b, "en"))
 }
 
 /** The names an app's entry goes by where no page names it: `main`, `index`, `client` or `entry-client`, in `src/`. */

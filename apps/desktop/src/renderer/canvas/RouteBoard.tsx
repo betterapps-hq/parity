@@ -96,7 +96,7 @@ export function RouteBoard({
 
   const { rank } = view
   const key = useMemo(() => ({ route: url, mode: mode.id, state }), [url, mode.id, state])
-  const copy = useFrozenCopy(project, key, drawn, viewport, rank)
+  const copy = useFrozenCopy(project, key, route, drawn, viewport, rank)
 
   const job = useMemo(
     () => pageRenderJob({ projectId: project, route, url, state, mode: drawn, frame, scale: bitmapScale * scale }),

@@ -247,6 +247,16 @@ export interface ServiceMethods {
   /** Removes every frame bitmap and component preview kept on disk, for View > Clear bitmap cache. */
   "frames.clearStored": { params: ServiceParams["frames.clearStored"]; result: undefined }
   /**
+   * The trace a route's frozen copy keeps (docs/proposals/route-frames.md, "A page's trace"): the files its page was made
+   * from, `"all"` where the builder can't say, and the folders where an added file counts, which say which changed files
+   * make it stale. `changed` says one of them changed after the page started loading, at `loadedAt`. None when the
+   * project's closed.
+   */
+  "pages.trace": {
+    params: ServiceParams["pages.trace"]
+    result: { trace?: { files: string[] | "all"; folders?: { prefixes: string[]; folders: string[] }; changed?: true } }
+  }
+  /**
    * Keeps a project's picture for the start page (PAR-607), in place of the one before. Each frame is cut to the top of
    * its window and given back as it's kept.
    */

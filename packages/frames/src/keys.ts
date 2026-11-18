@@ -13,10 +13,46 @@ export function copyId({ route, mode, state }: CopyKey): string {
   return `${route}\n${mode}\n${state}`
 }
 
-/** A copy and the files its trace holds, relative to the project's root, or `"all"` when its builder couldn't say. */
-export interface TracedCopy {
-  key: CopyKey
+/**
+ * Where a file counts for a copy beside the ones its trace lists, so one added there makes it stale: any under one of
+ * `prefixes`, and any directly in one of `folders`. A router that names routes by folder, as Next's, draws a route
+ * from files there that no import reaches, such as a layout, template or loading file added around it.
+ */
+export interface TraceFolders {
+  prefixes: readonly string[]
+  folders: readonly string[]
+}
+
+/**
+ * What a copy was made from: its files, relative to the project's root, or `"all"` when its builder couldn't say, and
+ * the folders where a new file counts too.
+ */
+export interface CopyTrace {
   files: readonly string[] | "all"
+  folders?: TraceFolders
+}
+
+/** A copy and its trace. */
+export interface TracedCopy extends CopyTrace {
+  key: CopyKey
+}
+
+/** Whether a changed file counts for a trace: it's listed, the trace is the whole project's, or it's in its folders. */
+export function traceHolds(trace: CopyTrace, file: string): boolean {
+  if (trace.files === "all" || trace.files.includes(file)) {
+    return true
+  }
+
+  const { folders } = trace
+
+  if (!folders) {
+    return false
+  }
+
+  const slash = file.lastIndexOf("/")
+  const folder = slash === -1 ? "" : file.slice(0, slash)
+
+  return folders.folders.includes(folder) || folders.prefixes.some((prefix) => file.startsWith(prefix))
 }
 
 /** How near the view each copy's board is, by `copyId`, and the live board's route, whose copies come first. */
@@ -26,14 +62,13 @@ export interface ViewOrder {
   distance: ReadonlyMap<string, number>
 }
 
-/** The copies and pictures whose traces hold a changed file, nearest the view first. */
+/** The copies and pictures whose traces hold a changed file (`traceHolds`), nearest the view first. */
 export function staleCopies(changed: readonly string[], copies: readonly TracedCopy[], view: ViewOrder): CopyKey[] {
   if (changed.length === 0) {
     return []
   }
 
-  const files = new Set(changed)
-  const stale = copies.filter((copy) => copy.files === "all" || copy.files.some((file) => files.has(file)))
+  const stale = copies.filter((copy) => changed.some((file) => traceHolds(copy, file)))
   const rank = (key: CopyKey) => [key.route === view.live ? 0 : 1, view.distance.get(copyId(key)) ?? Infinity] as const
 
   return stale

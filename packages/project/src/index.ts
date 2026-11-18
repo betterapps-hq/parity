@@ -96,7 +96,9 @@ export { contentReader, traceDigest } from "./frame-trace.ts"
 export {
   appEntries,
   folderRouteFiles,
+  type PageTrace,
   type PageTraceInput,
+  pageTrace,
   pageTraceFiles,
   routeChain,
   type TracedRoute

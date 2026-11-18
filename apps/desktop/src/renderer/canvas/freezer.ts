@@ -2,6 +2,7 @@ import { type Channel, createChannel, domPort } from "@parity-app/channel"
 import { pageFrameUrl } from "@parity-app/editor"
 import {
   type CopyKey,
+  type CopyTrace,
   copyId,
   type FrozenElement,
   freezeLoadDeadline,
@@ -38,6 +39,7 @@ import {
 import { useEffect, useId, useRef } from "react"
 import { clearCopySheets, sheetTexts } from "../copy-sheets.ts"
 import { track } from "../report-error.ts"
+import { request } from "../service.ts"
 import { resetWithWindow, useStore, windowStore } from "../store.ts"
 import { onPageFiles } from "./page-changes.ts"
 import { parityChecks } from "./page-channel.ts"
@@ -52,8 +54,9 @@ import { parityChecks } from "./page-channel.ts"
  * boards keep the copies they have.
  *
  * Copies are kept by `CopyKey`: the route's URL, the mode and the board's state (PAR-1264). Each keeps the trace it was
- * made from, and when the app's files change, the copies whose traces hold one are stale: they stay shown until they're
- * frozen again, nearest the view first. Modes whose snapshots drew the same markup at the last freeze form a markup
+ * made from, its page's own files as the project service chooses them by builder (PAR-1298), and when the app's files
+ * change, the copies whose traces hold one are stale: they stay shown until they're frozen again, nearest the view
+ * first, and other routes' copies stay current. Modes whose snapshots drew the same markup at the last freeze form a markup
  * group, and a route frozen again takes one snapshot per group, which updates every copy in it at once; each other mode
  * is checked after, once no copy is missing or stale. A page that loads again while it's frozen says hello again: its
  * channel is replaced, it's waited for as a page loading, and the snapshot it was taking is taken again.
@@ -79,8 +82,11 @@ export interface FrozenCopy {
   drawn: string
   /** The freezer's count of code changes when its route's freeze began: a change after it makes it stale. */
   changes: number
-  /** The files its page was made from, relative to the project's root, or `"all"` when the builder couldn't say. */
-  trace: readonly string[] | "all"
+  /**
+   * What its page was made from (`pageTrace`): its files, relative to the project's root, or `"all"` when the builder
+   * couldn't say, and the folders where an added file counts.
+   */
+  trace: CopyTrace
   /** Whether it was made from another mode's snapshot in its markup group and is still to be checked in its own. */
   unchecked?: true
 }
@@ -108,6 +114,8 @@ interface CopyNeed {
   /** Its key in the window, from `copyStoreKey`. */
   key: string
   url: string
+  /** The route's id, which its page's trace starts from. */
+  route: string
   mode: PageMode
   viewport: PageViewport
   /** The mode as drawn (`drawnAs`), which the freezer snapshots once for every need that shares it. */
@@ -156,6 +164,7 @@ resetWithWindow(() => {
 export function useFrozenCopy(
   project: string,
   key: CopyKey,
+  route: string,
   mode: PageMode,
   viewport: PageViewport,
   rank: () => number
@@ -171,12 +180,12 @@ export function useFrozenCopy(
 
   useEffect(() => {
     const freezer = freezerFor(project)
-    freezer.need(id, { key: stored, url: key.route, mode, viewport, drawn, rank: () => ranked.current() })
+    freezer.need(id, { key: stored, url: key.route, route, mode, viewport, drawn, rank: () => ranked.current() })
 
     return () => freezer.drop(id)
-    // `drawn` holds the mode and viewport, and `stored` the route.
+    // `drawn` holds the mode and viewport, and `stored` the route's URL.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [project, id, stored, drawn])
+  }, [project, id, stored, route, drawn])
 
   const copy = useStore(copies).get(stored)
 
@@ -325,7 +334,7 @@ class Freezer {
     for (const [key, copy] of copies.get()) {
       if (key.startsWith(prefix)) {
         // The copy's key in the window stands in for its state, so it's found again by it.
-        traced.push({ key: { route: key, mode: copy.drawn, state: key }, files: copy.trace })
+        traced.push({ key: { route: key, mode: copy.drawn, state: key }, ...copy.trace })
       }
     }
 
@@ -601,6 +610,9 @@ class Freezer {
       track("routeFrame.removed", { elements: body.removed, attributes: root.removed })
     }
 
+    // Asked while the sheets come, which it doesn't wait on.
+    const traced = traceOf(this.project, unit, snapshot.location, loadedAt)
+
     try {
       await getSheets(channel, snapshot.sheets)
     } catch (error) {
@@ -614,6 +626,8 @@ class Freezer {
       return
     }
 
+    const { trace, changed } = await traced
+
     const copy: FrozenCopy = {
       location: snapshot.location,
       pageHeight: snapshot.pageHeight,
@@ -625,9 +639,7 @@ class Freezer {
       markup: snapshot.markup,
       drawn: unit.drawn,
       changes,
-      // Pages' traces by builder are the project service's (`pageTraces`); until the window has them, any change to
-      // the app's files makes a copy stale.
-      trace: "all"
+      trace
     }
 
     this.groups = withMarkup(this.groups, url, unit.drawn, snapshot.markup)
@@ -652,6 +664,15 @@ class Freezer {
     }
 
     copies.set(next)
+
+    // A file it was made from changed while its page loaded, so it may not show it: it's frozen again.
+    if (changed) {
+      this.changes++
+
+      for (const need of [unit, ...group].flatMap((each) => each.needs)) {
+        this.stale.set(need.key, this.changes)
+      }
+    }
   }
 
   /** Tells telemetry a snapshot was refused, and for a cap or the schema, leaves its mode's boards as they are. */
@@ -707,6 +728,43 @@ function units(needs: readonly CopyNeed[]): FreezeUnit[] {
   }
 
   return [...found.values()]
+}
+
+/**
+ * The trace of a unit's copy from the project service (`pages.trace`), and whether a file in it changed after its page
+ * started loading. Without an answer it's the whole project, so any change makes the copy stale: slower, never wrong.
+ */
+async function traceOf(
+  project: string,
+  unit: FreezeUnit,
+  location: PageLocation,
+  loadedAt: number
+): Promise<{ trace: CopyTrace; changed: boolean }> {
+  const whole = { trace: { files: "all" as const }, changed: false }
+  const [need] = unit.needs
+
+  if (!need) {
+    return whole
+  }
+
+  try {
+    const { trace } = await request("pages.trace", {
+      projectId: project,
+      route: need.route,
+      landed: location.outcome === "landed",
+      loadedAt
+    })
+
+    if (!trace) {
+      return whole
+    }
+
+    const { changed, ...kept } = trace
+
+    return { trace: kept, changed: changed === true }
+  } catch {
+    return whole
+  }
 }
 
 /** The units of these modes, in their order. */

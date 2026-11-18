@@ -82,7 +82,7 @@ describe("moduleClosure", () => {
 })
 
 describe("sharedPreviewFiles", () => {
-  it("is the root's package.json, tsconfigs and tool configs, and every lockfile", () => {
+  it("is the root's package.json, tsconfigs, jsconfigs and tool configs, and every lockfile", () => {
     const snapshot: CodeSnapshot = {
       fingerprint: "f",
       salt: "s",
@@ -90,6 +90,7 @@ describe("sharedPreviewFiles", () => {
         [
           "package.json",
           "tsconfig.app.json",
+          "jsconfig.json",
           "vite.config.ts",
           "pnpm-lock.yaml",
           "../../pnpm-lock.yaml",
@@ -102,6 +103,7 @@ describe("sharedPreviewFiles", () => {
     expect(sharedPreviewFiles(snapshot)).toEqual([
       "package.json",
       "tsconfig.app.json",
+      "jsconfig.json",
       "vite.config.ts",
       "pnpm-lock.yaml",
       "../../pnpm-lock.yaml"

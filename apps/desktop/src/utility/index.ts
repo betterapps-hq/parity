@@ -390,6 +390,7 @@ const handlers: Handlers<ServiceMethods> = {
     )
   }),
   "frames.clearStored": clearBitmaps,
+  "pages.trace": async (page) => ({ trace: await pages.copy(page).catch(() => undefined) }),
   "pictures.store": ({ root, picture }) => storePicture(root, picture),
   "pictures.read": ({ roots }) => readPictures(roots),
   "pictures.keepOnly": ({ roots }) => keepOnlyPictures(roots),

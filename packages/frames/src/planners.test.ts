@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { type CopyKey, copyId, groupLeaders, sharedMarkup, staleCopies, withMarkup } from "./keys.ts"
+import { type CopyKey, copyId, groupLeaders, sharedMarkup, staleCopies, traceHolds, withMarkup } from "./keys.ts"
 import { planPool, type PoolView } from "./pool.ts"
 import { type BoardView, boardTier } from "./tiers.ts"
 
@@ -196,6 +196,11 @@ describe("staleCopies", () => {
     expect(staleCopies([], copies, view)).toEqual([])
   })
 
+  it("leaves a copy whose trace doesn't hold the change as it is", () => {
+    expect(staleCopies(["src/routes/d.tsx"], copies, { distance: new Map() })).toEqual([key("/c"), key("/d")])
+    expect(staleCopies(["src/routes/e.tsx"], copies.slice(0, 2), { distance: new Map() })).toEqual([])
+  })
+
   it("puts the live board's route first, then the nearest", () => {
     const distance = new Map([
       [copyId(key("/a")), 300],
@@ -209,5 +214,31 @@ describe("staleCopies", () => {
       key("/b"),
       key("/c")
     ])
+  })
+})
+
+describe("traceHolds", () => {
+  const nextPage = {
+    files: ["app/pricing/page.tsx", "app/layout.tsx"],
+    folders: { prefixes: ["app/pricing/", "app/@modal"], folders: ["app"] }
+  }
+
+  it("holds a file a router that names routes by folder would draw once it's added there", () => {
+    expect(traceHolds(nextPage, "app/pricing/loading.tsx")).toBe(true)
+    expect(traceHolds(nextPage, "app/pricing/plans/table.tsx")).toBe(true)
+    expect(traceHolds(nextPage, "app/template.tsx")).toBe(true)
+    expect(traceHolds(nextPage, "app/@modal/default.tsx")).toBe(true)
+  })
+
+  it("leaves out another route's folder and the files deeper in the folders above", () => {
+    expect(traceHolds(nextPage, "app/about/page.tsx")).toBe(false)
+    expect(traceHolds(nextPage, "app/about/loading.tsx")).toBe(false)
+    expect(traceHolds(nextPage, "src/lib/data.ts")).toBe(false)
+  })
+
+  it("holds only its own files without folders, and every file with the whole project", () => {
+    expect(traceHolds({ files: ["src/a.tsx"] }, "src/a.tsx")).toBe(true)
+    expect(traceHolds({ files: ["src/a.tsx"] }, "src/b.tsx")).toBe(false)
+    expect(traceHolds({ files: "all" }, "src/b.tsx")).toBe(true)
   })
 })

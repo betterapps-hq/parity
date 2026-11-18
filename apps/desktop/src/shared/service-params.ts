@@ -293,6 +293,11 @@ export const serviceParams = {
   "frames.stored": z.object({ jobs: z.string() }),
   "frames.changes": z.object({ frames: z.string() }),
   "frames.clearStored": z.undefined(),
+  "pages.trace": project.extend({
+    route: z.string(),
+    landed: z.boolean(),
+    loadedAt: finiteNumber
+  }),
   "pictures.store": z.object({ root: z.string(), picture: projectPicture }),
   "pictures.read": roots,
   "pictures.keepOnly": roots,
