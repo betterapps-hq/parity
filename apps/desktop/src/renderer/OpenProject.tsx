@@ -1,16 +1,18 @@
 import type { SavedLayout } from "@parity-app/lenses"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { z } from "zod"
 import { lensWindowPage } from "../shared/lens-window.ts"
 import { ProjectContext } from "./canvas/context.ts"
 import { ProjectColors } from "./canvas/project-colors.tsx"
 import { ErrorBoundary } from "./chrome/ErrorBoundary.tsx"
-import { lensLayoutOf, saveLensLayout, setLayout, useLayout } from "./chrome/layout.ts"
+import { setLayout, useLayout } from "./chrome/layout.ts"
 import { StatusBar } from "./chrome/StatusBar.tsx"
 import { startPreviews } from "./component-previews.ts"
 import { followSelection, sendRouteMarks } from "./extension-editor.ts"
 import { appLenses } from "./lenses/app-lenses.ts"
 import { LensWorkspace } from "./lenses/LensWorkspace.tsx"
 import { OpenProjectContext } from "./lenses/project-canvas.tsx"
+import { saveLensLayout, savedLensLayout } from "./saved.ts"
 import type { Project, ProjectSession } from "./workspace.ts"
 
 /**
@@ -46,7 +48,9 @@ export function OpenProject({
   // The panels follow the window's panel layout, which Show Layers, the View menu and extensions change too.
   const { left, right } = useLayout()
   // The lens layout the project saved, as it was when it opened (PAR-1248).
-  const [saved] = useState(() => lensLayoutOf(project.id))
+  const [saved] = useState(() => savedLensLayout(project.id))
+  // What was last saved, so a layout that hasn't changed isn't sent again.
+  const sent = useRef(JSON.stringify(saved))
 
   // Component previews are made in the background for as long as the project is open (PAR-207), and go when it closes.
   useEffect(() => startPreviews(session), [session])
@@ -61,7 +65,15 @@ export function OpenProject({
               lenses={appLenses}
               layout={saved}
               defaultLayout={defaultLayout}
-              onLayout={(next) => saveLensLayout(project.id, next)}
+              onLayout={(next) => {
+                const layout = z.json().parse(next)
+                const text = JSON.stringify(layout)
+
+                if (text !== sent.current) {
+                  sent.current = text
+                  saveLensLayout(project.id, layout)
+                }
+              }}
               popoutUrl={lensWindowPage}
               windowPlaces={windowPlaces}
               title={project.title}

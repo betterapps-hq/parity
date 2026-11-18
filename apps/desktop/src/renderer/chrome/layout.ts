@@ -1,5 +1,4 @@
 import { finiteNumber } from "@parity-app/core"
-import type { SavedLayout } from "@parity-app/lenses"
 import type { JsonValue } from "@parity-app/settings"
 import { z } from "zod"
 import { recordInterface } from "../interface-events.ts"
@@ -28,12 +27,7 @@ const savedLayout = z.object({
   console: z.boolean().catch(false),
   consoleHeight: width("console", 240),
   /** The bottom panel's tab: the console, or an extension's log by the extension's id (PAR-1089). */
-  bottomTab: z.string().catch("console"),
-  /**
-   * Each project's lens layout by its root, the most recently saved last (PAR-1248). `@parity-app/lenses` reads one as
-   * the project opens, so one that doesn't read is the project's alone.
-   */
-  lenses: z.record(z.string(), z.json()).catch({})
+  bottomTab: z.string().catch("console")
 })
 
 export type PanelLayout = z.infer<typeof savedLayout>
@@ -103,27 +97,6 @@ function recordShownPanels(before: PanelLayout, after: PanelLayout): void {
   if (after.console && !before.console) {
     recordInterface("panel.shown", { panel: "console" })
   }
-}
-
-/** How many projects' lens layouts are kept: the ones saved most recently. */
-const keptLensLayouts = 50
-
-/** The lens layout `project` saved, by its root, for `@parity-app/lenses` to read. */
-export function lensLayoutOf(project: string): JsonValue | undefined {
-  return layout.get().lenses[project]
-}
-
-/** Saves `project`'s lens layout, for the project to open on next time, unless it's the one saved already. */
-export function saveLensLayout(project: string, saved: SavedLayout): void {
-  const value = z.json().parse(saved)
-  const { lenses } = layout.get()
-
-  if (JSON.stringify(lenses[project]) === JSON.stringify(value)) {
-    return
-  }
-
-  const others = Object.entries(lenses).filter(([root]) => root !== project)
-  setLayout({ lenses: { ...Object.fromEntries(others.slice(1 - keptLensLayouts)), [project]: value } })
 }
 
 /** Opens the console under the canvas, or closes it. */

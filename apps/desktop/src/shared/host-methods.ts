@@ -61,6 +61,9 @@ function answers<Result>(): Answers<Result> {
 /** One value `state.json` keeps for the window, which the part of the window that owns it reads. */
 const stateValue = z.strictObject({ key: z.enum(stateKeys), value: z.json() })
 
+/** One project's lens layout, by its root, which `@parity-app/lenses` reads as the project opens. */
+const lensLayout = z.strictObject({ project: z.string().min(1).max(4096), layout: z.json() })
+
 /** A window's tabs, to reopen next time. */
 const savedTabs = z.strictObject({ roots: z.array(z.string()).max(200), active: z.string().optional() })
 
@@ -150,6 +153,8 @@ export const hostMethods = {
   projectsChange: { params: projectsChange, result: answers<Projects>() },
   /** Saves one value in `state.json`, such as the layout, for the next window to start with. */
   stateSet: { params: stateValue, oneWay: true, from: "editor" },
+  /** Saves one project's lens layout in `state.json`, keeping the projects other copies saved (PAR-1248). */
+  lensLayoutSave: { params: lensLayout, oneWay: true, from: "editor" },
   /** The tabs this window opens with: its own after a reload, or those of the newest copy that's gone. */
   tabsClaim: { result: answers<SavedTabs>(), from: "editor" },
   /** The window's tabs now, which main keeps saying while the copy runs. */

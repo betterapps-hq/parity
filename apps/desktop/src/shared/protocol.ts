@@ -734,6 +734,8 @@ export interface CanvasHost {
   state: {
     /** Saves one value, for the next window to start with. */
     set: (key: StateKey, value: JsonValue) => void
+    /** Saves one project's lens layout, by its root, keeping the projects other copies saved (PAR-1248). */
+    saveLensLayout: (project: string, layout: JsonValue) => void
     /** The tabs to open with: this window's own after a reload, or those of the newest copy that's gone. */
     claimTabs: () => Promise<SavedTabs>
     /** The window's tabs now. Kept only once it has claimed some. */

@@ -278,6 +278,7 @@ const host: CanvasHost = {
   },
   state: {
     set: (key, value) => tell("stateSet", { key, value }),
+    saveLensLayout: (project, layout) => tell("lensLayoutSave", { project, layout }),
     claimTabs: () => ask("tabsClaim"),
     saveTabs: (tabs) => tell("tabsSave", tabs)
   },

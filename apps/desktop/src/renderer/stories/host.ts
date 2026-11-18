@@ -474,6 +474,7 @@ export function installHost(): void {
     },
     state: {
       set: () => undefined,
+      saveLensLayout: () => undefined,
       claimTabs: () => Promise.resolve({ roots: [] }),
       saveTabs: () => undefined
     },

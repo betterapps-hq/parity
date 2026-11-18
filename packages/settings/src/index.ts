@@ -43,6 +43,7 @@ export {
   changeStateData,
   goneAfterMs,
   keepEntriesMs,
+  keptLensLayouts,
   type ReadState,
   readState,
   type SavedTabs,

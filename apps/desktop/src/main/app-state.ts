@@ -54,6 +54,8 @@ export interface AppStateFiles<Window> {
   /** The values `state.json` keeps for the window, from memory. */
   values(): AppState["values"]
   set(key: StateKey, value: JsonValue): void
+  /** Saves one project's lens layout, keeping those other copies saved (PAR-1248). */
+  setLensLayout(project: string, layout: JsonValue): void
   /** The tabs `window` opens with: its own after a reload, or those of the newest copy that's gone. */
   claimTabs(window: Window): Promise<SavedTabs>
   /** Keeps `window`'s tabs, if it claimed an entry; a window opened for one project never does. */
@@ -100,6 +102,9 @@ export function appStateFiles<Window>(folder: string, options: AppStateOptions<W
     values: () => state.state().values.values,
     set(key, value) {
       void state.change({ kind: "set", key, value })
+    },
+    setLensLayout(project, layout) {
+      void state.change({ kind: "lensLayout", project, layout })
     },
     async claimTabs(window) {
       const key = windowKey(window)

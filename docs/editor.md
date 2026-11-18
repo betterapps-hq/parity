@@ -8643,31 +8643,37 @@ each lens's own window, reopened where it was.
 - **What can't be used is dropped.** A lens that's gone is left out, with its group once that's empty, and the splits
   close over it as they do when a group closes. A layout that can't be read, or that has no lens left, opens on Screens,
   as a project does the first time. A layout saved with every tab closed opens with every tab closed.
-- **Each project keeps its own,** by its folder, for the 50 projects laid out most recently, in `state.json` with the
-  panel layout. The layout is the one last saved by any copy; a running copy doesn't follow another's.
+- **Each project keeps its own,** by its folder, for the 50 projects laid out most recently, in `state.json`
+  (`lensLayouts`). A copy saving its project's layout keeps the projects other copies saved, and a project opens on the
+  layout saved last by any copy that this copy has seen.
+- **The focus comes back too,** on a group in the main window or in a lens window, once that window is open.
 
 Code: `saveLayout` and `readLayout` in `packages/lenses/src/saved.ts` turn the layout to keep into data and read it back
 for the lenses there are, with its splits (`Split`) and each window's place (`Bounds`). `dock-adapter.ts` reads the main
 window's splits from Dockview's own (`arrangement`, `splitOf`) and lays a saved layout out with `fromJSON` (`lay`,
 `gridOf`), which opens each window at its place, the page's address carrying it (`lensWindowUrl`). `LensWorkspace` saves
 through `onLayout` (`useSaving`), before Dockview hears that the page is going and closes the lens windows.
-`OpenProject.tsx` keeps each project's in the panel layout's `lenses` (`lensLayoutOf`, `saveLensLayout` in
-`chrome/layout.ts`). Each lens window's place comes from main (`lensWindowPlaces`, `placesOf` in
-`main/lens-windows.ts`), since what a page reads of its window is a few pixels off on a scaled screen. Main opens a
-window at the saved place (`lensWindowPlace`) and reports that place until the window moves, as the system makes a
-window a few pixels bigger than asked and would grow it each time.
+`OpenProject.tsx` reads each project's from `state.json` as main has it (`savedLensLayout` in `saved.ts`) and saves it
+with `lensLayoutSave` (`saveLensLayout`), which main applies as one project's change under `state.json`'s lock
+(`lensLayout` in `changeStateData`, `packages/settings/src/state-file.ts`), so each copy replaces only its own project.
+Each lens window's place comes from main (`lensWindowPlaces`, `placesOf` in `main/lens-windows.ts`), since what a page
+reads of its window is a few pixels off on a scaled screen. Main opens a window at the saved place (`lensWindowPlace`)
+and reports that place until the window moves, as the system makes a window a few pixels bigger than asked and would
+grow it each time.
 
 Tests: `packages/lenses/src/saved.test.ts` (splits and windows' places kept and read back; splits closing over a group
 that's gone; splits that can't be read or don't fit laid out side by side; a place kept only for a window);
 `src/main/lens-windows.test.ts` (each lens window's place told to its editor window; a window opened at a saved place
 said to be there until it moves; a saved place used only while it's on a screen); `src/shared/lens-window.test.ts` (the
-saved place in the page's address); `src/renderer/chrome/layout.test.ts` (each project's layout kept by its folder, the
-50 most recent). Tried in `pnpm dev` on 2026-11-18 on the example, driving Electron over the DevTools protocol: Pages
-split right of Screens and Stories moved to a window of its own saved both groups, the split and the window's place; the
-split dragged to a third and the window reloaded brought back Screens and Pages at 334 and 738 pixels, and Stories'
-window opened by itself where it had been; three reloads in a row kept the window's place to the pixel, on a screen at
-150%; stopping the app and starting it again restored the same; closing the project from the File menu and resuming it
-from Home brought back three groups side by side, as they were saved.
+saved place in the page's address); `packages/settings/src/state-file.test.ts` (each project's layout kept by its
+folder, another copy's project kept, the 50 most recent). Tried in `pnpm dev` on 2026-11-18 on the example, driving
+Electron over the DevTools protocol: Pages split right of Screens and Stories moved to a window of its own saved both
+groups, the split and the window's place; the split dragged to a third and the window reloaded brought back Screens and
+Pages at 334 and 738 pixels, and Stories' window opened by itself where it had been; three reloads in a row kept the
+window's place to the pixel, on a screen at 150%; stopping the app and starting it again restored the same; closing the
+project from the File menu and resuming it from Home brought back three groups side by side, as they were saved. After
+the review: Screens focused, and then Stories focused in its window, each came back in focus after a reload, with
+Stories' window open.
 
 ### Pages, a lens of its own (PAR-1244)
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { changeState, goneAfterMs, keepEntriesMs, readState } from "./state-file.ts"
+import { changeState, goneAfterMs, keepEntriesMs, keptLensLayouts, readState } from "./state-file.ts"
 
 const tabs = (roots: string[], at: number) => ({ roots, at })
 
@@ -18,6 +18,41 @@ describe("state.json", () => {
 
     expect(JSON.parse(text)).toMatchObject({ newer: 1, recentSearches: ["a"] })
     expect(() => changeState("{ half", { kind: "claim", id: "a", at: 0 })).toThrow(/isn't JSON/)
+  })
+})
+
+describe("each project's lens layout", () => {
+  const layout = (lens: string) => ({ groups: [{ where: "main", tabs: [lens] }] })
+
+  const save = (text: string | undefined, project: string, lens: string) =>
+    changeState(text, { kind: "lensLayout", project, layout: layout(lens) })
+
+  const layouts = (text: string) => readState(text).values.values.lensLayouts
+
+  it("is saved by the project's root, keeping the projects another copy saved meanwhile", () => {
+    // Two copies started with nothing saved; each saves its own project into the file as it is then.
+    const first = save(undefined, "D:/work/app", "pages")
+    const second = save(first, "D:/work/site", "screens")
+
+    expect(layouts(second)).toEqual({ "D:/work/app": layout("pages"), "D:/work/site": layout("screens") })
+    expect(layouts(save(second, "D:/work/app", "stories"))).toEqual({
+      "D:/work/site": layout("screens"),
+      "D:/work/app": layout("stories")
+    })
+  })
+
+  it("keeps the 50 projects saved most recently, and starts again over a value that isn't a map", () => {
+    let text = changeState(undefined, { kind: "set", key: "lensLayouts", value: "broken" })
+    text = save(text, "D:/work/first", "pages")
+
+    expect(layouts(text)).toEqual({ "D:/work/first": layout("pages") })
+
+    for (let n = 0; n < keptLensLayouts; n++) {
+      text = save(text, `D:/work/${n}`, "pages")
+    }
+
+    expect(Object.keys(layouts(text) ?? {})).toHaveLength(keptLensLayouts)
+    expect(layouts(text)).not.toHaveProperty("D:/work/first")
   })
 })
 

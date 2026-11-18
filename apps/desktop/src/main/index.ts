@@ -1220,6 +1220,7 @@ answerWindows<HostEvent, BrowserWindow>({
     projects: { change: (change) => appState.changeProjects(change) },
     state: {
       set: (key, value) => appState.set(key, value),
+      setLensLayout: (project, layout) => appState.setLensLayout(project, layout),
       claimTabs: (window) => appState.claimTabs(window),
       saveTabs: (window, tabs) => appState.saveTabs(window, tabs)
     },

@@ -109,7 +109,7 @@ const shownProject: HostSent<"settingsProject"> = {
  */
 function toldParams(
   method: HostMethod
-): HostSent<"consoleAnnounce" | "settingsProject" | "stateSet" | "tabsSave"> | undefined {
+): HostSent<"consoleAnnounce" | "lensLayoutSave" | "settingsProject" | "stateSet" | "tabsSave"> | undefined {
   switch (method) {
     case "consoleAnnounce":
       return announcement
@@ -117,6 +117,8 @@ function toldParams(
       return shownProject
     case "stateSet":
       return { key: "layout", value: { left: false } }
+    case "lensLayoutSave":
+      return { project: "D:/shop", layout: { groups: [] } }
     case "tabsSave":
       return { roots: ["D:/shop"] }
     default:

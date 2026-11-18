@@ -256,6 +256,22 @@ export function dockAdapter<Id extends string>(
       serialized.activeGroup = idOf(focus)
     }
 
+    // Each window takes the focus as Dockview opens it, a moment after, so the saved focus is put back each time,
+    // including on a window's group, which can only take it once its window is open.
+    const waiting = new Set(windows.map(idOf))
+
+    const opened = api.onDidAddPopoutGroup(({ group }) => {
+      if (!waiting.delete(group.id)) {
+        return
+      }
+
+      api.getPanel(saved.groups[focus]?.open ?? "")?.api.setActive()
+
+      if (waiting.size === 0) {
+        opened.dispose()
+      }
+    })
+
     api.fromJSON(serialized)
   }
 
