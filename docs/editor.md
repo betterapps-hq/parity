@@ -6601,7 +6601,7 @@ Tests:
   sentence; initials by face size; ids telling namesakes apart; the line under a name; a palette's gradient; the stack's
   order, with whoever you follow first and an agent whose runner isn't here; how many faces show.
 
-### Agents at work on the canvas (PAR-1269, PAR-1273, PAR-1274, PAR-1287)
+### Agents at work on the canvas (PAR-1269, PAR-1273, PAR-1274, PAR-1287, PAR-959)
 
 Each agent working in a project has a pointer in its own colors that goes to what the agent reads or changes, at a pace
 a person can follow. It's Parity's first internal extension, `@parity-app/extension-agent-presence`, with only a window
@@ -6611,8 +6611,8 @@ through `parity.agents`. The extension does the rest.
 - **A pointer per agent.** It appears beside the first thing an agent looks at, travels there on a curve that lands with
   a small overshoot, and scans the target with a glow in the agent's colors. While the agent works it glances around the
   target. Between calls it stays near what it last looked at, breathing slowly, and after 20 seconds idle it fades and
-  gives its color back. Its badge has the icon for the step and the call's label, and a strip in the bottom left names
-  the agent and says what its call is doing, or that it's done.
+  gives its color back. Its badge names the agent and has the icon for the step and the call's label. The strips that
+  named each agent at the bottom left of the canvas are gone (PAR-959).
 - **Moved boards.** When an agent moves a board, the board is held where it was as the step is told, before the write
   lands, and the pointer grabs it and drags it to where the agent put it. Core lets go of a hold after 10 seconds, so
   while a board waits the pointer plays as fast as it goes, and skips the oldest of the steps ahead that wouldn't leave
@@ -11150,7 +11150,7 @@ visually; their id truncation regression is covered by `caller.test.ts`.
 ### A cursor for each subagent (PAR-960)
 
 A session's subagents share its MCP connection, so their calls carry one name and one id and move one cursor. A call
-that passes `subagent`, a short name the subagent gives itself, gets a cursor and a strip of its own, shown as
+that passes `subagent`, a short name the subagent gives itself, gets a cursor of its own, shown as
 `Header (Claude Code)`: the subagent first, since that's what tells them apart, then the session. The same name on a
 later call picks up the same cursor, and a call that names no subagent is the session's own, as before. The server's
 instructions and the skill ask an agent to give each subagent that works at once a name to pass. In a terminal each

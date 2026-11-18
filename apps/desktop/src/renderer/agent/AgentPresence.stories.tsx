@@ -324,7 +324,7 @@ const signInPass = subagent("Sign in")
 
 export const ThreeSubagents: Story = {
   args: {
-    note: "One session's three subagents, each naming itself on its calls: a cursor and a strip each.",
+    note: "One session's three subagents, each naming itself on its calls: a cursor each.",
     calls: [
       {
         after: 400,
@@ -419,7 +419,7 @@ const six = [
 
 export const SixAgents: Story = {
   args: {
-    note: "Six agents at once: six cursors, six palettes, a strip each. Some share a target and mix.",
+    note: "Six agents at once: six cursors, six palettes. Some share a target and mix.",
     calls: six.map((agent, index) => {
       const targets = boards.flatMap((board) => board.nodes.map((node) => ({ design: board.key, node: node.id })))
       const pick = (offset: number) => targets[(index * 3 + offset) % targets.length]!
