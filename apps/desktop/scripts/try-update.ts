@@ -497,8 +497,8 @@ try {
   print(stage)
   const about = page.getByRole("dialog", { name: "Parity", exact: true })
   await about.getByRole("button", { name: "Restart to update", exact: true }).click()
-  const save = page.getByRole("dialog", { name: /Save changes to/ })
-  await save.getByRole("button", { name: "Cancel", exact: true }).click()
+  await page.getByRole("dialog", { name: "Save changes?" }).waitFor()
+  await page.keyboard.press("Escape")
 
   if ((await page.evaluate(() => window.canvasHost.appVersion)) !== "999.0.0") {
     throw new Error("Cancelling restarted the app.")

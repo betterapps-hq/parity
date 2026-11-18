@@ -25,7 +25,6 @@ export function UnsavedPrompt() {
   }
 
   const names = shown?.names ?? []
-  const subject = names.length === 1 ? names[0] : `${names.length} projects`
 
   return (
     <Dialog open={!!question} onOpenChange={(open) => !open && question?.answer("cancel")}>
@@ -36,19 +35,12 @@ export function UnsavedPrompt() {
         initialFocus={saveRef}
       >
         <DialogHeader>
-          <DialogTitle>Save changes to {subject}?</DialogTitle>
+          <DialogTitle>Save changes?</DialogTitle>
           <DialogDescription>
-            {names.length > 1
-              ? `${listFormat.format(names)} have changes that aren't saved.`
-              : "Its changes aren't saved."}{" "}
-            If you don&apos;t save, they&apos;re lost when{" "}
-            {shown?.action === "quit" ? "Parity closes" : "the project closes"}.
+            Changes to {listFormat.format(names)} will be lost if you don&apos;t save them.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => question?.answer("cancel")}>
-            Cancel
-          </Button>
           <Button variant="outline" onClick={() => question?.answer("discard")}>
             Don&apos;t save
           </Button>

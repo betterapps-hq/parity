@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { expect, userEvent, within } from "storybook/test"
+import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
 import { clearNotifications, frameDesigns, holdToast, openProject, sessionAt } from "../stories/fixtures.tsx"
 import { roots, service } from "../stories/host.ts"
@@ -38,12 +38,15 @@ async function closeExample(): Promise<void> {
   await body().findByRole("dialog")
 }
 
-/** Closing the project with unsaved changes. */
+/** Closing the project with unsaved changes: Don't save or Save, with no Cancel button. */
 export const ClosingTheProject: Story = {
   loaders: [exampleEdited],
   play: async () => {
     await frameDesigns("Pricing (annual)", "Dashboard")
     await closeExample()
+    const dialog = within(body().getByRole("dialog", { name: "Save changes?" }))
+    await expect(dialog.getByText("Changes to shadcn-vite will be lost if you don't save them.")).toBeVisible()
+    await expect(dialog.queryByRole("button", { name: "Cancel" })).toBeNull()
   }
 }
 
@@ -54,6 +57,18 @@ export const OpeningAnotherProject: Story = {
     await frameDesigns("Pricing (annual)", "Dashboard")
     void workspace.open(roots.empty)
     await body().findByRole("dialog")
+    await expect(sessionAt(roots.example).saver.hasUnsaved()).toBe(true)
+  }
+}
+
+/** Escape cancels: the dialog closes and the project stays open with its changes. */
+export const EscapeCancels: Story = {
+  loaders: [exampleEdited],
+  play: async () => {
+    await frameDesigns("Pricing (annual)", "Dashboard")
+    await closeExample()
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() => expect(body().queryByRole("dialog")).toBeNull())
     await expect(sessionAt(roots.example).saver.hasUnsaved()).toBe(true)
   }
 }
