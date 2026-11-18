@@ -40,7 +40,8 @@ export function useOpenProject(): OpenProjectParts {
 }
 
 /**
- * A lens's canvas over the open project: a tldraw canvas of its own, drawing the app's pages or its designs. The
+ * A lens's canvas over the open project: a tldraw canvas of its own, drawing the app's pages, its stories or its designs.
+ * It's drawn the first time its tab is in front, so a lens open behind another loads nothing until it's shown. The
  * project holds the editor of the canvas in focus, which the panels, menus and shortcuts act on, and what draws over a
  * canvas, its overlays and bars, shows on that one, with the console docked under it (PAR-147).
  */
@@ -63,6 +64,12 @@ export function ProjectCanvas({
   const [own, setOwn] = useState<Editor>()
   const { editor, selection } = useProject()
   const inFocus = own !== undefined && editor === own
+  // Whether its tab has been in front, which it stays once it has, adjusted while rendering as it follows from `visible`.
+  const [shownOnce, setShownOnce] = useState(visible)
+
+  if (visible && !shownOnce) {
+    setShownOnce(true)
+  }
 
   // Something selected that another lens's canvas draws, from Search or a design just made, shows that lens in this one's
   // place, as a link does, with what's selected in view.
@@ -122,14 +129,16 @@ export function ProjectCanvas({
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <ErrorBoundary name="canvas" label="Canvas" onReopen={reopen} className="justify-center">
-        <CanvasArea
-          draws={draws}
-          own={own}
-          onEditor={setOwn}
-          shown={shown && visible}
-          inFocus={inFocus}
-          tools={tools}
-        />
+        {shownOnce && (
+          <CanvasArea
+            draws={draws}
+            own={own}
+            onEditor={setOwn}
+            shown={shown && visible}
+            inFocus={inFocus}
+            tools={tools}
+          />
+        )}
       </ErrorBoundary>
       {inFocus && (
         <ConsoleBoundary onReopen={reopen}>

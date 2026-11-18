@@ -168,7 +168,7 @@ The steps go in this order, each after the one before:
 | The open project in the shell, with today's canvas as one lens (built)   | PAR-1243 |
 | Pages as a lens of its own (built)                                       | PAR-1244 |
 | Stories as a lens of its own (built)                                     | PAR-1246 |
-| Screens holding only designs                                             | PAR-1251 |
+| Screens holding only designs (built)                                     | PAR-1251 |
 | Components as a lens of its own                                          | PAR-1245 |
 
 Today's canvas has been tried in a lens's own window (PAR-1242, in [On Dockview](#on-dockview)). Once Components lands,

@@ -413,7 +413,10 @@ function pasteSelectionStyle(session: ProjectDesigns | undefined): void {
 /** The open project with the editor of the canvas in focus, which the commands that select designs keep to. */
 type DesignsInFocus = ProjectDesigns & Pick<ProjectSession, "editor">
 
-/** Whether the canvas in focus draws a design: Pages draws the app's pages, Stories its story files, and Screens the rest. */
+/**
+ * Whether the canvas in focus draws a design: Pages draws the app's pages, Stories its story files, and Screens the
+ * rest.
+ */
 function drawnInFocus(session: DesignsInFocus): (key: string) => boolean {
   const { editor } = session
 
@@ -473,7 +476,8 @@ function selectAdjacentDesign(step: 1 | -1, session: DesignsInFocus | undefined)
     return
   }
 
-  // The designs on the canvas in focus: Pages steps through the app's pages, Stories through its story files, and Screens through the rest.
+  // The designs on the canvas in focus: Pages steps through the app's pages, Stories through its story files, and
+  // Screens through the rest.
   const drawn = drawnInFocus(session)
   const entries = containerEntries(session.doc).filter((entry) => drawn(entry.key))
   const key = adjacentDesign(entries, session.selection.get(), step)
