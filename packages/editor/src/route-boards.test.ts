@@ -6,6 +6,7 @@ import {
   pageMode,
   landedElsewhere,
   pageLinkLine,
+  pageLinkPieces,
   pageLinksLit,
   pageName,
   type PageNode,
@@ -438,6 +439,80 @@ describe("pageLinkLine", () => {
 
   it("curves all the way to the page once its title reaches up to the page above", () => {
     expect(pageLinkLine(above, below, 0.02)).toBe("M 640 800 C 640 1350, 2080 1350, 2080 1900")
+  })
+})
+
+describe("pageLinkPieces", () => {
+  const above = { x: 0, y: 0, w: 1280, h: 800 }
+  const near = { x: 1440, y: 1900, w: 1280, h: 800 }
+  const far = { x: 60000, y: 1900, w: 1280, h: 800 }
+
+  const points = ({ path }: { path: string }) =>
+    path
+      .slice(2)
+      .split(" L ")
+      .map((pair) => pair.split(" ").map(Number))
+
+  const length = (piece: { path: string }) =>
+    points(piece).reduce(
+      (sum, [x, y], i, all) => (i === 0 ? 0 : sum + Math.hypot(x - all[i - 1][0], y - all[i - 1][1])),
+      0
+    )
+
+  it("draws a short line as one piece, from the board above to the top of the board below", () => {
+    const pieces = pageLinkPieces(above, near, 1)
+
+    expect(pieces).toHaveLength(1)
+    expect(points(pieces[0]).at(0)).toEqual([640, 800])
+    expect(points(pieces[0]).at(-1)).toEqual([2080, 1900])
+  })
+
+  it("cuts a long line into pieces 2,400 screen pixels long, a whole number of dashes, each starting where the last ends", () => {
+    for (const zoom of [1, 0.6, 0.2]) {
+      const pieces = pageLinkPieces(above, far, zoom)
+
+      expect(pieces.length).toBeGreaterThan(1)
+
+      for (const [i, piece] of pieces.slice(0, -1).entries()) {
+        expect(length(piece) * zoom).toBeCloseTo(2400, 1)
+        expect(points(pieces[i + 1])[0]).toEqual(points(piece).at(-1))
+      }
+
+      expect(points(pieces.at(-1) ?? { path: "" }).at(-1)).toEqual([60640, 1900])
+    }
+  })
+
+  it("gives each piece the box round it", () => {
+    for (const piece of pageLinkPieces(above, far, 0.6)) {
+      for (const [x, y] of points(piece)) {
+        expect(x).toBeGreaterThanOrEqual(piece.box.x - 0.01)
+        expect(x).toBeLessThanOrEqual(piece.box.x + piece.box.w + 0.01)
+        expect(y).toBeGreaterThanOrEqual(piece.box.y - 0.01)
+        expect(y).toBeLessThanOrEqual(piece.box.y + piece.box.h + 0.01)
+      }
+    }
+  })
+
+  it("follows the curve within half a screen pixel", () => {
+    // The cubic's middle, by symmetry, is halfway across and halfway down its bend.
+    const [piece] = pageLinkPieces(above, near, 1)
+    const middle = { x: 1360, y: 1325 }
+
+    const closest = Math.min(
+      ...points(piece)
+        .slice(1)
+        .map(([x, y], i) => {
+          const [fx, fy] = points(piece)[i]
+          const t = Math.max(
+            0,
+            Math.min(1, ((middle.x - fx) * (x - fx) + (middle.y - fy) * (y - fy)) / ((x - fx) ** 2 + (y - fy) ** 2))
+          )
+
+          return Math.hypot(middle.x - (fx + t * (x - fx)), middle.y - (fy + t * (y - fy)))
+        })
+    )
+
+    expect(closest).toBeLessThan(0.5)
   })
 })
 
