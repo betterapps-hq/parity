@@ -630,9 +630,13 @@ export function CanvasEditor({
       const stopDoc = doc.subscribe((change) => sync(changedBoards(change)))
 
       // Only the board placed or let go, as someone else's drag moves it every frame.
-      const stopHeld = placedBoards.subscribe((placedTab, key) => {
-        if (placedTab === tab) {
-          sync({ designs: new Set([key]), notes: new Set(), references: new Set() })
+      const stopHeld = placedBoards.subscribe(() => {
+        const changed = placedBoards.changed()
+
+        if (!changed) {
+          sync()
+        } else if (changed.tab === tab) {
+          sync({ designs: new Set([changed.design]), notes: new Set(), references: new Set() })
         }
       })
 

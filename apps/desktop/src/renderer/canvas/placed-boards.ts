@@ -1,3 +1,5 @@
+import { signal } from "../store.ts"
+
 export interface Point {
   x: number
   y: number
@@ -22,15 +24,15 @@ interface Placed {
  */
 export class PlacedBoards {
   private readonly placed = new Map<string, Placed[]>()
-  private readonly listeners = new Set<(tab: string, design: string) => void>()
+  private readonly changes = signal()
+  private changing: { tab: string; design: string } | undefined
 
-  /** Told of each board placed, moved or let go, by its tab and design. */
-  subscribe = (listener: (tab: string, design: string) => void): (() => void) => {
-    this.listeners.add(listener)
+  /** Told of each board placed, moved or let go, which `changed` names while they're told. */
+  subscribe = this.changes.subscribe
 
-    return () => {
-      this.listeners.delete(listener)
-    }
+  /** The board whose placement the listeners are being told of, so a canvas updates only that one. */
+  changed(): { tab: string; design: string } | undefined {
+    return this.changing
   }
 
   /** Where the canvas should draw a board instead of its stored position, while it's placed. */
@@ -75,8 +77,12 @@ export class PlacedBoards {
   }
 
   private notify(tab: string, design: string): void {
-    for (const listener of this.listeners) {
-      listener(tab, design)
+    this.changing = { tab, design }
+
+    try {
+      this.changes.notify()
+    } finally {
+      this.changing = undefined
     }
   }
 }

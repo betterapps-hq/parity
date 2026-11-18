@@ -5,7 +5,11 @@ describe("PlacedBoards", () => {
   it("tells which board was placed, moved and let go, so the canvas updates only that one", () => {
     const boards = new PlacedBoards()
     const told: string[] = []
-    const stop = boards.subscribe((tab, design) => told.push(`${tab} ${design}`))
+
+    const stop = boards.subscribe(() => {
+      const changed = boards.changed()
+      told.push(`${changed?.tab} ${changed?.design}`)
+    })
 
     const placement = boards.place("tab", "app.par#home", { x: 1, y: 2 })
     placement.move({ x: 1, y: 2 })
@@ -18,5 +22,6 @@ describe("PlacedBoards", () => {
 
     expect(told).toEqual(["tab app.par#home", "tab app.par#home", "tab app.par#home"])
     expect(boards.at("tab", "app.par#home")).toBeUndefined()
+    expect(boards.changed()).toBeUndefined()
   })
 })
