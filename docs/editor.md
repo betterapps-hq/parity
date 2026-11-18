@@ -6612,8 +6612,7 @@ through `parity.agents`. The extension does the rest.
   a small overshoot, and scans the target with a glow in the agent's colors. While the agent works it glances around the
   target. Between calls it stays near what it last looked at, breathing slowly, and after 20 seconds idle it fades and
   gives its color back. Its badge has the icon for the step and the call's label, and a strip in the bottom left names
-  the agent and says what its call is doing, or that it's done. On a canvas narrower than 1140px the strips start above
-  the toolbar, so it doesn't cover them (PAR-1291).
+  the agent and says what its call is doing, or that it's done.
 - **Moved boards.** When an agent moves a board, the board is held where it was as the step is told, before the write
   lands, and the pointer grabs it and drags it to where the agent put it. Core lets go of a hold after 10 seconds, so
   while a board waits the pointer plays as fast as it goes, and skips the oldest of the steps ahead that wouldn't leave
