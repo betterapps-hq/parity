@@ -19,6 +19,8 @@ export const ipc = {
   consoleChanged: "canvas:console-changed",
   /** Main tells a window a route frame in it was stopped leaving its page's origin, and where it tried to go. */
   pageStopped: "canvas:page-stopped",
+  /** Main tells a window the process running a project's route pages in it went, by the pages' host. */
+  pageGone: "canvas:page-gone",
   /** Main tells windows the account changed. */
   accountChanged: "canvas:account-changed",
   /** Main tells windows what `keybindings.json` holds now (PAR-1085). */

@@ -205,6 +205,14 @@ const host: CanvasHost = {
       return () => {
         ipcRenderer.removeListener(ipc.pageStopped, stopped)
       }
+    },
+    onGone: (listener) => {
+      const gone = (_event: Electron.IpcRendererEvent, went: { host: string }) => listener(went)
+      ipcRenderer.on(ipc.pageGone, gone)
+
+      return () => {
+        ipcRenderer.removeListener(ipc.pageGone, gone)
+      }
     }
   },
   initialProject: process.argv

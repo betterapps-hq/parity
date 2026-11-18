@@ -14,7 +14,6 @@ import {
   type PageRoot,
   parsePageSheets,
   parsePageSnapshot,
-  restartAfter,
   type SanitizePolicy,
   sanitizePage,
   sanitizeRoot,
@@ -41,6 +40,7 @@ import { track } from "../report-error.ts"
 import { resetWithWindow, useStore, windowStore } from "../store.ts"
 import { onPageFiles } from "./page-changes.ts"
 import { parityChecks } from "./page-channel.ts"
+import { onPageProcess, pageProcessFailed, pageProcessOpen } from "./page-process.ts"
 
 /*
  * The freezer (docs/proposals/route-frames.md, "The pool" and "Frozen copies", PAR-1262): one frame per project that
@@ -48,8 +48,9 @@ import { parityChecks } from "./page-channel.ts"
  * freezer's frame, which then takes a snapshot in each of the modes its boards draw, waiting for quiet in each. A
  * snapshot is parsed with its schema and passed through the sanitizers before it's kept, and the stylesheets it lists
  * are asked for once each, by content hash, or fetched by main when they're on another host. When the project's page
- * process fails under it, the freezer starts again after a pause, and stops after three failures in two minutes;
- * boards keep the copies they have.
+ * process fails, as main sees it go, the freezer's channel closes or a request passes its deadline, the frame closes
+ * at once, and the freezer starts again after the pause `page-process.ts` sets, or stays stopped; boards keep the
+ * copies they have.
  *
  * Copies are kept by `CopyKey`: the route's URL, the mode and the board's state (PAR-1264). Each keeps the trace it was
  * made from, and when the app's files change, the copies whose traces hold one are stale: they stay shown until they're
@@ -133,9 +134,6 @@ async function unheld(project: string): Promise<void> {
     await new Promise((resolve) => window.setTimeout(resolve, left))
   }
 }
-
-/** Whether a project's freezer has stopped after its page process failed too often. */
-export const stoppedFreezers = windowStore<ReadonlySet<string>>(() => new Set())
 
 const freezers = new Map<string, Freezer>()
 
@@ -256,14 +254,25 @@ class Freezer {
   private running = false
   private disposed = false
   private timer = 0
-  private failures: number[] = []
   private frame: HTMLIFrameElement | undefined
+  /** Closes the page being frozen, failing what waits on it, once its process has gone. */
+  private closePage: ((error: Error) => void) | undefined
   private readonly project: string
   private readonly unhear: () => void
 
   constructor(project: string) {
     this.project = project
-    this.unhear = onPageFiles(project, (paths) => this.filesChanged(paths))
+    const unchanged = onPageFiles(project, (paths) => this.filesChanged(paths))
+
+    const unprocess = onPageProcess(project, {
+      gone: () => this.closePage?.(new Error("The page process went")),
+      resumed: () => this.poke()
+    })
+
+    this.unhear = () => {
+      unchanged()
+      unprocess()
+    }
   }
 
   need(id: string, need: CopyNeed): void {
@@ -354,7 +363,7 @@ class Freezer {
 
   /** Runs the queue soon, unless it runs or waits to start again already. */
   private poke(delay = 0): void {
-    if (this.running || this.timer || this.disposed || stoppedFreezers.get().has(this.project)) {
+    if (this.running || this.timer || this.disposed || !pageProcessOpen(this.project)) {
       return
     }
 
@@ -507,6 +516,12 @@ class Freezer {
 
     window.addEventListener("message", hello)
     this.frame = frame
+
+    this.closePage = (error) => {
+      load.ready.reject(error)
+      channel.close(error)
+    }
+
     frame.src = src
     document.body.append(frame)
 
@@ -551,6 +566,7 @@ class Freezer {
       channel.close(new Error("The freezer is done with the page"))
       frame.remove()
       this.frame = undefined
+      this.closePage = undefined
     }
   }
 
@@ -664,26 +680,14 @@ class Freezer {
   }
 
   /**
-   * The page process failed under the frame, or stopped answering: start again after a pause, or stop after three
-   * failures in two minutes, keeping the copies boards have.
+   * The page process failed under the frame, or stopped answering: every frame of the project closes, and the freezer
+   * starts again once the pause is over, unless Parity stopped trying, keeping the copies boards have.
    */
   private failed(how: "gone" | "hung"): void {
-    if (this.disposed) {
-      return
+    if (!this.disposed) {
+      pageProcessFailed(this.project, how)
+      this.poke()
     }
-
-    const now = Date.now()
-    this.failures = [...this.failures.filter((at) => now - at < 120_000), now]
-    const next = restartAfter(this.failures, now)
-    track("routeFrame.process", { how, stopped: next === "stop" })
-
-    if (next === "stop") {
-      stoppedFreezers.set(new Set(stoppedFreezers.get()).add(this.project))
-
-      return
-    }
-
-    this.poke(next.delay)
   }
 }
 

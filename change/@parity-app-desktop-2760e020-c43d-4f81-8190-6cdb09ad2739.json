@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Route boards notice their app page's process crashing at once: the live page, spares and snapshots close together and start again after the usual pause, instead of waiting out a timeout.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

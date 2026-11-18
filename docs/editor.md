@@ -8826,9 +8826,10 @@ A screen is named for the component its route draws, else its path.
   refills, 1.5 s after a board goes live, since a project's frames share one process. A window that isn't focused keeps
   no spares. `routeFrame.live` says how a board went live and how long it took, and `routeFrame.miss` that no spare was
   there.
-- **When the page process fails.** A project's pages share one renderer process. When it closes the freezer's channel or
-  a request misses its deadline, the freezer starts again after 1 s, then 5 s, then 30 s, and after three failures in
-  two minutes it stops for that project; boards keep the copies they have.
+- **When the page process fails.** A project's pages share one renderer process. When main sees it go, it closes the
+  freezer's channel, or a request misses its deadline, it's one failure: the live frame, spares and freezer close at
+  once, and open again after 1 s, then 5 s, then 30 s. After three failures in two minutes Parity stops opening them for
+  that project; boards keep the copies they have. `routeFrame.process` says how it failed and whether Parity stopped.
 - **Bundled up front.** The builder's server scans `index.html` with the components, so what only the app's entry
   imports, such as its router, is bundled before the first page asks for it. Bundled later, it was bundled again under
   the pages, which then had two copies of React.
@@ -8894,7 +8895,9 @@ Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pa
 `apps/desktop/src/main/page-sheets.ts`, live boards: the pool and `useLiveBoard` in `live-frames.ts`, `LiveLayer` in
 `LiveLayer.tsx`, `pickLive` and `liveWindowTop` in `packages/frames/src/live.ts`, `passesBack` and the runtime's
 `page.scrolled`, `page.zoom` and `page.key` in `packages/page-runtime/src/`, `holdFreezer` in `freezer.ts`, and
-`pageFrameGuard` in `apps/desktop/src/main/page-frames.ts`; code changes and previews: `pageSourceChange` in
+`pageFrameGuard` in `apps/desktop/src/main/page-frames.ts`; the page process's failure: `PageProcesses` and
+`processFailed` in `packages/frames/src/process.ts`, `watchPageProcesses` in `apps/desktop/src/main/page-processes.ts`
+and `page-process.ts` in the canvas; code changes and previews: `pageSourceChange` in
 `packages/project/src/open-project.ts`, the watcher's `filesChanged` in `apps/desktop/src/utility/projects.ts`,
 `page-changes.ts` (`pageFilesChanged`, `previewTokens`), the pool's `filesChanged` in `live-frames.ts`, `staleCopies`,
 `groupLeaders`, `sharedMarkup` and `withMarkup` in `packages/frames/src/keys.ts`, `tokenPreviewCss` and `updatesItself`

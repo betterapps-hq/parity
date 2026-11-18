@@ -53,6 +53,7 @@ import { readLogEvents } from "./log-files.ts"
 import { listenOnLoopback } from "./loopback.ts"
 import { isPackaged } from "./packaged.ts"
 import { pageFrameGuard } from "./page-frames.ts"
+import { watchPageProcesses } from "./page-processes.ts"
 import { fetchPageSheet } from "./page-sheets.ts"
 import { onPage, opensInBrowser, pageGuard } from "./parity-page.ts"
 import { launchLink, passLink } from "./pass-link.ts"
@@ -592,6 +593,8 @@ function createWindow(): void {
   const frames = pageFrameGuard((stop) => window.webContents.send(ipc.pageStopped, stop))
   window.webContents.on("will-frame-navigate", frames)
   window.webContents.on("will-redirect", frames)
+  // The window hears at once when the process running a project's route pages goes, rather than at a deadline.
+  watchPageProcesses(window, (host) => window.webContents.send(ipc.pageGone, { host }))
   // The page decides whether the window closes, through `hostMethods`' close methods, which only its own page may send.
   closeFlow.watch({
     id: window.id,
