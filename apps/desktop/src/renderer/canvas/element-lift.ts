@@ -1,3 +1,4 @@
+import { isHTMLElement, isSVGElement } from "../lens-windows.ts"
 import { cancelMs, dropMs, lift, liftMs, liftScale, settle, translated } from "./drag-motion.ts"
 import { asTranslate, type Point, translateOnScreen } from "./screen-moves.ts"
 
@@ -53,7 +54,7 @@ export function liftElements(
   const lifted = elements.flatMap((element) => {
     settling.get(element)?.()
 
-    if (!(element instanceof HTMLElement || element instanceof SVGElement)) {
+    if (!(isHTMLElement(element) || isSVGElement(element))) {
       return []
     }
 
@@ -68,7 +69,7 @@ export function liftElements(
     const drawn = getComputedStyle(element)
     const own = { scale: drawn.scale, filter: drawn.filter, translate: drawn.translate }
     const rect = element.getBoundingClientRect()
-    const size = element instanceof HTMLElement ? element.offsetWidth : 0
+    const size = isHTMLElement(element) ? element.offsetWidth : 0
     const ratio = scale ?? (size > 0 ? rect.width / size : 1)
     // A move on screen as a change to its translate, which whatever it's in scales and turns.
     const moves = translateOnScreen(element, own.translate)
@@ -260,7 +261,7 @@ const styled = new WeakMap<CSSStyleDeclaration, Map<string, { value: string; pri
  */
 export function styleElements(elements: readonly Element[], values: Readonly<Record<string, string>>): () => void {
   const written = elements.flatMap((element) => {
-    if (!(element instanceof HTMLElement || element instanceof SVGElement)) {
+    if (!(isHTMLElement(element) || isSVGElement(element))) {
       return []
     }
 

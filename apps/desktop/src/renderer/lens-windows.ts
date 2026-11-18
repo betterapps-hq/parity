@@ -137,20 +137,49 @@ export function postAs(
   }
 }
 
-/**
- * Whether an event's target is an element, in the main window's document or a lens window's. An element made in a lens
- * window isn't an `instanceof` the main window's `Element`, so it's told by what it has.
+/*
+ * What a node is, in the main window's document or a lens window's. A node made in a lens window isn't an `instanceof`
+ * the main window's `Element` or `Text`, so these tell it by its node type and namespace instead.
  */
-export function isElement(target: EventTarget | null): target is Element {
-  return target !== null && "hasAttribute" in target && "closest" in target
+
+type Maybe = EventTarget | null | undefined
+
+/** Whether `value` is a DOM node, in any of the app's windows. */
+export function isNode(value: Maybe): value is Node {
+  return !!value && "nodeType" in value && "parentNode" in value
 }
 
-/** Whether an event's target is an HTML element, in any of the app's windows. */
-export function isHTMLElement(target: EventTarget | null): target is HTMLElement {
-  return isElement(target) && "dataset" in target && "style" in target
+/** Whether `value` is an element. */
+export function isElement(value: Maybe): value is Element {
+  return isNode(value) && value.nodeType === 1
 }
 
-/** Whether an event's target is a node, in any of the app's windows. */
-export function isNode(target: EventTarget | null): target is Node {
-  return target !== null && "nodeType" in target && "parentNode" in target
+/** Whether `value` is an HTML element. */
+export function isHTMLElement(value: Maybe): value is HTMLElement {
+  return isElement(value) && value.namespaceURI === "http://www.w3.org/1999/xhtml"
+}
+
+/** Whether `value` is an SVG element. */
+export function isSVGElement(value: Maybe): value is SVGElement {
+  return isElement(value) && value.namespaceURI === "http://www.w3.org/2000/svg"
+}
+
+/** Whether `value` is an `<input>`. */
+export function isHTMLInputElement(value: Maybe): value is HTMLInputElement {
+  return isHTMLElement(value) && value.localName === "input"
+}
+
+/** Whether `value` is a text node. */
+export function isText(value: Maybe): value is Text {
+  return isNode(value) && value.nodeType === 3
+}
+
+/** Whether `value` is a document fragment, a shadow root included. */
+export function isDocumentFragment(value: Maybe): value is DocumentFragment {
+  return isNode(value) && value.nodeType === 11
+}
+
+/** Whether `value` is a shadow root. */
+export function isShadowRoot(value: Maybe): value is ShadowRoot {
+  return isDocumentFragment(value) && "host" in value && "mode" in value
 }

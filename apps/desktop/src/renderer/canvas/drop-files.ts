@@ -19,6 +19,7 @@ import {
 } from "@parity-app/editor"
 import { addContainer, containerEntries, editFrame, updateContainer } from "@parity-app/multiplayer"
 import type { Attributes } from "../chrome/event-attributes.ts"
+import { isHTMLInputElement } from "../lens-windows.ts"
 import { track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
 import { lines, notify } from "../toasts.tsx"
@@ -277,7 +278,7 @@ export function draggedTypes(event: DragEvent): string[] {
 export function overFileField(event: DragEvent): boolean {
   const at = event.composedPath()[0]
 
-  return at instanceof HTMLInputElement && at.type === "file"
+  return isHTMLInputElement(at) && at.type === "file"
 }
 
 /**

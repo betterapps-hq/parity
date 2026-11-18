@@ -10,6 +10,7 @@ import { type ContainerEntry, updateContainer } from "@parity-app/multiplayer"
 import { type RefObject, useEffect } from "react"
 import { watchFrame } from "../frame-host.ts"
 import { findNodeElements, setInnerNodes } from "../frame.ts"
+import { isElement, isText } from "../lens-windows.ts"
 import { componentBoardsFile } from "./component-boards.ts"
 import { useProject } from "./context.ts"
 
@@ -92,7 +93,7 @@ export function useBoardInternals(board: RefObject<HTMLDivElement | null>, entry
 
 /** An element or text as a snapshot, with the ids of what's inside it from its own, or undefined when it shows nothing. */
 function snapshotOf(node: Node, id: string, nodes: Map<string, Element | Text>): ElementSnapshot | undefined {
-  if (node instanceof Text) {
+  if (isText(node)) {
     if (!node.data.trim()) {
       return undefined
     }
@@ -102,7 +103,7 @@ function snapshotOf(node: Node, id: string, nodes: Map<string, Element | Text>):
     return { id, tag: "#text", text: node.data, attributes: {}, style: {}, children: [] }
   }
 
-  if (!(node instanceof Element)) {
+  if (!isElement(node)) {
     return undefined
   }
 

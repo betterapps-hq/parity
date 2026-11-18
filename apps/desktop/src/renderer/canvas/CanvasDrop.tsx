@@ -1,6 +1,6 @@
 import { type Box, countMedia, dropHint, mayBeMedia, readInsertItem } from "@parity-app/editor"
 import { useEffect, useRef, useState } from "react"
-import { isElement } from "../lens-windows.ts"
+import { isElement, isNode } from "../lens-windows.ts"
 import { notify } from "../toasts.tsx"
 import { useProject } from "./context.ts"
 import { carriesFiles, draggedTypes, dropFiles, type FileDrop, fileDropAt, overFileField } from "./drop-files.ts"
@@ -160,7 +160,7 @@ export function CanvasDrop() {
     }
 
     const onDragLeave = (event: DragEvent) => {
-      if (!(event.relatedTarget instanceof Node && area.contains(event.relatedTarget))) {
+      if (!(isNode(event.relatedTarget) && area.contains(event.relatedTarget))) {
         show(undefined)
       }
     }

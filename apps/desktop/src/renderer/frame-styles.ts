@@ -1,4 +1,5 @@
 import { importsIn, type prepareCanvasCss, withImports, withMedia } from "@parity-app/core"
+import { isDocumentFragment, isElement, isShadowRoot } from "./lens-windows.ts"
 import { fetchStylesheet } from "./page-styles.ts"
 
 type CanvasCss = ReturnType<typeof prepareCanvasCss>
@@ -126,7 +127,7 @@ export function frameRulesEdited(sheet: CSSStyleSheet): void {
 function release(entry: FrameEntry, element: HTMLStyleElement): void {
   const root = element.getRootNode()
 
-  if (owners.get(element) !== entry || (root instanceof ShadowRoot && frames.has(root))) {
+  if (owners.get(element) !== entry || (isShadowRoot(root) && frames.has(root))) {
     return
   }
 
@@ -158,7 +159,7 @@ function entryOf(owner: HTMLStyleElement): FrameEntry | undefined {
   // Code that adds a `<style>` and inserts its rules straight away, as Emotion does, edits it before then.
   const root = owner.getRootNode()
 
-  return owners.get(owner) ?? (root instanceof ShadowRoot ? frames.get(root) : undefined)
+  return owners.get(owner) ?? (isShadowRoot(root) ? frames.get(root) : undefined)
 }
 
 /** Whether `sheet` is a `<style>` element's in a frame, whose edits the frame follows. */
@@ -366,7 +367,7 @@ function stylesIn(node: Node): HTMLStyleElement[] {
     return [node]
   }
 
-  return node instanceof Element || node instanceof DocumentFragment ? [...node.querySelectorAll("style")] : []
+  return isElement(node) || isDocumentFragment(node) ? [...node.querySelectorAll("style")] : []
 }
 
 function catchElement(entry: FrameEntry, element: HTMLStyleElement): void {

@@ -21,6 +21,7 @@ import { pageRenderJob } from "../../shared/render-job.ts"
 import { usePreferences } from "../chrome/preferences.ts"
 import { copyNodeAttribute, copyRootAttribute } from "../copy-sheets.ts"
 import { findFrames, findNodeElements, registerFrame, setDrawnNodes, setInnerNodes } from "../frame.ts"
+import { isText } from "../lens-windows.ts"
 import { mountCopy } from "../page-copy.ts"
 import { useProject } from "./context.ts"
 import { bitmapScale } from "./frame-bitmaps.ts"
@@ -339,7 +340,7 @@ function showCopy(
   // place among its parent's children, which `buildCopy` made in the snapshot's order.
   const texts = (parent: Element, id: string, parentId: string | undefined) => {
     for (const [index, child] of [...parent.childNodes].entries()) {
-      if (child instanceof Text) {
+      if (isText(child)) {
         const textId = `${id}.t${index}`
 
         if (layers.has(textId)) {
@@ -374,7 +375,7 @@ function showCopy(
     texts: (id) => {
       const node = textParents.has(id) ? nodes.get(id) : undefined
 
-      return node instanceof Text ? [node] : []
+      return isText(node) ? [node] : []
     },
     parent: (id) => (textParents.has(id) ? textParents.get(id) : built.drawn.parent(id)),
     nodeOf: (element) => built.drawn.nodeOf(element)

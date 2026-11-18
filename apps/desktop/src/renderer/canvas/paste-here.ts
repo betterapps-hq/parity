@@ -17,6 +17,7 @@ import {
 } from "@parity-app/editor"
 import { editFrame } from "@parity-app/multiplayer"
 import { findNodeElement, flowingBoxes, nodeBox } from "../frame.ts"
+import { isHTMLElement } from "../lens-windows.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { type ElementGeometry, type FrameGeometry, frameGeometry, insideOf } from "./frame-geometry.ts"
@@ -207,7 +208,7 @@ function slotUnder(
     const element = drawn && drawnIn(drawn)
     const around = drawn?.offsetParent
 
-    if (!slot || !element || !(around instanceof HTMLElement)) {
+    if (!slot || !element || !isHTMLElement(around)) {
       continue
     }
 

@@ -16,7 +16,7 @@ import {
 } from "@parity-app/core"
 import { hasFlag } from "./bits.ts"
 import { catchFrameStyles, followRuleEdits, frameRulesEdited, type PrepareCss } from "./frame-styles.ts"
-import { onEachWindow } from "./lens-windows.ts"
+import { isElement, isHTMLElement, isShadowRoot, isText, onEachWindow } from "./lens-windows.ts"
 import { unrecordedShadow } from "./shadow.ts"
 import scrollbarCss from "./scrollbars.css?raw"
 
@@ -178,7 +178,7 @@ function registerRootFontSize(view: Window): void {
  * frame no height to keep, and its board would shrink to its caption (PAR-157).
  */
 function keepOutInherited(host: HTMLElement): void {
-  const parent = host.parentNode instanceof ShadowRoot ? host.parentNode.host : host.parentElement
+  const parent = isShadowRoot(host.parentNode) ? host.parentNode.host : host.parentElement
 
   if (!parent) {
     return
@@ -458,7 +458,7 @@ function watchFrameStyles(shadow: ShadowRoot): void {
   watched.add(shadow)
   new MutationObserver((records) => {
     for (const record of records) {
-      if (record.type === "attributes" && record.target instanceof Element) {
+      if (record.type === "attributes" && isElement(record.target)) {
         rewriteStyleAttribute(record.target)
       } else {
         for (const node of record.addedNodes) {
@@ -470,7 +470,7 @@ function watchFrameStyles(shadow: ShadowRoot): void {
 }
 
 function rewriteAdded(node: Node): void {
-  if (!(node instanceof Element)) {
+  if (!isElement(node)) {
     return
   }
 
@@ -509,7 +509,7 @@ export function setDrawnNodes(host: Element, drawnNodes: (() => DrawnNodes | und
   }
 
   // Its layers are found another way now, and the overlay measures them again.
-  if (host instanceof HTMLElement && isRegistered(host)) {
+  if (isHTMLElement(host) && isRegistered(host)) {
     tellFrameListeners(host, true)
   }
 }
@@ -564,7 +564,7 @@ export function findNodeElements(host: Element, nodeId: string): HTMLElement[] {
   const inner = innerNode(host, nodeId)
 
   if (inner) {
-    const element = inner instanceof Text ? inner.parentElement : inner
+    const element = isText(inner) ? inner.parentElement : inner
 
     // SAFETY: read as an HTML element, as the guest's are below; an SVG element has the style and layout callers read.
     return element ? [element as HTMLElement] : []
@@ -597,7 +597,7 @@ export function nodeBox(host: Element, nodeId: string): DOMRect | undefined {
   const inner = innerNode(host, nodeId)
 
   if (inner) {
-    return inner instanceof Text ? textBox(inner) : elementBox(inner)
+    return isText(inner) ? textBox(inner) : elementBox(inner)
   }
 
   const drawn = drawnNodes(host)

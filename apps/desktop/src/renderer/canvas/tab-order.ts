@@ -1,4 +1,5 @@
 import { frameContent } from "../frame-host.ts"
+import { isHTMLInputElement } from "../lens-windows.ts"
 import { useStore, windowStore } from "../store.ts"
 
 /** Whether the canvas shows the keyboard tab order of the selected design. It's off until asked for. */
@@ -49,7 +50,7 @@ export function tabOrder(host: Element): HTMLElement[] {
       return false
     }
 
-    if (element instanceof HTMLInputElement && element.type === "hidden") {
+    if (isHTMLInputElement(element) && element.type === "hidden") {
       return false
     }
 
@@ -65,7 +66,7 @@ export function tabOrder(host: Element): HTMLElement[] {
       return false
     }
 
-    if (element instanceof HTMLInputElement && element.type === "radio" && element.name) {
+    if (isHTMLInputElement(element) && element.type === "radio" && element.name) {
       const group = `${element.form?.id ?? ""}\n${element.name}`
       const chosen = radios.get(group)
 
@@ -79,7 +80,7 @@ export function tabOrder(host: Element): HTMLElement[] {
 
   const tabbable = candidates.filter(
     (element) =>
-      !(element instanceof HTMLInputElement && element.type === "radio" && element.name) ||
+      !(isHTMLInputElement(element) && element.type === "radio" && element.name) ||
       [...radios.values()].includes(element)
   )
 
