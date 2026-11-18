@@ -1,10 +1,10 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn"
 import { createContext, type CSSProperties, type ReactNode, use, useLayoutEffect, useRef, useState } from "react"
-import { KeyHints } from "../../canvas/KeyHints.tsx"
+import { SpreadKeys } from "../../canvas/KeyHints.tsx"
 import { spacingColors } from "../../canvas/spacing-colors.ts"
-import { gestures as held } from "../../chrome/keymap.ts"
 import { sameValue, tint } from "./css-values.ts"
 import { useTokens } from "./field-parts.tsx"
+import { SideGlyph } from "./field-row.tsx"
 import {
   type Side,
   type SideKind,
@@ -88,6 +88,7 @@ export function SideValue({
   signed = false,
   spreads = false,
   side = "top",
+  inner,
   className = "",
   onChange,
   onEach,
@@ -110,6 +111,8 @@ export function SideValue({
   spreads?: boolean
   /** Where its popover opens. */
   side?: "top" | "bottom"
+  /** Its field's glyph, which drags it: the side it is. */
+  inner?: ReactNode
   className?: string
   onChange: (value: Side, spread: Spread) => void
   /** Where the layers differ, works out what uses the value there from each one's own pixels, on the sides spread to. */
@@ -174,6 +177,7 @@ export function SideValue({
         </div>
         <SideField
           label={label}
+          inner={inner}
           rules={rules}
           value={value}
           mixed={mixed}
@@ -187,12 +191,7 @@ export function SideValue({
         />
         {spreads && (
           <span className="text-xs text-muted-foreground">
-            <KeyHints
-              rows={[
-                { keys: held.oppositePadding.keys, does: "Both sides" },
-                { keys: held.everyPadding.keys, does: "All sides" }
-              ]}
-            />
+            <SpreadKeys />
           </span>
         )}
       </PopoverContent>
@@ -231,6 +230,7 @@ function BoxSide({
       measured={measured}
       spreads
       side={index === 2 ? "bottom" : "top"}
+      inner={<SideGlyph side={index} />}
       onChange={(next, spread) => {
         const reached = spreadTo([index], spread)
         onChange(setSides(sides, reached, next), reached)

@@ -33,7 +33,7 @@ import { gestures as held } from "../chrome/keymap.ts"
 import { holds } from "../chrome/keys.ts"
 import { SpacingBar } from "../chrome/token-previews.tsx"
 import { isElement } from "../lens-windows.ts"
-import { KeyHints } from "./KeyHints.tsx"
+import { SpreadKeys } from "./KeyHints.tsx"
 import { spacingChip, spacingColors, spacingHatch } from "./spacing-colors.ts"
 import type { SpacingValue } from "./spacing-edit.ts"
 
@@ -177,16 +177,7 @@ export function SpacingHandles({
             />
             <Hint
               label="Drag, or click to type"
-              detail={
-                handle.kind === "padding" && (
-                  <KeyHints
-                    rows={[
-                      { keys: held.oppositePadding.keys, does: "Both sides" },
-                      { keys: held.everyPadding.keys, does: "All sides" }
-                    ]}
-                  />
-                )
-              }
+              detail={handle.kind === "padding" && <SpreadKeys />}
               wait
               // A bar's target can be 12px thick, so the hint's arrow would slide in over a still pointer and take the
               // hover from the bar, and the hatching with it.

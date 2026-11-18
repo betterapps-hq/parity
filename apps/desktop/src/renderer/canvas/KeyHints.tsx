@@ -1,4 +1,5 @@
 import { Kbd } from "@buildkitgg/shadcn"
+import { gestures as held } from "../chrome/keymap.ts"
 import { formatKeys } from "../chrome/keys.ts"
 
 /**
@@ -15,5 +16,20 @@ export function KeyHints({ rows }: { rows: readonly { keys: string; does: string
         </span>
       ))}
     </span>
+  )
+}
+
+/**
+ * The keys that spread a side's change, wherever one side of four is changed (a padding handle on the canvas, a side's
+ * field, the box model's popover): Alt reaches the opposite side too, Alt+Shift all four.
+ */
+export function SpreadKeys() {
+  return (
+    <KeyHints
+      rows={[
+        { keys: held.oppositePadding.keys, does: "Both sides" },
+        { keys: held.everyPadding.keys, does: "All sides" }
+      ]}
+    />
   )
 }

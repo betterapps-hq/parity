@@ -1,6 +1,8 @@
 import { scrubSteps } from "@parity-app/core"
 import { formatNumber } from "@parity-app/style-schema"
 import { type ReactNode, useState } from "react"
+import { SpreadKeys } from "../../canvas/KeyHints.tsx"
+import { Hint } from "../../chrome/Hint.tsx"
 import { sameValue, stepCount, stepSpacing } from "./css-values.ts"
 import {
   asToken,
@@ -269,7 +271,16 @@ export function SideField({
   return (
     <ValueField
       label={label}
-      inner={inner}
+      inner={
+        // One side of four: its glyph's hint says which keys spread a drag or Up and Down to the others.
+        spreads && inner !== undefined && !bare ? (
+          <Hint label="Drag to change" detail={<SpreadKeys />} wait>
+            <span className="flex">{inner}</span>
+          </Hint>
+        ) : (
+          inner
+        )
+      }
       scrub={
         bare
           ? undefined
