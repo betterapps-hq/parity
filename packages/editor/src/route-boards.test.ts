@@ -159,6 +159,22 @@ describe("placePages", () => {
     ])
   })
 
+  it("moves the pages beside a wider page aside, and the level under a taller page down (PAR-1317)", () => {
+    // Pricing shows three more modes beside its main frame, so its board is 3200 wide and 1000 tall.
+    const size = (route: ProjectRoute) =>
+      route.id === "/pricing" ? { width: 3200, height: 1000 } : { width: layout.width, height: layout.height }
+
+    const placed = placePages(pageTree(example.slice(0, 7)), { ...layout, size })
+
+    expect(placed.map(({ route, x, y }) => [route.id, x, y])).toEqual([
+      ["/", 2200, 0],
+      ["/pricing", 0, 1100],
+      ["/settings/", 3850, 1100],
+      ["/settings/billing", 3300, 2400],
+      ["/settings/profile", 4400, 2400]
+    ])
+  })
+
   it("gives each page its URL with a sample for each param", () => {
     const urls = placePages(pageTree(example), layout).map((page) => page.url)
 

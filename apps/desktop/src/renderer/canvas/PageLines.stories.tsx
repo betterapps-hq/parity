@@ -1,5 +1,6 @@
 import type { ProjectRoute, RouteSegment } from "@parity-app/core"
 import { refsSelection, routeScreenId } from "@parity-app/editor"
+import { updateView } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Box } from "tldraw"
 import { AppWindow } from "../App.tsx"
@@ -68,9 +69,15 @@ const pages = ["/", "/pricing", "/settings/billing", "/settings/profile", "/proj
 
 /**
  * The example with its routes, framed on its page tree at `zoom`, or fitted, with the page `selected` selected, or the
- * layout group `group`. The pages are real boards, so they can be clicked and hovered to bring their lines forward.
+ * layout group `group`, and the page `wide` showing more modes. The pages are real boards, so they can be clicked and
+ * hovered to bring their lines forward.
  */
-function pageTree({ zoom, selected, group }: { zoom?: number; selected?: string; group?: string } = {}): Story {
+function pageTree({
+  zoom,
+  selected,
+  group,
+  wide
+}: { zoom?: number; selected?: string; group?: string; wide?: string } = {}): Story {
   return {
     loaders: [
       async () => {
@@ -86,8 +93,19 @@ function pageTree({ zoom, selected, group }: { zoom?: number; selected?: string;
         await new Promise((resolve) => setTimeout(resolve, 100))
       }
 
+      // Its modes are turned on as its Modes menu turns them on, and the pages lay out again to make room.
+      if (wide) {
+        updateView(session.doc, page(wide), "Show modes", (view) => ({
+          ...view,
+          modes: ["desktop-dark", "tablet-light", "mobile-light"]
+        }))
+        await new Promise((resolve) => setTimeout(resolve, 500))
+      }
+
       const editor = session.editor
-      const bounds = pages.flatMap((id) => editor?.getShapePageBounds(canvasIdFor(page(id))) ?? [])
+      // A page showing more modes is framed with the page beside it, so its frames and the room made read.
+      const framed = wide ? [wide, "/projects/"] : pages
+      const bounds = framed.flatMap((id) => editor?.getShapePageBounds(canvasIdFor(page(id))) ?? [])
 
       if (!editor || bounds.length === 0) {
         return
@@ -121,3 +139,9 @@ export const DeepPageSelected: Story = pageTree({ selected: "/settings/billing" 
 
 /** Zoomed out to 5% with Settings' group selected: the lines still flow, faint or brought forward. */
 export const ZoomedOut: Story = pageTree({ zoom: 0.05, group: "/settings" })
+
+/**
+ * Pricing showing Desktop Dark, Tablet Light and Mobile Light beside Desktop Light (PAR-1317), framed with Projects:
+ * its frames side by side on its board, and Projects, Project detail and Settings' group moved aside to make room.
+ */
+export const MoreModes: Story = pageTree({ wide: "/pricing" })

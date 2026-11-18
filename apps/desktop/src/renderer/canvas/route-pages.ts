@@ -1,14 +1,28 @@
 import {
   addDesigns,
+  boardSize,
   type CanvasDocument,
   type ContainerSpec,
+  type ContainerViewSettings,
   type DesignNode,
+  type ModeSettings,
   type NodeRef,
+  type ProjectRoute,
   type RouteSegment,
-  routeParams as paramsOf
+  routeParams as paramsOf,
+  shownModes
 } from "@parity-app/core"
-import { routeTree, samplePath, type Selection, withCopyLayers } from "@parity-app/editor"
-import { type ContainerEntry, containerEntry, type ProjectDoc } from "@parity-app/multiplayer"
+import {
+  moveDesign,
+  type PageLayout,
+  type PageSize,
+  routeScreenId,
+  routeTree,
+  samplePath,
+  type Selection,
+  withCopyLayers
+} from "@parity-app/editor"
+import { type ContainerEntry, containerEntry, type ProjectDoc, updateContainers } from "@parity-app/multiplayer"
 import type { ProjectInfo } from "@parity-app/project"
 import { type Store, windowStore } from "../store.ts"
 import { componentBoardsTop } from "./component-boards.ts"
@@ -165,16 +179,23 @@ export function shownEntry(doc: ProjectDoc, key: string): ContainerEntry | undef
   return entry && withCopyEntries([entry], copiesOf(copyLayers.get(), doc))[0]
 }
 
+/** What a page's design shows, by its id among the pages, as its view says: its modes, their order and scales. */
+export type PageViews = (design: string) => ContainerViewSettings | undefined
+
 /**
  * The app's pages as a design file, above the project's components and designs, or none without routes. Remembers each
  * page's URL for its frames to draw, the lines between pages, and the groups of layouts without pages. A page or group
- * inside a group has no line to it: the group holds it.
+ * inside a group has no line to it: the group holds it. Each page takes the room its board does with the modes its view
+ * shows (`views`), so a page showing more modes side by side moves the pages beside it and under it aside (PAR-1317).
  */
-export function routePages(info: Pick<ProjectInfo, "id" | "routes" | "guestUrl" | "documents" | "modes" | "sources">): {
+export function routePages(
+  info: Pick<ProjectInfo, "id" | "routes" | "guestUrl" | "documents" | "modes" | "sources">,
+  views: PageViews = () => undefined
+): {
   path: string
   document: CanvasDocument
 }[] {
-  const { screens, groups } = routeTree(info.routes, {
+  const layout: Omit<PageLayout, "y"> & { bottom: number } = {
     origin: new URL(info.guestUrl).origin,
     x: 0,
     bottom: componentBoardsTop(info) - 600,
@@ -182,6 +203,15 @@ export function routePages(info: Pick<ProjectInfo, "id" | "routes" | "guestUrl" 
     height: 800,
     gap: 160,
     levelGap: 1100
+  }
+
+  // The screens as they're drawn, which each page's board is measured from with its view.
+  const drawn = new Map(routeTree(info.routes, layout).screens.map(({ screen }) => [screen.id, screen]))
+  const settings = info.modes.settings
+
+  const { screens, groups } = routeTree(info.routes, {
+    ...layout,
+    size: (route) => pageRoom(drawn.get(routeScreenId(route)), views(routeScreenId(route)), settings, layout)
   })
 
   pagePlaces.set(
@@ -351,6 +381,107 @@ export function routeListing(project: string): RouteListing[] {
   }
 
   return listed
+}
+
+/**
+ * How much room a page's board takes on the canvas: its size showing one mode, `layout`'s, and as much more as its board
+ * grows with what its view shows beside that, as more modes side by side or a main frame at another width.
+ */
+function pageRoom(
+  screen: ContainerSpec | undefined,
+  view: ContainerViewSettings | undefined,
+  settings: ModeSettings,
+  layout: Pick<PageLayout, "width" | "height">
+): PageSize {
+  if (!screen || !view) {
+    return { width: layout.width, height: layout.height }
+  }
+
+  const viewed = { ...screen, view }
+  const { main, beside } = shownModes(settings, viewed)
+  const one = boardSize(screen, [shownModes(settings, screen).main])
+  const shown = boardSize(viewed, [main, ...beside])
+
+  return {
+    width: Math.max(layout.width, layout.width + shown.width - one.width),
+    height: Math.max(layout.height, layout.height + shown.height - one.height)
+  }
+}
+
+/** Where each page's design is laid out with these views (see `routePages`), by its id. */
+function routePagePositions(
+  info: Pick<ProjectInfo, "id" | "routes" | "guestUrl" | "documents" | "modes" | "sources">,
+  views: PageViews
+): Map<string, { x: number; y: number }> {
+  const [pages] = routePages(info, views)
+
+  return new Map((pages?.document.containers ?? []).map(({ id, position }) => [id, position]))
+}
+
+/** What each page's design in the document shows now, by its id. */
+export function pageViews(doc: ProjectDoc): PageViews {
+  const views = new Map(doc.file(routePagesFile)?.containers.map(({ id, view }) => [id, view]))
+
+  return (design) => views.get(design)
+}
+
+/**
+ * Lays the app's pages out again when what one shows changes (PAR-1317), as when more of its modes are turned on, so it
+ * takes the room its board does and the pages beside it and under it move aside, as `routePages` lays them out. Only a
+ * page the new layout puts somewhere else moves, so one the person moved stays where they put it unless it has to make
+ * room. The move is drawn from code, so it's neither a step to undo nor saved, as the pages' places never are.
+ * `routes` gives the routes drawn as pages now. Gives back what stops it.
+ */
+export function followPageViews(
+  doc: ProjectDoc,
+  info: Pick<ProjectInfo, "id" | "guestUrl" | "documents" | "modes" | "sources">,
+  routes: () => readonly ProjectRoute[]
+): () => void {
+  const shown = () =>
+    JSON.stringify(doc.file(routePagesFile)?.containers.map(({ id, view }) => [id, view ?? null]) ?? [])
+
+  const laidOutNow = () => routePagePositions({ ...info, routes: [...routes()] }, pageViews(doc))
+  let file = doc.file(routePagesFile)
+  let seen = shown()
+  let laidOut = laidOutNow()
+
+  return doc.subscribe(() => {
+    // Most changes are to other files, which leave the pages' file as it was.
+    if (doc.file(routePagesFile) === file) {
+      return
+    }
+
+    file = doc.file(routePagesFile)
+    const now = shown()
+
+    if (now === seen) {
+      return
+    }
+
+    seen = now
+    const next = laidOutNow()
+    const was = laidOut
+    laidOut = next
+
+    const moved = [...next].flatMap(([id, at]) => {
+      const before = was.get(id)
+      const key = designKey(id)
+
+      const stays = before?.x === at.x && before.y === at.y
+
+      return stays || !doc.design(key) ? [] : [key]
+    })
+
+    if (moved.length > 0) {
+      updateContainers(
+        doc,
+        moved,
+        "Lay out the pages again",
+        (containers) => containers.map((container) => moveDesign(container, next.get(container.id)!)),
+        { origin: "code" }
+      )
+    }
+  })
 }
 
 /** A page screen's key among the project's designs: its file and its id. */

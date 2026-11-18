@@ -40,7 +40,7 @@ import type { ProjectEditResult, ProjectInfo, ServiceMethods, TabSummary } from 
 import { keepCodeDesigns, openCodeDesigns, withCodeDesigns } from "./canvas/code-designs.ts"
 import { componentBoardsDocument, componentBoardsFile } from "./canvas/component-boards.ts"
 import { type FirstFrameWatch, watchFirstFrame } from "./canvas/first-frame.ts"
-import { routePages, routePagesFile, routeParams } from "./canvas/route-pages.ts"
+import { followPageViews, pageViews, routePages, routePagesFile, routeParams } from "./canvas/route-pages.ts"
 import { storyScreensDocument, storyScreensFile } from "./canvas/story-screens.ts"
 import type { Attributes } from "./chrome/event-attributes.ts"
 import { getPreferences } from "./chrome/preferences.ts"
@@ -1272,9 +1272,17 @@ async function createSession(
   const drawn = drawImported(info, loaded)
 
   const modes = info.modes.settings
-  const marks = info.documents.find(({ path }) => path === info.mainDocument)?.document.routeKinds
+  const mainFile = info.documents.find(({ path }) => path === info.mainDocument)?.document
+  const marks = mainFile?.routeKinds
   const routes = markedRoutes(info.routes, marks)
-  const fromCode = [...routePages({ ...info, routes }), ...componentBoardsDocument(info), ...storyScreensDocument(info)]
+  // Each page takes the room of the modes it was left showing (PAR-1317).
+  const keptViews = (design: string) => mainFile?.codeDesigns?.[`${routePagesFile}#${design}`]?.view
+
+  const fromCode = [
+    ...routePages({ ...info, routes }, keptViews),
+    ...componentBoardsDocument(info),
+    ...storyScreensDocument(info)
+  ]
 
   // What's stale goes as the project opens: views naming modes, states or params that are gone, and what was kept for
   // designs drawn from code that no longer are. The file loses it at its next save.
@@ -1366,6 +1374,9 @@ async function createSession(
   sayWhenSavesFail(session)
   followCorrections(session)
   followRouteMarks(session, marks, learnDrawn)
+  session.untilClosed(
+    followPageViews(designs.doc, info, () => markedRoutes(info.routes, designs.doc.file(designs.doc.main)?.routeKinds))
+  )
   const now = performance.now()
 
   const recordLoaded = () =>
@@ -1513,7 +1524,7 @@ function followRouteMarks(
     drawn = marks
 
     const pages = withCodeDesigns(
-      routePages({ ...info, routes: markedRoutes(info.routes, marks) }),
+      routePages({ ...info, routes: markedRoutes(info.routes, marks) }, pageViews(doc)),
       doc.file(doc.main)?.codeDesigns
     )
 
