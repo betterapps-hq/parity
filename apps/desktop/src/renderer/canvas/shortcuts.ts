@@ -2,7 +2,7 @@ import { useEffect } from "react"
 import { actions, commandsFor } from "../chrome/actions.ts"
 import { type Command, keymap, shortcutFor } from "../chrome/keymap.ts"
 import { runExtensionKey } from "../extension-editor.ts"
-import { onEachWindow } from "../lens-windows.ts"
+import { isElement, onEachWindow } from "../lens-windows.ts"
 import type { SelectionStore } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { escapeOnCanvas } from "./surface/index.ts"
@@ -192,9 +192,4 @@ export function useShortcuts(selection: SelectionStore | undefined, active: bool
       }
     })
   }, [selection, active, session])
-}
-
-/** Whether an event's target is an element, in this window's document or a lens window's. */
-function isElement(target: EventTarget): target is Element {
-  return "hasAttribute" in target && "closest" in target
 }

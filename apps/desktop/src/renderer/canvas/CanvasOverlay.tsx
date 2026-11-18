@@ -34,7 +34,7 @@ import { gestures as held } from "../chrome/keymap.ts"
 import { holds } from "../chrome/keys.ts"
 import { Name } from "../chrome/Name.tsx"
 import { allFrames, findFrames, findNodeElement, nodeBox } from "../frame.ts"
-import { onEachWindow } from "../lens-windows.ts"
+import { isElement, onEachWindow } from "../lens-windows.ts"
 import { type DocSession, projectLibrary } from "../project-doc.ts"
 import { getEffectivePreferences } from "../project-settings.ts"
 import { type SelectionStore, useEditing } from "../selection.ts"
@@ -112,7 +112,7 @@ export function CanvasOverlay() {
     const { doc, selection } = session
 
     const interactive = (target: EventTarget | null) =>
-      target instanceof Element &&
+      isElement(target) &&
       !!target.closest(
         "button, input, textarea, [role=menuitem], [role=option], [data-canvas-control], .design-title, .state-label, .text-editor, .resize-handle, .spacing-handle"
       )

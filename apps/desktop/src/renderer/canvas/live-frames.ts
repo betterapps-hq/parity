@@ -32,7 +32,7 @@ import { useEffect, useRef } from "react"
 import type { Editor } from "tldraw"
 import { z } from "zod"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
-import { onEachWindow, openLensWindows, postAs } from "../lens-windows.ts"
+import { isNode, onEachWindow, openLensWindows, postAs } from "../lens-windows.ts"
 import { track } from "../report-error.ts"
 import { resetWithWindow, useStore, windowStore } from "../store.ts"
 import { holdFreezer } from "./freezer.ts"
@@ -605,7 +605,7 @@ export class Pool {
     // A press anywhere but the board on its way to going live moves on from it: it's closed once ready, never engaged.
     const pending = this.going && this.boards.get(this.going.board)?.().element()
 
-    if (this.going && !(event.target instanceof Node && pending?.contains(event.target))) {
+    if (this.going && !(isNode(event.target) && pending?.contains(event.target))) {
       this.going = undefined
     }
   }

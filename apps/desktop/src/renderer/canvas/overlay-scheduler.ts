@@ -4,7 +4,7 @@ import { react, type TLRecord } from "tldraw"
 import { subscribePreferences } from "../chrome/preferences.ts"
 import { frameAnimates, watchFrame } from "../frame-host.ts"
 import { allFrames, subscribeFrames } from "../frame.ts"
-import { onEachWindow } from "../lens-windows.ts"
+import { isHTMLElement, onEachWindow } from "../lens-windows.ts"
 import type { ProjectSession } from "../workspace.ts"
 
 /**
@@ -119,7 +119,7 @@ class OverlayScheduler {
     // The canvas area resizing or showing again, and frames drawn over changing size.
     const resizes = new ResizeObserver((entries) => {
       const moved = ({ target }: ResizeObserverEntry) =>
-        target === area || (target instanceof HTMLElement && this.drawsOver(target))
+        target === area || (isHTMLElement(target) && this.drawsOver(target))
 
       if (entries.some(moved)) {
         this.wake()

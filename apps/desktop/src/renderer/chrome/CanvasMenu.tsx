@@ -22,6 +22,7 @@ import { DesignIcon, designColor, kindColors, NodeIcon, nodeColor } from "../can
 import { pickLayer } from "../canvas/pick.ts"
 import { useExtensions } from "../extensions.ts"
 import { allFrames } from "../frame.ts"
+import { isElement, isNode } from "../lens-windows.ts"
 import { useContainerEntries, useNotes } from "../project-doc.ts"
 import { useInteracting, useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -204,8 +205,10 @@ function elementSourceAt(area: Element, point: Point): ElementSource | undefined
  * pointer. Undefined when the press wasn't on something hit testing finds there.
  */
 function underBackdrop(event: MouseEvent): Element | undefined {
-  const stack = document.elementsFromPoint(event.clientX, event.clientY)
-  const at = event.target instanceof Element ? stack.indexOf(event.target) : -1
+  // In the document the menu opened in, the main window's or a lens window's.
+  const page = isNode(event.target) ? (event.target.ownerDocument ?? document) : document
+  const stack = page.elementsFromPoint(event.clientX, event.clientY)
+  const at = isElement(event.target) ? stack.indexOf(event.target) : -1
 
   return at === -1 ? undefined : stack[at + 1]
 }
@@ -342,7 +345,7 @@ function run(session: ProjectSession, action: MenuAction, point: Point): void {
  */
 function onCanvas(target: EventTarget): boolean {
   return (
-    target instanceof Element &&
+    isElement(target) &&
     !!target.closest(".tl-container, .resize-handle") &&
     !target.closest(
       "button, input, textarea, select, a[href], [role=menuitem], [role=option], .design-title, .state-label, .text-editor"

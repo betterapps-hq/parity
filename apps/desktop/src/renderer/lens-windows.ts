@@ -136,3 +136,21 @@ export function postAs(
     target.postMessage(message, origin, transfer)
   }
 }
+
+/**
+ * Whether an event's target is an element, in the main window's document or a lens window's. An element made in a lens
+ * window isn't an `instanceof` the main window's `Element`, so it's told by what it has.
+ */
+export function isElement(target: EventTarget | null): target is Element {
+  return target !== null && "hasAttribute" in target && "closest" in target
+}
+
+/** Whether an event's target is an HTML element, in any of the app's windows. */
+export function isHTMLElement(target: EventTarget | null): target is HTMLElement {
+  return isElement(target) && "dataset" in target && "style" in target
+}
+
+/** Whether an event's target is a node, in any of the app's windows. */
+export function isNode(target: EventTarget | null): target is Node {
+  return target !== null && "nodeType" in target && "parentNode" in target
+}

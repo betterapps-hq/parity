@@ -1,5 +1,6 @@
 import { type Box, countMedia, dropHint, mayBeMedia, readInsertItem } from "@parity-app/editor"
 import { useEffect, useRef, useState } from "react"
+import { isElement } from "../lens-windows.ts"
 import { notify } from "../toasts.tsx"
 import { useProject } from "./context.ts"
 import { carriesFiles, draggedTypes, dropFiles, type FileDrop, fileDropAt, overFileField } from "./drop-files.ts"
@@ -73,7 +74,7 @@ export function CanvasDrop() {
     // In Interact a design takes what's dropped on it, as a file field in it would.
     const toDesign = (event: DragEvent) =>
       session.selection.getTool() === "interact" &&
-      event.composedPath().some((target) => target instanceof HTMLElement && target.hasAttribute("data-frame"))
+      event.composedPath().some((target) => isElement(target) && target.hasAttribute("data-frame"))
 
     const fileIndicator = (drop: FileDrop, types: string[], point: Point): Indicator => {
       const count = countMedia(types.map(mayBeMedia))

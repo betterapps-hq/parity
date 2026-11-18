@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { addLensWindow, focusedClipboard, onEachWindow, windowOf } from "./lens-windows.ts"
+import { addLensWindow, focusedClipboard, isElement, isNode, onEachWindow, windowOf } from "./lens-windows.ts"
 
 /** A window as far as listeners go: something to listen on, which says when its page goes. */
 function fakeWindow(): Window {
@@ -71,5 +71,20 @@ describe("the windows the app draws in", () => {
 
     focused()
     unfocused()
+  })
+
+  it("tells an element or node from any window by what it has, not by this window's constructors", () => {
+    // An element as a lens window makes it: one that isn't an instance of this window's `Element`.
+    const element = Object.assign(new EventTarget(), {
+      nodeType: 1,
+      parentNode: null,
+      hasAttribute: () => false,
+      closest: () => null
+    })
+
+    expect(isElement(element)).toBe(true)
+    expect(isNode(element)).toBe(true)
+    expect(isElement(new EventTarget())).toBe(false)
+    expect(isNode(null)).toBe(false)
   })
 })
