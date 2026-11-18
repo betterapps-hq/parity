@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Zooming a canvas of many boards is smoother: boards out of view catch up on their labels and gutters instead of restyling on every frame",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

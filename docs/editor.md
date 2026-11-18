@@ -8108,6 +8108,11 @@ stay beside what they label instead of growing over the boards around it.
   "Badge / Default" over a 96-pixel badge read "Badge / …" even at 100%.
 - **A name that runs past its board shows while it has the room it runs into,** not only while the board under it is 24
   screen pixels wide, so a narrow story keeps its name zoomed out where there's free canvas beside it.
+- **Boards out of view catch up rather than follow every frame of a zoom (PAR-1314).** Their labels and gutters keep the
+  last zoom they were styled for until the board comes near the view (the margin `data-away` uses) or the zoom settles.
+  Restyling every board's labels and gutters on each frame took zooming a page of 164 route boards to 21–28 fps, with
+  only 3 in view. Boards in view still follow the zoom live (`useZoomStyle` in `canvas/zoom-style.ts`, given each
+  board's nearness by `BoardNearContext` from `ContainerUtil.tsx`).
 
 Code: `labelLook` in `packages/editor/src/canvas-labels.ts`, the rule for every label; `useCanvasLabel` in
 `apps/desktop/src/renderer/canvas/labels.ts`, which applies it to a label's style as the zoom changes; `TitleBar`,
