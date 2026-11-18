@@ -1,4 +1,4 @@
-import type { IncomingMessage, OutgoingHttpHeaders, ServerResponse } from "node:http"
+import type { IncomingMessage, OutgoingHttpHeader, OutgoingHttpHeaders, ServerResponse } from "node:http"
 import { createRequire } from "node:module"
 import { dirname } from "node:path"
 import type { PageModules, PageWrapFile } from "@parity-app/core"
@@ -96,9 +96,88 @@ function written(args: readonly unknown[]): Written {
   return { chunk: Buffer.from(first as string, encoding), callback }
 }
 
-/** The headers passed to `writeHead(status, message?, headers?)`, when they're an object. */
-function givenHeaders(args: readonly unknown[]): OutgoingHttpHeaders | undefined {
-  return args.find((arg): arg is OutgoingHttpHeaders => arg instanceof Object && !Array.isArray(arg))
+/** The headers passed to `writeHead`, read and changed in whichever form Node took them. */
+interface GivenHeaders {
+  /** A header's value, by its name in lower case, joined as one string. */
+  get(name: string): string | undefined
+  /** Takes a header out, by its name in lower case. */
+  drop(name: string): void
+}
+
+/** Whether a `writeHead` argument is its headers as an object, a plain one or one with no prototype. */
+function isHeaderRecord(value: unknown): value is OutgoingHttpHeaders {
+  if (value === null || value === undefined || Array.isArray(value) || value instanceof Function) {
+    return false
+  }
+
+  return value instanceof Object || Object.getPrototypeOf(value) === null
+}
+
+/** Headers given as an object. */
+function headerRecord(record: OutgoingHttpHeaders): GivenHeaders {
+  const key = (name: string) => Object.keys(record).find((each) => each.toLowerCase() === name)
+
+  return {
+    get(name) {
+      const found = key(name)
+
+      return found === undefined ? undefined : [record[found] ?? ""].flat().join(", ")
+    },
+    drop(name) {
+      const found = key(name)
+
+      if (found !== undefined) {
+        delete record[found]
+      }
+    }
+  }
+}
+
+/** Headers given as an array: names and values in turn, or a pair for each header, as Node takes them both. */
+function headerList(list: OutgoingHttpHeader[]): GivenHeaders {
+  const paired = list.every((item) => Array.isArray(item))
+  const step = paired ? 1 : 2
+  const text = (value: OutgoingHttpHeader | undefined) => [value ?? ""].flat().join(", ")
+  const nameAt = (index: number) => text(paired ? [list[index] ?? ""].flat()[0] : list[index])
+  const valueAt = (index: number) => text(paired ? [list[index] ?? ""].flat()[1] : list[index + 1])
+
+  const indexOf = (name: string) => {
+    for (let index = 0; index < list.length; index += step) {
+      if (nameAt(index).toLowerCase() === name) {
+        return index
+      }
+    }
+
+    return undefined
+  }
+
+  return {
+    get(name) {
+      const index = indexOf(name)
+
+      return index === undefined ? undefined : valueAt(index)
+    },
+    drop(name) {
+      for (let index = indexOf(name); index !== undefined; index = indexOf(name)) {
+        list.splice(index, step)
+      }
+    }
+  }
+}
+
+/** The headers passed to `writeHead(status, message?, headers?)`, in any of the forms Node takes. */
+function givenHeaders(args: readonly unknown[]): GivenHeaders | undefined {
+  for (const arg of args.slice(1)) {
+    if (Array.isArray(arg)) {
+      return headerList(arg)
+    }
+
+    if (isHeaderRecord(arg)) {
+      return headerRecord(arg)
+    }
+  }
+
+  return undefined
 }
 
 /**
@@ -122,16 +201,12 @@ export function serverPageEntry(req: IncomingMessage, res: ServerResponse, next:
   let held: Buffer[] = []
 
   /** Whether the response, with `given` the headers passed to `writeHead`, is HTML this can change. */
-  const decide = (given?: OutgoingHttpHeaders) => {
+  const decide = (given?: GivenHeaders) => {
     if (state !== "unknown") {
       return
     }
 
-    const header = (name: string) => {
-      const found = Object.entries(given ?? {}).find(([key]) => key.toLowerCase() === name)
-
-      return String(found?.[1] ?? res.getHeader(name) ?? "")
-    }
+    const header = (name: string) => given?.get(name) ?? [res.getHeader(name) ?? ""].flat().join(", ")
 
     const encoding = header("content-encoding")
     const html = /text\/html/i.test(header("content-type")) && (encoding === "" || encoding === "identity")
@@ -140,11 +215,7 @@ export function serverPageEntry(req: IncomingMessage, res: ServerResponse, next:
 
     if (html) {
       // The script makes the page longer than it said.
-      for (const key of Object.keys(given ?? {})) {
-        if (key.toLowerCase() === "content-length") {
-          delete given?.[key]
-        }
-      }
+      given?.drop("content-length")
 
       if (!res.headersSent) {
         res.removeHeader("content-length")

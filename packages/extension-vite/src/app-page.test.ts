@@ -164,6 +164,32 @@ describe("serverPageEntry", () => {
     expect(text).toBe(`<html><head>${entry}</head><body>Login</body></html>`)
   })
 
+  it("reads headers given to writeHead with no prototype, or as an array, as Node takes them", async () => {
+    const page = "<html><head></head><body>Signup</body></html>"
+    const expected = `<html><head>${entry}</head><body>Signup</body></html>`
+
+    const bare = await served((res) => {
+      const headers = Object.assign(Object.create(null), { "Content-Type": "text/html", "Content-Length": page.length })
+      res.writeHead(200, headers)
+      res.end(page)
+    })
+
+    const flat = await served((res) => {
+      res.writeHead(200, ["Content-Type", "text/html", "Content-Length", String(page.length)])
+      res.end(page)
+    })
+
+    const pairs = await served((res) => {
+      res.writeHead(200, [
+        ["content-type", "text/html"],
+        ["content-length", String(page.length)]
+      ])
+      res.end(page)
+    })
+
+    expect([bare, flat, pairs]).toEqual([expected, expected, expected])
+  })
+
   it("leaves what isn't HTML and a page with the entry already as they are", async () => {
     const json = await served((res) => {
       res.setHeader("content-type", "application/json")
