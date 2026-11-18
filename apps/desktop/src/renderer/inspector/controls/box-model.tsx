@@ -298,19 +298,25 @@ export function BoxModel({
     border: { sides: border ?? noSides, mixed: borderMixed, onChange: onBorder ?? noChange }
   }
 
-  const side = (box: "padding" | "margin" | "border", index: number) => (
-    <BoxSide
-      box={box}
-      index={index}
-      sides={boxes[box].sides}
-      rules={rules[box] ?? sideRules.border}
-      mixed={boxes[box].mixed[index] ?? false}
-      measured={box === "margin" ? measuredMargin?.[index] : undefined}
-      onChange={boxes[box].onChange}
-      onEach={onEach && box !== "border" ? (update, reached) => onEach(box, reached, update) : undefined}
-      onHover={onHover}
-    />
-  )
+  const side = (box: "padding" | "margin" | "border", index: number) => {
+    const value = (
+      <BoxSide
+        box={box}
+        index={index}
+        sides={boxes[box].sides}
+        rules={rules[box] ?? sideRules.border}
+        mixed={boxes[box].mixed[index] ?? false}
+        measured={box === "margin" ? measuredMargin?.[index] : undefined}
+        onChange={boxes[box].onChange}
+        onEach={onEach && box !== "border" ? (update, reached) => onEach(box, reached, update) : undefined}
+        onHover={onHover}
+      />
+    )
+
+    // The border's ring is the panel's own color, so a fill of that color wouldn't show: its values rest on the
+    // panel's raised color instead.
+    return box === "border" ? <ValueFill value="bg-muted">{value}</ValueFill> : value
+  }
 
   const name = (text: string) => (
     <span className="absolute top-1 left-1.5 text-2xs text-muted-foreground select-none">{text}</span>
@@ -342,7 +348,7 @@ export function BoxModel({
     ) : (
       <div
         className="relative flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-md border bg-background p-1"
-        style={{ borderColor: "color-mix(in oklch, var(--foreground) 35%, transparent)" }}
+        style={{ borderColor: "color-mix(in oklch, var(--foreground) 18%, transparent)" }}
       >
         {name("Border")}
         {side("border", 0)}
