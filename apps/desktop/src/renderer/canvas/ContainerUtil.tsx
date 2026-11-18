@@ -33,6 +33,7 @@ import { type Started, telling } from "./presence-gestures.ts"
 import { clearSnaps, snapPosition } from "./snap.ts"
 import { useTitleLayer } from "./title-layer.tsx"
 import { type CanvasRecord, CanvasUtil } from "./tldraw-names.ts"
+import { BoardNearContext } from "./zoom-style.ts"
 
 declare module "tldraw" {
   // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- tldraw names the map this augments.
@@ -456,13 +457,15 @@ function ContainerContent({ container }: { container: ContainerRecord }) {
   }
 
   return (
-    <ContainerView
-      ref={ref}
-      entry={entry}
-      hovered={hovered}
-      onTitlePointerDown={dragByTitle}
-      title={titleLayer && { layer: titleLayer, x, y, width: container.props.w, height: container.props.h, others }}
-      rest={rest}
-    />
+    <BoardNearContext value={rest.near}>
+      <ContainerView
+        ref={ref}
+        entry={entry}
+        hovered={hovered}
+        onTitlePointerDown={dragByTitle}
+        title={titleLayer && { layer: titleLayer, x, y, width: container.props.w, height: container.props.h, others }}
+        rest={rest}
+      />
+    </BoardNearContext>
   )
 }
