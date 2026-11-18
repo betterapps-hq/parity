@@ -208,8 +208,106 @@ const toVerify = new Set([
   "Gem"
 ])
 
+/**
+ * Icons whose recommended Fluent icon neither looks like the Lucide one nor stands for the same thing, by Lucide name.
+ * A different drawing of the same idea, such as Lucide's wheelchair and Fluent's accessibility figure, still counts as
+ * a match.
+ */
+const lessConfident = new Set([
+  "ArrowUpToLine",
+  "Bird",
+  "ClipboardPlus",
+  "Component",
+  "Contrast",
+  "CornerDownLeft",
+  "Crosshair",
+  "DiamondPlus",
+  "FileJson",
+  "Gem",
+  "GitMerge",
+  "Grid3x3",
+  "Hammer",
+  "HandGrab",
+  "ImagePlay",
+  "Magnet",
+  "MonitorPlay",
+  "OctagonAlert",
+  "PenTool",
+  "Route",
+  "SearchCheck",
+  "Skull",
+  "Squircle",
+  "Swords",
+  "Telescope",
+  "TextCursor"
+])
+
 /** Each icon with the number it's referred to by, which stays the same whatever's filtered. */
 const numbered = auditedIcons.map((icon, index) => ({ icon, number: index + 1 }))
+
+interface AuditTableProps {
+  title: string
+  rows: typeof numbered
+  size: Size
+  filled: boolean
+}
+
+/** A titled table of icons, each with its usage, recommended Fluent icon and alternatives. */
+function AuditTable({ title, rows, size, filled }: AuditTableProps) {
+  if (rows.length === 0) {
+    return null
+  }
+
+  return (
+    <section>
+      <h2 className="px-4 pt-6 pb-2 text-sm font-semibold">
+        {title} <span className="font-normal text-muted-foreground tabular-nums">{rows.length}</span>
+      </h2>
+      <table className="w-full border-collapse text-left">
+        <thead className="sticky top-[57px] z-10 bg-background text-xs text-muted-foreground">
+          <tr className="border-b">
+            <th className="w-16 px-4 py-2 font-medium">#</th>
+            <th className="w-48 px-2 py-2 font-medium">Lucide</th>
+            <th className="px-2 py-2 font-medium">Used for</th>
+            <th className="w-64 px-2 py-2 font-medium">Recommended Fluent</th>
+            <th className="w-[38rem] px-2 py-2 pr-4 font-medium">Alternatives</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ icon, number }) => (
+            <tr key={icon.lucide} className="border-b align-top">
+              <td className="px-4 py-3">
+                <span className="flex flex-col items-start gap-1">
+                  <span className="font-mono text-sm text-muted-foreground tabular-nums">{number}</span>
+                  {toVerify.has(icon.lucide) && (
+                    <span className="rounded bg-amber-500/15 px-1 py-px text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                      Verify
+                    </span>
+                  )}
+                </span>
+              </td>
+              <td className="px-2 py-3">
+                <span className="flex items-center gap-2">
+                  <LucideIcon name={icon.lucideKey} />
+                  <span className="font-mono text-xs">{icon.lucide}</span>
+                </span>
+              </td>
+              <td className="max-w-0 px-2 py-3">
+                <Usage icon={icon} />
+              </td>
+              <td className="px-2 py-3">
+                <Recommended choice={icon.fluent} filled={filled} />
+              </td>
+              <td className="px-2 py-3 pr-4">
+                <Alternatives choices={icon.alternatives} size={size} filled={filled} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  )
+}
 
 function IconAudit({ size, filled, appOnly, toVerifyOnly }: IconAuditProps) {
   const [query, setQuery] = useState("")
@@ -257,56 +355,26 @@ function IconAudit({ size, filled, appOnly, toVerifyOnly }: IconAuditProps) {
           Fluent has no drawing at that size, so a nearby one is scaled.
         </span>
       </header>
-      <table className="w-full border-collapse text-left">
-        <thead className="sticky top-[57px] z-10 bg-background text-xs text-muted-foreground">
-          <tr className="border-b">
-            <th className="w-16 px-4 py-2 font-medium">#</th>
-            <th className="w-48 px-2 py-2 font-medium">Lucide</th>
-            <th className="px-2 py-2 font-medium">Used for</th>
-            <th className="w-64 px-2 py-2 font-medium">Recommended Fluent</th>
-            <th className="w-[38rem] px-2 py-2 pr-4 font-medium">Alternatives</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ icon, number }) => (
-            <tr key={icon.lucide} className="border-b align-top">
-              <td className="px-4 py-3">
-                <span className="flex flex-col items-start gap-1">
-                  <span className="font-mono text-sm text-muted-foreground tabular-nums">{number}</span>
-                  {toVerify.has(icon.lucide) && (
-                    <span className="rounded bg-amber-500/15 px-1 py-px text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                      Verify
-                    </span>
-                  )}
-                </span>
-              </td>
-              <td className="px-2 py-3">
-                <span className="flex items-center gap-2">
-                  <LucideIcon name={icon.lucideKey} />
-                  <span className="font-mono text-xs">{icon.lucide}</span>
-                </span>
-              </td>
-              <td className="max-w-0 px-2 py-3">
-                <Usage icon={icon} />
-              </td>
-              <td className="px-2 py-3">
-                <Recommended choice={icon.fluent} filled={filled} />
-              </td>
-              <td className="px-2 py-3 pr-4">
-                <Alternatives choices={icon.alternatives} size={size} filled={filled} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <AuditTable
+        title="Confident"
+        rows={rows.filter(({ icon }) => !lessConfident.has(icon.lucide))}
+        size={size}
+        filled={filled}
+      />
+      <AuditTable
+        title="Less confident"
+        rows={rows.filter(({ icon }) => lessConfident.has(icon.lucide))}
+        size={size}
+        filled={filled}
+      />
     </div>
   )
 }
 
 /**
  * Every Lucide icon the app imports, numbered, with where each is used, a recommended Fluent icon and four
- * alternatives, for moving the app to Fluent icons. The shadcn kit's own icons are left out, since shadcn-sync swaps
- * them. Fluent draws each icon separately at 16, 20 and 24 pixels (and more), with a filled version of each for hover
+ * alternatives, for moving the app to Fluent icons. Icons whose recommendation matches the Lucide icon's look or meaning
+ * come first, the rest after. The shadcn kit's own icons are left out, since shadcn-sync swaps them. Fluent draws each icon separately at 16, 20 and 24 pixels (and more), with a filled version of each for hover
  * and selected states, and colored versions of some. The usage is as of 2026-11-18; see `audited-icons.ts`.
  */
 const meta = {
