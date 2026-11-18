@@ -83,17 +83,17 @@ function written(args: readonly unknown[]): Written {
   const callback = args.find((arg): arg is () => void => arg instanceof Function)
   const encoding = args.slice(1).find((arg): arg is BufferEncoding => Buffer.isEncoding(String(arg)))
   const [first] = args
-  const done = callback
 
   if (first instanceof Uint8Array) {
-    return { chunk: Buffer.from(first), callback: done }
+    return { chunk: Buffer.from(first), callback }
   }
 
   if (first === undefined || first === null || first instanceof Function) {
-    return { callback: done }
+    return { callback }
   }
 
-  return { chunk: Buffer.from(String(first), encoding), callback: done }
+  // SAFETY: Node's `write` and `end` take a chunk that's a string or bytes, and bytes are read above.
+  return { chunk: Buffer.from(first as string, encoding), callback }
 }
 
 /** The headers passed to `writeHead(status, message?, headers?)`, when they're an object. */
