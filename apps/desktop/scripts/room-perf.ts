@@ -366,7 +366,15 @@ async function direction(mover: Copy, watcher: Copy): Promise<Direction> {
   // Frames while positions kept coming: from the first in which the pointer moved, since it's drawn a little behind on
   // purpose, to the last.
   const started = steps.findIndex((step) => step.seen && step.px >= 0.05)
-  const moving = started === -1 ? [] : steps.slice(started)
+
+  // A pointer that never arrived or never moved would read as perfectly smooth, so the run doesn't count.
+  if (started === -1 || arrived.length === 0) {
+    throw new Error(
+      `${watcher.name} never saw ${mover.name}'s pointer move (${arrived.length} positions arrived), so the room or the pointer isn't working`
+    )
+  }
+
+  const moving = steps.slice(started)
   let stalled = 0
   let run = 0
   let longest = 0
