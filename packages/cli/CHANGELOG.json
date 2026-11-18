@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Wed, 18 Nov 2026 13:03:57 GMT",
+      "version": "0.86.0",
+      "tag": "@parity-app/cli_v0.86.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b3de691f6b1a8ff258c0169b6e228425f51b762d",
+            "comment": "Settings › Diagnostics › Spare route frames sets how many spare route frames each project keeps per focused window, from Off to 4; a machine with less than 8 GB keeps 1 at most"
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 18 Nov 2026 12:34:43 GMT",
       "version": "0.85.4",
       "tag": "@parity-app/cli_v0.85.4",
