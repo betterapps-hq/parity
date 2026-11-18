@@ -497,7 +497,8 @@ try {
   print(stage)
   const about = page.getByRole("dialog", { name: "Parity", exact: true })
   await about.getByRole("button", { name: "Restart to update", exact: true }).click()
-  await page.getByRole("dialog", { name: "Save changes?" }).waitFor()
+  const save = page.getByRole("dialog", { name: "Save changes?" })
+  await save.waitFor()
   await page.keyboard.press("Escape")
 
   if ((await page.evaluate(() => window.canvasHost.appVersion)) !== "999.0.0") {
