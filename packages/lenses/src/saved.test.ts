@@ -156,7 +156,7 @@ describe("reading a saved layout", () => {
   })
 
   it("reads splits and windows' places back as they were saved", () => {
-    const saved = {
+    const saved: JsonValue = {
       groups: [
         { where: "main", tabs: ["pages"], open: "pages" },
         { where: "main", tabs: ["screens"], open: "screens" },
@@ -184,7 +184,7 @@ describe("reading a saved layout", () => {
   })
 
   it("closes the splits over a group that's gone, as the dock does when one closes", () => {
-    const saved = {
+    const saved: JsonValue = {
       groups: [
         { where: "main", tabs: ["pages"] },
         { where: "main", tabs: ["erd"] },
