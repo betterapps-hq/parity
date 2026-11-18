@@ -14,7 +14,7 @@ import { AppSelect } from "../AppSelect.tsx"
 import { CopyButton } from "../Copy.tsx"
 import { Hint } from "../Hint.tsx"
 import { DialogGroupTitle } from "../PanelSection.tsx"
-import type { Option, Setting, Value } from "./definitions.ts"
+import { type Option, type Setting, settings, type Value } from "./definitions.ts"
 import { ProjectBadge } from "./marks.tsx"
 import { type Store, valueText } from "./store.ts"
 
@@ -208,6 +208,8 @@ export function SettingRow({
   const fallback = override ? store.mine(setting) : setting.default
   const value = theirs ? (store.theirs(setting) ?? fallback) : store.mine(setting)
   const lockedBy = store.locked[setting.id]
+  const required = setting.requires === undefined ? undefined : settings.find((entry) => entry.id === setting.requires)
+  const unavailable = required !== undefined && store.mine(required) !== true
   const project = store.project?.name
   const projectValue = theirs || !project ? undefined : store.theirs(setting)
   const change = (next: Value) => (theirs ? store.setTheirs(setting, next) : store.setMine(setting, next))
@@ -244,7 +246,7 @@ export function SettingRow({
         id={controlId}
         setting={setting}
         value={value}
-        disabled={!!lockedBy || !!store.busy?.[setting.id]}
+        disabled={!!lockedBy || unavailable || !!store.busy?.[setting.id]}
         onChange={change}
       />
     </Row>

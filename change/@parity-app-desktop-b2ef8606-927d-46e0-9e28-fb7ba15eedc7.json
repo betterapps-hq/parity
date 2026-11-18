@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Settings › Diagnostics has a Record sessions switch that turns Session Replay off on its own, while errors and crashes are still shared.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

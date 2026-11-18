@@ -124,6 +124,32 @@ describe("Session Replay in CI (PAR-1043)", () => {
   })
 })
 
+describe("Record sessions (PAR-1319)", () => {
+  it("records only while diagnostics and Record sessions are both on", async () => {
+    const { replayMode } = await freshReplay()
+    expect(replayMode({ level: "all" }, true)).toBe("session")
+    expect(replayMode({ level: "all", errorsOnly: true }, true)).toBe("buffer")
+    expect(replayMode({ level: "all" }, false)).toBe("off")
+    expect(replayMode({ level: "all", errorsOnly: true }, false)).toBe("off")
+    expect(replayMode({ level: "off" }, true)).toBe("off")
+  })
+
+  it("stops at once when it's turned off, and starts again when it's turned back on", async () => {
+    const { followTelemetry, sendReplay } = await freshReplay()
+    followTelemetry({ level: "all" }, true)
+    followTelemetry({ level: "all" }, false)
+    expect(await sendReplay()).toBeUndefined()
+    followTelemetry({ level: "all" }, true)
+    expect(sentry.asked).toEqual(["start", "stop", "start"])
+  })
+
+  it("never adds the recorder while it's off", async () => {
+    const { followTelemetry } = await freshReplay()
+    followTelemetry({ level: "all" }, false)
+    expect(sentry.added).toEqual([])
+  })
+})
+
 describe("Session Replay's canvases (PAR-964)", () => {
   it("records the window's canvases, since the canvas recorder is there when Replay looks for it", () => {
     followTelemetry({ level: "all" })

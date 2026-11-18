@@ -52,6 +52,8 @@ export interface Setting {
   scope: Scope
   control: Control
   default: Value
+  /** A switch that has to be on for this setting to change anything; while it's off, this one is disabled. */
+  requires?: string
 }
 
 export interface Page {
@@ -227,6 +229,18 @@ export const settings: Setting[] = [
     scope: "app",
     control: { kind: "switch" },
     default: true
+  },
+  {
+    id: "sessionReplay",
+    page: "diagnostics",
+    label: "Record sessions",
+    detail: "A replay of the window, to show what led to a bug. Uses some memory and CPU.",
+    keywords: ["session replay", "replay", "recording", "sentry", "privacy"],
+    group: "Sharing",
+    scope: "app",
+    control: { kind: "switch" },
+    default: true,
+    requires: "telemetry"
   },
   {
     id: "installId",

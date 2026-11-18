@@ -36,6 +36,11 @@ export const settingValues = {
    * them off (PAR-1303).
    */
   routeFrameSpares: z.number().int().min(0).max(4),
+  /**
+   * Session Replay records the editor window while diagnostics are shared. Off, errors and crashes still go, without a
+   * replay (PAR-1319).
+   */
+  sessionReplay: z.boolean(),
   /** The editor View code opens a component's file in: one, the first installed, or the system's default app. */
   codeEditor: z.enum(["vscode", "cursor", "windsurf", "zed", "auto", "system"])
 } as const
@@ -55,6 +60,7 @@ export const defaultSettings: AppSettings = {
   performanceStats: false,
   routeFrameTiers: false,
   routeFrameSpares: 2,
+  sessionReplay: true,
   codeEditor: "auto"
 }
 

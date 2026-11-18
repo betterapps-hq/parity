@@ -118,8 +118,25 @@ export const Export: Story = {
 }
 
 /** Sharing diagnostics and the install ID, as text to copy. */
+/** Diagnostics shared, with a replay of each session. Record sessions is unavailable while sharing is off (PAR-1319). */
 export const Diagnostics: Story = {
-  render: () => <Demo initialPage="diagnostics" values={{ installId: "3f9c2a71-6b0e-4d8a-9e15-c4a7d2b08f63" }} />
+  render: () => <Demo initialPage="diagnostics" values={{ installId: "3f9c2a71-6b0e-4d8a-9e15-c4a7d2b08f63" }} />,
+  play: async () => {
+    const view = await dialog()
+    const replay = view.getByRole("switch", { name: "Record sessions" })
+
+    await expect(replay).toBeChecked()
+    await userEvent.click(view.getByRole("switch", { name: "Share diagnostics" }))
+    await waitFor(() => expect(replay).toHaveAttribute("aria-disabled", "true"))
+    await expect(replay).toBeChecked()
+    await userEvent.click(view.getByRole("switch", { name: "Share diagnostics" }))
+    await waitFor(() => expect(replay).not.toHaveAttribute("aria-disabled", "true"))
+  }
+}
+
+/** Diagnostics off: Record sessions keeps its value, but can't change until sharing is on again. */
+export const DiagnosticsOff: Story = {
+  render: () => <Demo initialPage="diagnostics" values={{ telemetry: false }} />
 }
 
 /** Diagnostics when `PARITY_TELEMETRY` decides it, which wins over the setting for the run. */
