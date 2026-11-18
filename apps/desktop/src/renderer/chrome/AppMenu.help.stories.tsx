@@ -42,3 +42,17 @@ export const Developer = opened(
     await expect(getPreferences().performanceStats).toBe(true)
   }
 )
+
+/** Developer: choosing Route frame tiers turns on the dot beside each route board (PAR-1301). */
+export const RouteFrameTiers = opened(
+  "Help",
+  async () => {
+    preferring({ routeFrameTiers: false })
+    await exampleOpen()
+  },
+  async () => {
+    await openSubmenu("Developer")
+    await userEvent.click(await body().findByRole("menuitemcheckbox", { name: "Route frame tiers" }))
+    await expect(getPreferences().routeFrameTiers).toBe(true)
+  }
+)

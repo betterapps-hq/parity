@@ -8891,9 +8891,11 @@ A screen is named for the component its route draws, else its path.
 - **Route frame tiers (PAR-1301).** With Settings › Diagnostics › Route frame tiers on, or Help › Developer › Route
   frame tiers, each route board has a dot just right of its top-right corner, where the live page can't cover it
   (`TierDot`): grey while it shows its frozen copy or picture, orange while a spare loads at or moves to its route, and
-  green once a spare waits on its route or the board is live (`Pool.spareRoutes`, and the board's own `ready` and
-  `live`). It's the same size on screen at any zoom, once the zoom settles. Off by default; it's for watching the pool
-  work. Tried in a development build on the example project.
+  green once a spare waits on its route or the board is live (`dotTier`, from `Pool.spareRoutes` and the board's own
+  `ready` and `live`). It's the same size on screen at any zoom, once the zoom settles. Off by default; it's for
+  watching the pool work. Tried in a development build on the example project. Tests: `canvas/tier-dot.test.ts` (3:
+  frozen, warming and warmed, and live or ready winning over a warming spare) and `AppMenu.help.stories.tsx`'s
+  `RouteFrameTiers` (the Help › Developer toggle).
 - **When the page process fails.** A project's pages share one renderer process. When main sees it go, it closes the
   freezer's channel, or a request misses its deadline, it's one failure: the live frame, spares and freezer close at
   once, and open again after 1 s, then 5 s, then 30 s. After three failures in two minutes Parity stops opening them for

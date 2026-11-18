@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { poolFor, routeOf } from "./live-frames.ts"
+import { dotTier } from "./tier-dot.ts"
 
 /** How often the dot reads its project's pool. */
 const every = 200
@@ -11,7 +12,17 @@ const colors = { frozen: "#9ca3af", warming: "#f97316", warmed: "#22c55e" }
  * setting (PAR-1301): grey while it shows its frozen copy or picture, orange while a spare warms on its route, green
  * once one waits there or the board is live.
  */
-export function TierDot({ project, url, warmed }: { project: string; url: string; warmed: boolean }) {
+export function TierDot({
+  project,
+  url,
+  live,
+  ready
+}: {
+  project: string
+  url: string
+  live: boolean
+  ready: boolean
+}) {
   const [spare, setSpare] = useState<"warming" | "ready">()
 
   useEffect(() => {
@@ -23,7 +34,7 @@ export function TierDot({ project, url, warmed }: { project: string; url: string
     return () => window.clearInterval(timer)
   }, [project, url])
 
-  const tier = tierOf(warmed || spare === "ready", spare === "warming")
+  const tier = dotTier({ live, ready }, spare)
 
   return (
     <span
@@ -44,12 +55,4 @@ export function TierDot({ project, url, warmed }: { project: string; url: string
       }}
     />
   )
-}
-
-function tierOf(warmed: boolean, warming: boolean): keyof typeof colors {
-  if (warmed) {
-    return "warmed"
-  }
-
-  return warming ? "warming" : "frozen"
 }

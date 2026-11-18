@@ -275,7 +275,7 @@ export function RouteBoard({
         {!frozen && !shown && <div className="frame-placeholder" data-placeholder aria-hidden />}
       </div>
       {/* Beside the board rather than on it, where the live page would cover it. */}
-      {tierDots && <TierDot project={project} url={url} warmed={ready || !!live} />}
+      {tierDots && <TierDot project={project} url={url} live={!!live} ready={ready} />}
     </>
   )
 }
