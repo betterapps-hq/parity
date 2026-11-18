@@ -8330,9 +8330,10 @@ A window holds one project, and shows Home when none is open, as
   changes under it when there are some. The name opens the project's menu: Open project folder…, the projects opened
   before under Recent, most recent first, and Close project. On Home the middle is empty.
 - **Opening a project closes the open one,** however it's opened: the project's menu, File, Home, Search or
-  `parity open`. One with unsaved changes asks first, as closing it does: Save, Don't save, or Cancel, which keeps it
-  open and opens nothing. Opening the project that's open leaves it as it is, and one that couldn't open opens again. A
-  project still opening is closed too, and the service closes it once it has it (see A project closed while it opens).
+  `parity open`. One with unsaved changes asks first, as closing it does: "Save changes?", with Save and Don't save.
+  Escape or clicking away keeps it open and opens nothing. Opening the project that's open leaves it as it is, and one
+  that couldn't open opens again. A project still opening is closed too, and the service closes it once it has it (see A
+  project closed while it opens).
 - **Close project,** in the project's menu and File, or Ctrl+W, asks the same and leaves the window on Home. On Home
   it's unavailable.
 - **An extension's page** shows in the project's place, under the title bar, with a button that closes it and shows the
