@@ -219,7 +219,7 @@ describe("the window", () => {
   })
 
   // docs/editor.md, Components, a lens of its own (PAR-1245).
-  it("draws the boards on Components' canvas alone, keeps its camera, and links a board to where it's used", async () => {
+  it("draws the boards on Components' canvas alone, and keeps its camera when Screens takes its tab and gives it back", async () => {
     const { page } = app
     const boards = await designsIn("(components)")
     const layers = page.locator("[role=tree][aria-label=Layers]")
@@ -245,28 +245,7 @@ describe("the window", () => {
       await expect.poll(async () => (await drawn()).length).toBe(boards.length)
       const { x, y, z } = await app.camera()
       expect({ x: Math.round(x), y: Math.round(y), z: Math.round(z * 100) / 100 }).toEqual({ x: 60, y: -30, z: 0.5 })
-
-      // A board the project's designs place lists them under Used in; a click shows the design in its lens, selected.
-      const used = page
-        .locator("section", { has: page.getByText("Used in", { exact: true }) })
-        .getByRole("button")
-        .first()
-
-      for (const board of boards) {
-        await page.evaluate((key) => window.e2e!.session().selection.set({ design: key }), board)
-
-        if (await used.isVisible({ timeout: 1000 }).catch(() => false)) {
-          break
-        }
-      }
-
-      const name = await used.innerText()
-      await used.click()
-      await expect.poll(() => page.locator(".dv-tab").allTextContents()).not.toEqual(["Components"])
-      const selected = (await app.selection()).design!
-      expect(await page.evaluate((key) => window.e2e!.session().doc.design(key)?.name, selected)).toBe(name)
     } finally {
-      await page.keyboard.press("Escape")
       await showScreens()
     }
   })

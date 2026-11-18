@@ -8735,24 +8735,19 @@ The project's own components, on their boards, have a lens of their own, Compone
   Screens in its place with that tab open.
 - **Selecting stays on its canvas,** as on Pages: Select all and its kin select only boards, and a board selected while
   another lens shows, from Search, the Components panel or a page's links, shows Components in that lens's place.
-- **The inspector** shows the selected component as before, its file, export and props from its code, and under them
-  Used in: each page whose route draws it, and each page, screen, story and designed component that places it, as links.
-  A page is drawn from the app's code, so the components its route's component renders inside it aren't listed yet. A
-  click shows the design in its lens, selected; Show beside splits that lens to the right. A page's links to the
-  components it places show their boards in Components.
+- **The inspector** shows the selected component as before, its file, export and props from its code. A page's links to
+  the components it places show their boards in Components.
 
 Code: `lenses/components.tsx` (`componentsLens`); `ComponentLayerTree` in `chrome/LayerTree.tsx`, which lists `part`
-`components`; `isComponentBoard` in `canvas/component-boards.ts`, which `canvasOf` reads; `ComponentUses` and
-`PageLinks` in `chrome/PageLinks.tsx`, both drawn with `DesignLinks` in `chrome/DesignLinks.tsx`, which shows a link's
-lens by `lensOf`.
+`components`; `isComponentBoard` in `canvas/component-boards.ts`, which `canvasOf` reads; `PageLinks` in
+`chrome/PageLinks.tsx`, drawn with `DesignLinks` in `chrome/DesignLinks.tsx`, which shows a link's lens by `lensOf`.
 
 Tests: `e2e/window.e2e.ts` (Screens drawing none of the boards, Ctrl+3 showing Components in Screens' tab with every
-board and nothing else, Layers there without Screens, its camera kept through Ctrl+2 and back, and a board's Used in
-link showing the design in its lens, selected); `e2e/keyboard.e2e.ts` (N going round Screens' designs, without the
-boards). Tried in `pnpm dev` on 2026-11-17 on the example: the lens bar listed Pages, Screens, Components and Stories;
-Screens drew none of the boards; Ctrl+3 showed Components in Screens' tab with PageHeader, PlanCard and StatusBadge and
-the Components group alone in Layers; selecting PlanCard there showed its file, export, props and Used in, listing the
-Plan card story; clicking it showed Stories in Components' place with Plan card selected.
+board and nothing else, Layers there without Screens, and its camera kept through Ctrl+2 and back);
+`e2e/keyboard.e2e.ts` (N going round Screens' designs, without the boards). Tried in `pnpm dev` on 2026-11-17 on the
+example: the lens bar listed Pages, Screens, Components and Stories; Screens drew none of the boards; Ctrl+3 showed
+Components in Screens' tab with PageHeader, PlanCard and StatusBadge and the Components group alone in Layers; selecting
+PlanCard there showed its file, export and props.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 
