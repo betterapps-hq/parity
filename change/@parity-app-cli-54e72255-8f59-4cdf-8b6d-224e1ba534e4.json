@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "In the live room, your own face and card look like your account avatar: your picture, or your initials on your own color. Everyone else still sees you in your room color.",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

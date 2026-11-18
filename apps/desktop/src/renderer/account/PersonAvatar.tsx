@@ -1,39 +1,17 @@
 import { UserRound } from "lucide-react"
 import { useState } from "react"
 import type { AccountPerson } from "../../shared/account.ts"
-
-/** Someone's initials, from their name, or their email when WorkOS has no name for them. */
-export function initialsOf(person: Pick<AccountPerson, "name" | "email">): string {
-  const words = (person.name ?? person.email.split("@")[0] ?? "").split(/[\s._-]+/).filter(Boolean)
-
-  return (
-    words
-      .slice(0, 2)
-      .map((word) => word[0])
-      .join("")
-      .toUpperCase() || "?"
-  )
-}
-
-/** A steady hue for a person, from their email, so their avatar keeps its color. */
-function hueOf(email: string): number {
-  let hash = 0
-
-  for (const char of email) {
-    hash = (hash * 31 + char.charCodeAt(0)) % 360
-  }
-
-  return hash
-}
+import { lookOf } from "./look.ts"
 
 /** The person's picture from their provider, or their initials in a color of their own. */
 export function PersonAvatar({ person, size }: { person: AccountPerson; size: number }) {
   const [broken, setBroken] = useState(false)
+  const look = lookOf(person)
 
-  if (person.pictureUrl && !broken) {
+  if (look.photo && !broken) {
     return (
       <img
-        src={person.pictureUrl}
+        src={look.photo}
         alt=""
         width={size}
         height={size}
@@ -53,10 +31,10 @@ export function PersonAvatar({ person, size }: { person: AccountPerson; size: nu
         width: size,
         height: size,
         fontSize: Math.round(size * 0.38),
-        background: `oklch(0.6 0.13 ${hueOf(person.email)})`
+        background: look.color
       }}
     >
-      {initialsOf(person)}
+      {look.initials}
     </span>
   )
 }

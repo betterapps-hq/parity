@@ -1,6 +1,8 @@
 import { agentPalette, palette } from "@parity-app/presence-colors"
 import type { Member, Presence } from "@parity-app/presence-ui"
 import type { ReactNode } from "react"
+import type { AccountPerson } from "../../shared/account.ts"
+import { lookOf } from "../account/look.ts"
 import { CanvasTopRight, ZoomBar } from "../chrome/ZoomControls.tsx"
 
 /* The people and agents in the multiplayer stories' room. */
@@ -64,6 +66,34 @@ export const members = {
   theo: { name: "Theo Martin", palette: palette(5) },
   /** You, in the stories where you're in the room too. */
   you: { name: "Ana Costa", palette: palette(6) }
+} satisfies Record<string, Member>
+
+/** Your account, signed in as Ana: with no picture, so her initials show on her own color, and with her provider's. */
+export const accounts = {
+  initials: { name: "Ana Costa", email: "ana.costa@example.com" },
+  picture: {
+    name: "Ana Costa",
+    email: "ana.costa@example.com",
+    pictureUrl: portrait({ background: "#efe2c4", skin: "#c98e6a", hair: "#5a3420", shirt: "#4a6b5d" })
+  }
+} satisfies Record<string, AccountPerson>
+
+/** You, in your own window, as your account avatar shows you, the way the room's stack draws you while you're signed in. */
+function signedInAs(account: AccountPerson): Member {
+  const { photo, initials, color } = lookOf(account)
+  const you: Member = { ...members.you, own: { initials, color } }
+
+  if (photo) {
+    you.photo = photo
+  }
+
+  return you
+}
+
+/** You, signed in: with the account's initials on its color, or its picture. Everyone else still sees your palette. */
+export const signedIn = {
+  initials: signedInAs(accounts.initials),
+  picture: signedInAs(accounts.picture)
 } satisfies Record<string, Member>
 
 /** Everyone in the room, with what each agent says it's doing and who's away. */

@@ -379,12 +379,13 @@ are two.
   `@parity-app/presence-colors`. `claim`, `release`, `assign`, `palette` and `tuned` work by key, never by color. Claims
   are counted per extension and tab: a key claimed twice keeps its color until it's released twice, and an extension's
   claims are given back when it stops in the tab.
-- **`parity.presence`** (`presence`) is this person in the tab: `self`, the pointer on the page at most once a frame
-  (the latest, with its leaving told at once), every gesture in order (a move of layers, with each change of where
-  they'd land, a resize and a box drawn to select, each started, ended or called off), and the design, state and mode
-  selected, on each change. Nothing is listened to while no module listens. A move's drop names the frame the layers
-  would land in, which may be another state or mode, and is told again when only that frame changes. A move's drop and
-  end are told after the changes committed before them.
+- **`parity.presence`** (`presence`) is this person in the tab: `self` (their name, and, while they're signed in, how
+  their account avatar looks in `own`, only for drawing them in their own window), the pointer on the page at most once
+  a frame (the latest, with its leaving told at once), every gesture in order (a move of layers, with each change of
+  where they'd land, a resize and a box drawn to select, each started, ended or called off), and the design, state and
+  mode selected, on each change. Nothing is listened to while no module listens. A move's drop names the frame the
+  layers would land in, which may be another state or mode, and is told again when only that frame changes. A move's
+  drop and end are told after the changes committed before them.
 - **`parity.agents`** (`agents`) tells every step this copy's agents take in the tab, with no `from`, before the write
   it describes is applied, and other copies' steps with that copy, which the extension that brings the room passes in
   with `receive(steps, { from })`. Steps from another copy are never told again as this copy's, so nothing echoes back

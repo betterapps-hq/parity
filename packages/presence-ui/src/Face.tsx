@@ -11,16 +11,18 @@ interface FaceProps {
 
 /**
  * Someone's face, round for everyone: a person's picture, or their initials on their gradient; an agent's sparkle on
- * its gradient. Either matches their pointer, and the gradient's style says which they are. It's cut out of whatever
+ * its gradient. Either matches their pointer, and the gradient's style says which they are. Your own face, given your
+ * account's look (`own`), is drawn as your account avatar is instead: your initials in white on your own color. It's cut out of whatever
  * it sits on by a ring of `--face-cutout` (the background, unless its surface sets it, and 2px unless
  * `--face-cutout-width` says otherwise), so overlapping faces stay apart. Faded while they're away; ringed in their color while you follow them.
  */
 export function Face({ member, size = 28, away, following }: FaceProps) {
-  const { palette } = member
+  const { palette, own } = member
   const cutout = "0 0 0 var(--face-cutout-width, 2px) var(--face-cutout, var(--background))"
   const edge = `color-mix(in oklch, ${palette.ink} 30%, transparent)`
   const ring = following ? `${cutout}, 0 0 0 3.5px ${palette.color}, 0 0 0 4.5px ${edge}` : cutout
   const type = size > 32 ? "text-sm" : "text-2xs"
+  const letters = own ? own.initials.slice(0, size < 22 ? 1 : 2) : initials(member.name, size)
 
   return (
     <span className="relative inline-flex shrink-0 rounded-full" style={{ boxShadow: ring }}>
@@ -31,12 +33,14 @@ export function Face({ member, size = 28, away, following }: FaceProps) {
         {member.photo && <AvatarImage src={member.photo} alt="" />}
         <AvatarFallback
           className={`${type} leading-none font-semibold`}
-          style={{ background: gradient(palette, 135), color: palette.ink }}
+          style={
+            own ? { background: own.color, color: "white" } : { background: gradient(palette, 135), color: palette.ink }
+          }
         >
           {member.agent ? (
             <Sparkles style={{ width: size * 0.5, height: size * 0.5 }} strokeWidth={size < 22 ? 2.5 : 2} />
           ) : (
-            initials(member.name, size)
+            letters
           )}
         </AvatarFallback>
       </Avatar>

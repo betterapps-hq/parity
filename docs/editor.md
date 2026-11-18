@@ -6457,6 +6457,10 @@ the signed-in person's first name.
   banner, and the others at the top centre, sit under that row on a canvas narrower than 1040px, to keep clear of it. A
   face opens the person's card, with **Follow** and **Go to**. Following keeps the camera on what they see, with a frame
   and banner, until Esc, a pan or zoom, Stop, or they leave; a note then says why it ended.
+- **Your own face.** Signed in, your face in the stack and your card look like your account avatar in the window's top
+  right: your provider's picture, or your initials on your email's color (PAR-1309). Only your window draws you so; the
+  room is told only your first name, and everyone else sees you in the palette the host assigned you, as do your
+  pointer, outlines and drags. Signed out, your face keeps your palette.
 - **Agents.** This copy's agents' steps go to the room, and steps from the room go to `parity.agents.receive`, so agent
   presence, where it's on, draws every copy's agents. The host numbers agents' colors as it does people's, by copy and
   agent, so an agent is the same color in every copy (PAR-1277). Each copy assigns the numbers under the keys agent
@@ -6483,8 +6487,14 @@ Tests:
   order, with only the latest presence; the first snapshot opened on; another copy's events, presence and missing
   changes told, and a dropped connection and a reconnect noticed; who left while the connection was down told before
   who's here; asking the host for what's missing, and asking another copy in turn when asked to.
-- `packages/extension-multiplayer/src/people.test.ts`: colors kept and given out lowest first; each person's latest
-  presence, gesture and color; dragged nodes placed from the pointer; selections grouped by node; a caret's mark.
+- `packages/extension-multiplayer/src/people.test.ts`: colors kept and given out lowest first; you drawn as your account
+  avatar shows you while signed in, without a picture when there's none, and in your palette signed out; each person's
+  latest presence, gesture and color; dragged nodes placed from the pointer; selections grouped by node; a caret's mark.
+- `apps/desktop/src/renderer/account/look.test.ts`: initials from a name, an email or neither; an account's look, with
+  and without a picture. `packages/presence-colors/src/account.test.ts`: the email's color, unchanged from before, and
+  its hue.
+- Stories: Avatar stack, "Your own face" (yours matching the account avatar, with a picture and with initials, and in
+  your palette signed out); Person card, "Cards" (your card signed in).
 - `packages/extension-multiplayer/src/agents.test.ts`: agents known by copy and id, forgotten with their copy, and kept
   from another host's numbers; the host's numbers assigned under each copy's own keys.
 - `packages/extension-multiplayer/src/hosting.test.ts`: file writes turned on once the document opens for a copy that
@@ -6581,8 +6591,9 @@ them from the package.
 - **The avatar stack** beside the canvas's zoom: one stack, your own face first, then faces in the order people joined,
   each agent after whoever runs it, whoever you follow next and anyone away last; past the most it shows, a count that
   opens everyone. A face opens its card, with Follow and Go to, which closes once either starts (PAR-1291); your own
-  opens yours, with Present to everyone and whether others' pointers show. Each action is a callback for the extension
-  to answer.
+  opens yours, with Present to everyone and whether others' pointers show. Given your account's look (`Member.own`),
+  your face and card draw your initials on its color instead of your palette (PAR-1309). Each action is a callback for
+  the extension to answer.
 - **Following.** The canvas framed in the leader's color and a banner with Stop, which names Esc. When following ends
   the banner says why: "Stopped following Mia", or "Mia left, so following stopped". Presenting, an invitation to follow
   and a dropped connection share the banner.

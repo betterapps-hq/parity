@@ -10,7 +10,8 @@ interface CardHeaderProps {
 }
 
 /**
- * The top of a card: a wash of their color behind their face, so whose card it is reads before the name does. It's
+ * The top of a card: a wash of their color behind their face, so whose card it is reads before the name does. Your own
+ * card washes in your account's color when your face wears it. It's
  * lighter on the dark theme, where a soft color mixed into the popover would turn muddy.
  */
 export function CardHeader({ member, away, line }: CardHeaderProps) {
@@ -18,7 +19,7 @@ export function CardHeader({ member, away, line }: CardHeaderProps) {
     <div
       className="flex items-center gap-3 px-3 pt-3 pb-2.5 [--wash:28%] dark:[--wash:16%]"
       style={{
-        background: `linear-gradient(180deg, color-mix(in oklch, ${member.palette.color} var(--wash), transparent), transparent)`
+        background: `linear-gradient(180deg, color-mix(in oklch, ${member.own?.color ?? member.palette.color} var(--wash), transparent), transparent)`
       }}
     >
       <Face member={member} size={40} away={away} />

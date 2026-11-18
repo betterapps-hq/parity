@@ -1,5 +1,5 @@
 import type { Disposable } from "@parity-app/extension"
-import type { Gesture, Point, Presence, Viewing } from "@parity-app/extension/internal"
+import type { Gesture, Point, Presence, Self, Viewing } from "@parity-app/extension/internal"
 import type { WindowSurface } from "./window-modules.ts"
 
 /*
@@ -18,7 +18,7 @@ export interface Pointer {
 
 /** What the tab's window tells of this person. */
 export interface PresencePort {
-  self(): { name: string; avatar?: string }
+  self(): Self
   /** Every move of the pointer over the canvas, and its leaving. Returns what stops it. */
   onPointer(listener: (pointer: Pointer) => void): () => void
   onGesture(listener: (gesture: Gesture) => void): () => void

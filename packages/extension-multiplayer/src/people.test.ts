@@ -1,6 +1,6 @@
 import type { Palette } from "@parity-app/extension/internal"
 import { describe, expect, it } from "vite-plus/test"
-import { assignColors, caretMark, dragItems, marqueeRect, People, selectionsByNode } from "./people.ts"
+import { assignColors, caretMark, dragItems, marqueeRect, People, selectionsByNode, yourMember } from "./people.ts"
 
 const palette = (n: number): Palette => ({ n, name: `P${n}`, stops: ["a", "b", "c"], color: "c", ink: "i" })
 const board = (key: string) => ({ owner: "design", type: "design", key })
@@ -22,6 +22,35 @@ describe("assignColors", () => {
       ["d", 1],
       ["e", 3]
     ])
+  })
+})
+
+describe("yourMember", () => {
+  it("draws you as your account avatar shows you while you're signed in, and keeps your room palette", () => {
+    const you = yourMember(
+      "me",
+      { name: "Mia", own: { photo: "https://example.com/mia.png", initials: "MC", color: "oklch(0.6 0.13 18)" } },
+      palette(2)
+    )
+
+    expect(you).toEqual({
+      id: "me",
+      name: "Mia",
+      palette: palette(2),
+      photo: "https://example.com/mia.png",
+      own: { initials: "MC", color: "oklch(0.6 0.13 18)" }
+    })
+  })
+
+  it("leaves the picture out when the account has none, so your initials show on your own color", () => {
+    const you = yourMember("me", { name: "Mia", own: { initials: "MC", color: "oklch(0.6 0.13 18)" } }, palette(2))
+
+    expect(you.photo).toBeUndefined()
+    expect(you.own).toEqual({ initials: "MC", color: "oklch(0.6 0.13 18)" })
+  })
+
+  it("keeps the room's look while you're signed out", () => {
+    expect(yourMember("me", { name: "Guest" }, palette(2))).toEqual({ id: "me", name: "Guest", palette: palette(2) })
   })
 })
 
