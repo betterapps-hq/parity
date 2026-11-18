@@ -1,7 +1,6 @@
 import { CanvasLayerContext, type CanvasLayerContextValue, useColor, useFrame } from "@parity-app/canvas-layer"
 import type { AgentStep } from "@parity-app/extension/internal"
-import { ActionIcon, AgentBadge, AgentPointer, type PaletteLook } from "@parity-app/presence-ui"
-import { LoaderCircle, Sparkles } from "lucide-react"
+import { AgentBadge, AgentPointer, type PaletteLook } from "@parity-app/presence-ui"
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
 import {
   arcPoint,
@@ -33,7 +32,6 @@ interface Activity {
   label?: string
   kind?: AgentStep["kind"]
   done: boolean
-  error?: string
 }
 
 /** The layer the presence is drawn in: its camera, boxes, colors and frames. */
@@ -55,7 +53,7 @@ function useQueueVersion(queue: AgentQueue): number {
 /**
  * Shows agents at work, like collaborators' pointers: one per agent, each in its own colors. A pointer travels to what
  * its agent reads or changes at a person's pace, lingers there glancing around, and scans it so people can see what's
- * being looked at. Strips in the corner say who each agent is and what its current call is doing.
+ * being looked at.
  *
  * It's drawn in a page layer, in a pane kept over the canvas's whole view and scaled back to the screen's pixels, so
  * pointers, badges and scans stay the same size at any zoom.
@@ -116,24 +114,22 @@ export function AgentPresence({ queue }: { queue: AgentQueue }) {
       {agents.length > 0 && (
         <canvas ref={scanCanvas} className="pointer-events-none invisible absolute inset-0 size-full" />
       )}
-      {agents.map((agent, index) => (
-        <AgentCursor key={agent} queue={queue} agent={agent} index={index} onDone={done} onScan={scan} />
+      {agents.map((agent) => (
+        <AgentCursor key={agent} queue={queue} agent={agent} onDone={done} onScan={scan} />
       ))}
     </div>
   )
 }
 
-/** One agent's pointer, scans and strip, playing its queue until it has been idle a while. */
+/** One agent's pointer and scans, playing its queue until it has been idle a while. */
 function AgentCursor({
   queue,
   agent,
-  index,
   onDone,
   onScan
 }: {
   queue: AgentQueue
   agent: string
-  index: number
   onDone: (agent: string) => void
   onScan: (scan: Scan) => void
 }) {
@@ -394,8 +390,7 @@ function AgentCursor({
             ...current,
             agent: name,
             label: event.label ?? current?.label,
-            done: true,
-            error: event.error
+            done: true
           }))
           await pause(60)
         } else {
@@ -420,8 +415,6 @@ function AgentCursor({
     void play()
   }, [version, queue, layer, agent, onDone, onScan])
 
-  const { color } = palette
-
   return (
     <>
       {labels.map((label) => (
@@ -440,28 +433,6 @@ function AgentCursor({
           label={activity?.label}
         />
       </div>
-      {activity && (
-        <div
-          className="absolute left-3 flex max-w-96 items-center gap-2 rounded-lg border bg-background/90 px-3 py-2 text-xs shadow-lg backdrop-blur"
-          style={{ bottom: 12 + index * 44 }}
-        >
-          {activity.done ? (
-            <Sparkles className="size-3.5 shrink-0" style={{ color: activity.error ? "var(--destructive)" : color }} />
-          ) : (
-            <LoaderCircle className="size-3.5 shrink-0 animate-spin" style={{ color }} />
-          )}
-          <span className="pointer-events-auto max-w-40 shrink-0 truncate font-medium" title={activity.agent}>
-            {activity.agent}
-          </span>
-          <span className="min-w-0 truncate text-muted-foreground">
-            {activity.error ?? activity.label ?? "Working"}
-            {activity.done && !activity.error ? ", done" : ""}
-          </span>
-          {!activity.done && activity.kind !== "start" && (
-            <ActionIcon kind={activity.kind} className="size-3.5 shrink-0 text-muted-foreground" />
-          )}
-        </div>
-      )}
     </>
   )
 }

@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Agents' activity strips are gone from the canvas; each agent's pointer and badge remain",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
