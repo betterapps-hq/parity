@@ -30,7 +30,7 @@ import {
 import type { AccountState } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
 import { connectorFind, connectorPlaced } from "../shared/connectors.ts"
-import { readLensWindowUrl } from "../shared/lens-window.ts"
+import { type LensWindowPage, readLensWindowUrl } from "../shared/lens-window.ts"
 import { logNote } from "../shared/log.ts"
 import { killTree } from "../shared/process-tree.ts"
 import type { ConnectMessage } from "../shared/service.ts"
@@ -50,7 +50,7 @@ import { readEnvironment } from "./environment.ts"
 import { hostHandlers } from "./host-handlers.ts"
 import { answerWindows, fromParityPage } from "./host-methods.ts"
 import { keybindingsFile } from "./keybindings.ts"
-import { lensWindows } from "./lens-windows.ts"
+import { lensWindows, onAScreen } from "./lens-windows.ts"
 import { readLogEvents } from "./log-files.ts"
 import { listenOnLoopback } from "./loopback.ts"
 import { isPackaged } from "./packaged.ts"
@@ -293,18 +293,13 @@ function isLensWindow(window: BrowserWindow): boolean {
 
 /**
  * How a lens's own window opens: with the app's title bar, as the editor window has it, the page drawing the rest, and
- * where that lens's window last was, unless its tab was let go somewhere else.
+ * at the place the project's layout saved while that's on a screen, or else where that lens's window last was, unless
+ * its tab was let go somewhere else.
  */
-function lensWindowOptions(lens: string, placed: boolean): Electron.BrowserWindowConstructorOptions {
+function lensWindowOptions(page: LensWindowPage): Electron.BrowserWindowConstructorOptions {
   const mac = process.platform === "darwin"
   const { background, symbols } = titleBarColors()
-
-  const place = placed
-    ? undefined
-    : lensWindowList.placeOf(
-        lens,
-        screen.getAllDisplays().map((display) => display.workArea)
-      )
+  const place = lensWindowPlace(page) ?? (page.placed ? undefined : lensWindowList.placeOf(page.lens, screens()))
 
   return {
     ...place,
@@ -316,6 +311,16 @@ function lensWindowOptions(lens: string, placed: boolean): Electron.BrowserWindo
     titleBarStyle: mac ? "hiddenInset" : "hidden",
     titleBarOverlay: !mac && { color: background, symbolColor: symbols, height: 40 }
   }
+}
+
+/** The screens' work areas, where windows open. */
+function screens(): Electron.Rectangle[] {
+  return screen.getAllDisplays().map((display) => display.workArea)
+}
+
+/** The place a project's layout saved for a lens window, while it's on a screen. */
+function lensWindowPlace({ place }: LensWindowPage): Electron.Rectangle | undefined {
+  return place && onAScreen(place, screens()) ? place : undefined
 }
 
 /** Extensions' app settings as the service last heard them, which it also asks for as it starts. */
@@ -340,6 +345,12 @@ const appState = appStateFiles<BrowserWindow>(app.getPath("userData"), {
   },
   problem: (message) => console.warn(message),
   windowKey: (window) => window.id
+})
+
+// An editor window's page saves where its lens windows are with its layout, as exactly as Electron places them.
+ipcMain.on(ipc.lensWindowPlaces, (event) => {
+  const window = appWindowOf(event)
+  event.returnValue = window ? lensWindowList.placesOf(asLensWindow(window)) : {}
 })
 
 // As for the settings, the preload waits for these before the page draws; main answers from memory.
@@ -681,7 +692,7 @@ function createWindow(): void {
     const lens = readLensWindowUrl(url, rendererUrl)
 
     if (lens) {
-      return { action: "allow", overrideBrowserWindowOptions: lensWindowOptions(lens.lens, lens.placed) }
+      return { action: "allow", overrideBrowserWindowOptions: lensWindowOptions(lens) }
     }
 
     if (opensInBrowser(url)) {
@@ -699,7 +710,7 @@ function createWindow(): void {
       return
     }
 
-    lensWindowList.add(asLensWindow(child), asLensWindow(window), lens.lens)
+    lensWindowList.add(asLensWindow(child), asLensWindow(window), lens.lens, lensWindowPlace(lens))
     // A key pressed there is the person's, as in the editor window.
     child.webContents.on("before-input-event", () => personActed())
     // Nothing loads in it but the page the editor window draws into; a link that would take it elsewhere opens in the
@@ -1209,6 +1220,7 @@ answerWindows<HostEvent, BrowserWindow>({
     projects: { change: (change) => appState.changeProjects(change) },
     state: {
       set: (key, value) => appState.set(key, value),
+      setLensLayout: (project, layout) => appState.setLensLayout(project, layout),
       claimTabs: (window) => appState.claimTabs(window),
       saveTabs: (window, tabs) => appState.saveTabs(window, tabs)
     },

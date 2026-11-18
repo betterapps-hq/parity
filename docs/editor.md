@@ -8512,8 +8512,8 @@ in focus beside them, over the status bar. The title bar stays above, as on Home
 
 - **Pages, Screens, Components and Stories are the lenses so far,** and the lens bar lists only lenses that are built.
   Screens is today's canvas, Layers with its asset tabs, and the inspector with Modes, holding the project's own
-  designs. Pages, Components and Stories have canvases of their own (see their sections below). Opening a project shows
-  Screens.
+  designs. Pages, Components and Stories have canvases of their own (see their sections below). A project opens as it
+  was last laid out, or on Screens the first time (see Each project's lens layout).
 - **Each lens has a canvas of its own,** a tldraw editor drawing its part of the project. The project holds the editor
   of the lens in focus, which Layers, the inspector, the menus and the shortcuts act on; N and Shift+N step through the
   designs on it. What draws over a canvas, its outlines, the zoom bar, the drawing toolbar, extensions' layers and the
@@ -8536,8 +8536,8 @@ in focus beside them, over the status bar. The title bar stays above, as on Home
 - **Component previews** are made for as long as the project is open, whether or not Screens shows: once a canvas has
   come up, a lens closed doesn't hold them back as a canvas still loading does.
 
-Code: `OpenProject.tsx` renders `LensWorkspace` with `appLenses`, in `lenses/app-lenses.ts`, opening on Screens;
-`lenses/screens.tsx` is Screens (`screensLens`) and `lenses/pages.tsx` Pages (`pagesLens`). Their canvases are
+Code: `OpenProject.tsx` renders `LensWorkspace` with `appLenses`, in `lenses/app-lenses.ts`, opening on Screens by
+default; `lenses/screens.tsx` is Screens (`screensLens`) and `lenses/pages.tsx` Pages (`pagesLens`). Their canvases are
 `ProjectCanvas` in `lenses/project-canvas.tsx`, which reads the open project through `OpenProjectContext`, gives the
 project its editor while its lens is in focus, and renders `CanvasEditor` with what it `draws` (`drawsDesign`, with
 `isRoutePage` in `canvas/route-pages.ts`). `CanvasEditor` keeps each canvas's camera as it goes (`keptCameras`). The
@@ -8577,7 +8577,8 @@ same project in the same page, so the canvas, its camera and what's selected car
   loading again; quitting keeps it open while the main window asks about unsaved work, and closes it after. Closing it
   on its own puts its tabs back in the main window.
 - **It opens where it was:** moved to a window again, a lens's window opens where that lens's window last was, while
-  that place is still on a screen. A tab let go somewhere opens where it was let go.
+  that place is still on a screen. A tab let go somewhere opens where it was let go. Opening the project again reopens
+  it where it was (see Each project's lens layout).
 
 Code: in main, `setWindowOpenHandler` in `createWindow` allows only Parity's own lens window page (`readLensWindowUrl`
 in `shared/lens-window.ts`), with `lensWindowOptions` for its title bar and place; every other `window.open` is still
@@ -8625,6 +8626,54 @@ Mia's window followed Andrew's pointer across boards in the lens window, and not
 Pages' lens window, Pricing and Projects went live at their routes, a link to example.com was stopped with the frame
 left on the builder's origin and the board saying "Tried to open example.com", and back in the main window a board went
 live again.
+
+### Each project's lens layout (PAR-1248)
+
+A project opens as it was laid out when it last closed, as [lens-layout.md](proposals/lens-layout.md#on-dockview) has
+it: its groups of tabs, which tab is in front of each and which group has the focus, how the main window is split, and
+each lens's own window, reopened where it was.
+
+- **It's saved as it changes,** a moment after a tab opens, closes, moves or comes to the front, a group takes the
+  focus, or a split's edge is let go, and at once as the project closes, the window reloads or the app quits, while the
+  lens windows are still open where they are. Moving a lens window is saved with the next of those.
+- **Splits come back at their shares of the window,** so a layout saved in a wider window keeps its proportions.
+- **Lens windows reopen on their own,** at the place they had, while enough of the title bar to drag one by is on a
+  screen; otherwise it opens beside the main window. A window that doesn't open takes its tabs with it, and their lenses
+  show again from the lens bar.
+- **What can't be used is dropped.** A lens that's gone is left out, with its group once that's empty, and the splits
+  close over it as they do when a group closes. A layout that can't be read, or that has no lens left, opens on Screens,
+  as a project does the first time. A layout saved with every tab closed opens with every tab closed.
+- **Each project keeps its own,** by its folder, for the 50 projects laid out most recently, in `state.json`
+  (`lensLayouts`). A copy saving its project's layout keeps the projects other copies saved, and a project opens on the
+  layout saved last by any copy that this copy has seen.
+- **The focus comes back too,** on a group in the main window or in a lens window, once that window is open.
+
+Code: `saveLayout` and `readLayout` in `packages/lenses/src/saved.ts` turn the layout to keep into data and read it back
+for the lenses there are, with its splits (`Split`) and each window's place (`Bounds`). `dock-adapter.ts` reads the main
+window's splits from Dockview's own (`arrangement`, `splitOf`) and lays a saved layout out with `fromJSON` (`lay`,
+`gridOf`), which opens each window at its place, the page's address carrying it (`lensWindowUrl`). `LensWorkspace` saves
+through `onLayout` (`useSaving`), before Dockview hears that the page is going and closes the lens windows.
+`OpenProject.tsx` reads each project's from `state.json` as main has it (`savedLensLayout` in `saved.ts`) and saves it
+with `lensLayoutSave` (`saveLensLayout`), which main applies as one project's change under `state.json`'s lock
+(`lensLayout` in `changeStateData`, `packages/settings/src/state-file.ts`), so each copy replaces only its own project.
+Each lens window's place comes from main (`lensWindowPlaces`, `placesOf` in `main/lens-windows.ts`), since what a page
+reads of its window is a few pixels off on a scaled screen. Main opens a window at the saved place (`lensWindowPlace`)
+and reports that place until the window moves, as the system makes a window a few pixels bigger than asked and would
+grow it each time.
+
+Tests: `packages/lenses/src/saved.test.ts` (splits and windows' places kept and read back; splits closing over a group
+that's gone; splits that can't be read or don't fit laid out side by side; a place kept only for a window);
+`src/main/lens-windows.test.ts` (each lens window's place told to its editor window; a window opened at a saved place
+said to be there until it moves; a saved place used only while it's on a screen); `src/shared/lens-window.test.ts` (the
+saved place in the page's address); `packages/settings/src/state-file.test.ts` (each project's layout kept by its
+folder, another copy's project kept, the 50 most recent). Tried in `pnpm dev` on 2026-11-18 on the example, driving
+Electron over the DevTools protocol: Pages split right of Screens and Stories moved to a window of its own saved both
+groups, the split and the window's place; the split dragged to a third and the window reloaded brought back Screens and
+Pages at 334 and 738 pixels, and Stories' window opened by itself where it had been; three reloads in a row kept the
+window's place to the pixel, on a screen at 150%; stopping the app and starting it again restored the same; closing the
+project from the File menu and resuming it from Home brought back three groups side by side, as they were saved. After
+the review: Screens focused, and then Stories focused in its window, each came back in focus after a reload, with
+Stories' window open.
 
 ### Pages, a lens of its own (PAR-1244)
 

@@ -16,6 +16,8 @@ import {
   menuOf,
   openTab,
   readLayout,
+  type SavedLayout,
+  saveLayout,
   show,
   splitRight,
   toMain,
@@ -28,11 +30,11 @@ import {
   type DockviewTheme,
   type IDockviewPanelProps
 } from "dockview-react"
-import { type ReactNode, useEffect, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { addLensWindow, onEachWindow } from "../lens-windows.ts"
 import { addLensDocument, readopt } from "../window-sheets.ts"
-import { type Dock, dockAdapter } from "./dock-adapter.ts"
+import { type Dock, dockAdapter, type WindowPlaces } from "./dock-adapter.ts"
 import { GroupActions } from "./GroupActions.tsx"
 import { LensBar } from "./LensBar.tsx"
 import { LensTab } from "./LensTab.tsx"
@@ -46,13 +48,22 @@ const theme: DockviewTheme = { name: "parity", className: "dockview-theme-parity
 export interface LensWorkspaceProps<Id extends string> {
   /** The lenses it shows, each with its canvas, left panel and inspector. */
   lenses: readonly LensView<Id>[]
-  /** The layout it opens on, as the project saved it. Without one, or with none of its lenses left, the first lens. */
+  /** The layout it opens on, as the project saved it. Without one, or with none of its lenses left, `defaultLayout`. */
   layout?: JsonValue | undefined
+  /** The layout the project opens on before it has one of its own. Without one, the first lens. */
+  defaultLayout?: SavedLayout<Id> | undefined
+  /**
+   * Told the layout to save as it changes, a moment after, and at once as the window's page goes or the lenses close,
+   * with each lens window's place as it is then.
+   */
+  onLayout?: ((saved: SavedLayout<Id>) => void) | undefined
   /**
    * The page a lens's own window opens on, before Dockview moves the lens into it. Without one, lenses stay in this
    * window: nothing offers to move one to a window of its own, and a tab let go outside the window stays where it was.
    */
   popoutUrl?: string
+  /** Where each lens window is, as the desktop app places them, to save with the layout. */
+  windowPlaces?: WindowPlaces | undefined
   /** The project's name, which a lens's own window is titled with, after its lens. */
   title: string
   /** Above the lenses, as the window's title bar, which reaches them with `useLensWorkspace`. */
@@ -90,7 +101,10 @@ interface LensWindow {
 export function LensWorkspace<Id extends string>({
   lenses,
   layout: saved,
+  defaultLayout,
+  onLayout,
   popoutUrl,
+  windowPlaces,
   title,
   titleBar,
   statusBar,
@@ -98,7 +112,7 @@ export function LensWorkspace<Id extends string>({
   onPanels
 }: LensWorkspaceProps<Id>) {
   const known = useMemo(() => new Map<string, LensView<Id>>(lenses.map((lens) => [lens.id, lens])), [lenses])
-  const [opening] = useState(() => readLayout(saved, lenses))
+  const [opening] = useState(() => readLayout(saved, lenses, defaultLayout))
   const [dock, setDock] = useState<Dock<Id>>()
   const [layout, setLayout] = useState<Layout<Id>>({ groups: [] })
   // The lens the panels show before Dockview has laid the window out.
@@ -112,6 +126,8 @@ export function LensWorkspace<Id extends string>({
   const empty = dock !== undefined && isEmpty(layout)
   const current = empty ? undefined : (inFocus(layout) ?? last)
   const shown = current === undefined ? undefined : known.get(current)
+
+  const saving = useSaving(dock, onLayout)
 
   // The lens bar, panels and inspector follow Dockview's layout: which lenses are open, where, and which is in front.
   useEffect(() => {
@@ -130,6 +146,8 @@ export function LensWorkspace<Id extends string>({
         if (focused) {
           setLast(focused)
         }
+
+        saving.soon()
       },
       // A tab let go outside its window opens in a window of its own there, as a browser's tab does.
       letGo: (lens, at) => {
@@ -171,7 +189,7 @@ export function LensWorkspace<Id extends string>({
 
       setWindows([])
     }
-  }, [dock, popoutUrl])
+  }, [dock, popoutUrl, saving])
 
   // Each lens window is named for the lens in front of it and the project, and takes the main window's theme as it
   // changes.
@@ -208,7 +226,7 @@ export function LensWorkspace<Id extends string>({
   }, [dock, lenses])
 
   const onReady = ({ api }: DockviewReadyEvent) => {
-    const next = dockAdapter(api, (id): id is Id => id !== undefined && known.has(id), popoutUrl)
+    const next = dockAdapter(api, (id): id is Id => id !== undefined && known.has(id), popoutUrl, windowPlaces)
     next.lay(opening)
     setDock(next)
   }
@@ -260,6 +278,89 @@ export function LensWorkspace<Id extends string>({
       )}
     </ShellContext>
   )
+}
+
+/** How long after the layout last changed it's saved, so dragging a split's edge saves once it's let go. */
+const saveAfterMs = 300
+
+/** Saves the layout as `useSaving` does. */
+interface Saving {
+  /** Saves it a moment from now, unless it changes again first. */
+  soon: () => void
+}
+
+/** How long saving waits after the window's page starts to go, in case it stays: long enough for it to have gone. */
+const leavingMs = 1000
+
+/**
+ * Saves the layout with `onLayout` a moment after it changes, and at once as the window's page starts to go or the
+ * lenses close, while each lens window is still open where it is. What follows isn't saved: Dockview closes the lens
+ * windows as the page starts to go, and as the lenses close, returning their groups to the main window, which isn't the
+ * layout to keep. A page that stays after all saves again a moment later.
+ */
+function useSaving<Id extends string>(
+  dock: Dock<Id> | undefined,
+  onLayout: ((saved: SavedLayout<Id>) => void) | undefined
+): Saving {
+  const latest = useRef({ dock, onLayout })
+
+  const state = useRef<{ timer?: ReturnType<typeof setTimeout>; done: boolean; held: boolean }>({
+    done: false,
+    held: false
+  })
+
+  useLayoutEffect(() => {
+    latest.current = { dock, onLayout }
+  })
+
+  const [saving] = useState(() => {
+    const now = () => {
+      clearTimeout(state.current.timer)
+      const { dock: current, onLayout: save } = latest.current
+
+      if (current && save && !state.current.done && !state.current.held) {
+        save(saveLayout(current.layout(), current.arrangement()))
+      }
+    }
+
+    const last = () => {
+      now()
+      state.current.done = true
+    }
+
+    // Before Dockview hears it, which it does as the page goes, after it.
+    const leaving = () => {
+      now()
+      state.current.held = true
+      setTimeout(() => {
+        state.current.held = false
+        now()
+      }, leavingMs)
+    }
+
+    return {
+      soon: () => {
+        clearTimeout(state.current.timer)
+        state.current.timer = setTimeout(now, saveAfterMs)
+      },
+      last,
+      leaving
+    }
+  })
+
+  // A layout effect's cleanup runs before Dockview's own, which closes the lens windows.
+  useLayoutEffect(() => {
+    // Strict Mode closes and opens the lenses once more as they first open.
+    state.current.done = false
+    window.addEventListener("beforeunload", saving.leaving, true)
+
+    return () => {
+      window.removeEventListener("beforeunload", saving.leaving, true)
+      saving.last()
+    }
+  }, [saving])
+
+  return saving
 }
 
 /** What the lens bar, the menus and a lens's views do: the package's decisions made on Dockview, and its marks. */

@@ -1,4 +1,5 @@
 import type { JsonValue, StateKey } from "@parity-app/settings"
+import { z } from "zod"
 import type { CanvasHost } from "../shared/protocol.ts"
 
 type Saved = ReturnType<CanvasHost["saved"]>
@@ -14,6 +15,21 @@ export function saved(): Saved {
     return (typeof window === "undefined" ? undefined : window.canvasHost?.saved?.()) ?? nothingSaved
   } catch {
     return nothingSaved
+  }
+}
+
+/** The lens layout `project` saved, by its root, as main has `state.json` now (PAR-1248). */
+export function savedLensLayout(project: string): JsonValue | undefined {
+  return lensLayouts.parse(saved().values.lensLayouts)[project]
+}
+
+/** Each project's lens layout by its root, or none when `state.json` holds something else. */
+const lensLayouts = z.record(z.string(), z.json()).catch({})
+
+/** Saves `project`'s lens layout, keeping the projects other copies saved. Without a host it isn't kept. */
+export function saveLensLayout(project: string, layout: JsonValue): void {
+  if (typeof window !== "undefined") {
+    window.canvasHost?.state?.saveLensLayout?.(project, layout)
   }
 }
 

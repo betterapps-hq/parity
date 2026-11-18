@@ -59,6 +59,7 @@ import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
 import type { ConnectorPlaced, ConnectorSearch, ConnectorState } from "./connectors.ts"
 import type { openInEditorRequest, saveDialogOptions } from "./ipc-checks.ts"
+import type { WindowPlace } from "./lens-window.ts"
 import type { ProjectPicture, ServiceParams } from "./service-params.ts"
 import type { SettingsOpening, SettingsProject, SettingsProjectChange } from "./settings-view.ts"
 import type { SettingsState } from "./settings.ts"
@@ -722,6 +723,8 @@ export interface CanvasHost {
    * waits for them, so the first frame has them.
    */
   saved: () => { values: AppState["values"]; projects: Projects }
+  /** Where each of the window's lens windows is now, by the lens each opened for, as main places them (PAR-1248). */
+  lensWindowPlaces: () => Record<string, WindowPlace>
   /** `projects.json`, the recent and starred projects every copy shares, which main keeps. */
   projects: {
     change: (change: ProjectsChange) => Promise<Projects>
@@ -731,6 +734,8 @@ export interface CanvasHost {
   state: {
     /** Saves one value, for the next window to start with. */
     set: (key: StateKey, value: JsonValue) => void
+    /** Saves one project's lens layout, by its root, keeping the projects other copies saved (PAR-1248). */
+    saveLensLayout: (project: string, layout: JsonValue) => void
     /** The tabs to open with: this window's own after a reload, or those of the newest copy that's gone. */
     claimTabs: () => Promise<SavedTabs>
     /** The window's tabs now. Kept only once it has claimed some. */

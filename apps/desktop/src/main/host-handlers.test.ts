@@ -68,7 +68,12 @@ function app(changes: Partial<HostNeeds<Sender, TestWindow>> = {}): HostNeeds<Se
     quit: () => undefined,
     toggleDevTools: () => undefined,
     projects: { change: () => Promise.resolve({ recent: [], notes: {} }) },
-    state: { set: () => undefined, claimTabs: () => Promise.resolve({ roots: [] }), saveTabs: () => undefined },
+    state: {
+      set: () => undefined,
+      setLensLayout: () => undefined,
+      claimTabs: () => Promise.resolve({ roots: [] }),
+      saveTabs: () => undefined
+    },
     settings: { change: () => Promise.resolve({ values: { ...defaultSettings }, extensions: {}, badValues: [] }) },
     settingsView: {
       open: () => undefined,

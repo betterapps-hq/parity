@@ -31,6 +31,8 @@ export const ipc = {
   settingsChanged: "canvas:settings-changed",
   /** The preload asks main for `state.json`'s values and `projects.json` before the page draws. */
   stateNow: "canvas:state-now",
+  /** The page asks main where each of its window's lens windows is, to save with the layout (PAR-1248). */
+  lensWindowPlaces: "canvas:lens-window-places",
   /** Main tells windows the recent or starred projects changed, in this copy or another. */
   projectsChanged: "canvas:projects-changed",
   /** Main asks a window whether it may close. */

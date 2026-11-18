@@ -18,6 +18,19 @@ export { focusedGroup, type Group, groupOf, type Layout, mainGroup, type Where, 
 
 export { barOrder, inOrder, type Lens, lensForShortcut, type Unavailable } from "./lens.ts"
 
-export { defaultLayout, type JsonValue, readLayout, type SavedLayout, savedLayoutSchema, saveLayout } from "./saved.ts"
+export {
+  type Across,
+  type Arrangement,
+  type Bounds,
+  defaultLayout,
+  type JsonValue,
+  type Parted,
+  readLayout,
+  type SavedGroup,
+  type SavedLayout,
+  savedLayoutSchema,
+  saveLayout,
+  type Split
+} from "./saved.ts"
 
 export { inFocus, isEmpty, type LensMark, type LensMenu, markOf, menuOf } from "./state.ts"

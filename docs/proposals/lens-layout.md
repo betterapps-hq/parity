@@ -134,7 +134,7 @@ packages/lenses/                   @parity-app/lenses: pure, tested in Vitest
   layout.ts    the layout as data: groups in the main window or their own, their tabs, focus
   decide.ts    show, open in a new tab, split, move to a window and back, close: dock operations
   state.ts     the lens in focus, the empty window, the lens bar's marks, the menus' enabled items
-  saved.ts     a saved layout's schema, with lenses that are gone dropped
+  saved.ts     a saved layout's schema, with lenses that are gone dropped, its splits and its windows' places
 
 apps/desktop/src/renderer/lenses/  the shell, and the only place that imports Dockview
   LensWorkspace.tsx  dock-adapter.ts  LensBar.tsx  LensTab.tsx  GroupActions.tsx  dock.css
@@ -148,12 +148,12 @@ The package is built (PAR-1239), and so is the shell (PAR-1240), which the open 
 operations the package returns, and tells the shell when a tab is let go outside its window. A lens is a `LensView`: the
 package's data, an icon and its three views. The title bar's View menu and a lens's own views, such as the inspector's
 links, act through `useLensWorkspace`. The exploration's story renders `LensWorkspace` with its test lenses, and a saved
-layout's windows open in the main window until PAR-1248 restores them. The app renders it with `appLenses`, the lenses
-that are built: Screens, today's canvas, Layers and inspector in `lenses/screens.tsx`, Pages in `lenses/pages.tsx`,
-Components in `lenses/components.tsx`, and Stories in `lenses/stories.tsx`. Each lens's canvas is a tldraw editor of its
-own (`lenses/project-canvas.tsx`), and the project holds the one in focus, which the panels, menus and shortcuts act on.
-It passes the lens window page as `popoutUrl`, so lenses move to windows of their own (PAR-1247, in
-[editor.md](../editor.md#lens-windows-par-1247-par-1242)).
+layout's windows open in its main window, since it has no lens window page. The app renders it with `appLenses`, the
+lenses that are built: Screens, today's canvas, Layers and inspector in `lenses/screens.tsx`, Pages in
+`lenses/pages.tsx`, Components in `lenses/components.tsx`, and Stories in `lenses/stories.tsx`. Each lens's canvas is a
+tldraw editor of its own (`lenses/project-canvas.tsx`), and the project holds the one in focus, which the panels, menus
+and shortcuts act on. It passes the lens window page as `popoutUrl`, so lenses move to windows of their own (PAR-1247,
+in [editor.md](../editor.md#lens-windows-par-1247-par-1242)).
 
 **The lens registry is where the two meet.** A lens is its data from the package and three components: a canvas, a left
 panel and an inspector. The exploration's lenses become test lenses for the same `LensWorkspace` the app renders, so its
@@ -171,11 +171,13 @@ The steps go in this order, each after the one before:
 | Stories as a lens of its own (built)                                     | PAR-1246 |
 | Screens holding only designs (built)                                     | PAR-1251 |
 | Components as a lens of its own (built)                                  | PAR-1245 |
+| Each project's layout saved and restored, its windows too (built)        | PAR-1248 |
 
 Today's canvas has been tried in a lens's own window (PAR-1242, in [On Dockview](#on-dockview)), and lens windows are
-built in the desktop app (PAR-1247), with the fixes the spike found. Each project's layout saved and restored, its lens
-windows reopened where they were, follows (PAR-1248). Data's canvas, the ERD, comes with the Data lens's own work
-(PAR-40).
+built in the desktop app (PAR-1247), with the fixes the spike found. Each project's layout is saved with the window's
+panel layout in `state.json` and restored as the project opens, its splits at their shares of the room and its lens
+windows reopened where they were (PAR-1248, in [editor.md](../editor.md#each-projects-lens-layout-par-1248)). Data's
+canvas, the ERD, comes with the Data lens's own work (PAR-40).
 
 ## On Dockview
 

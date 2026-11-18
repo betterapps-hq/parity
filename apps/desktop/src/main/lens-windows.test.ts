@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { type Bounds, lensWindows, type LensWindowParts } from "./lens-windows.ts"
+import { type Bounds, lensWindows, type LensWindowParts, onAScreen } from "./lens-windows.ts"
 
 /** A window that closes as Electron's does: its close listeners can keep it open, then it's closed. */
 class FakeWindow implements LensWindowParts {
@@ -133,5 +133,53 @@ describe("lens windows", () => {
     window.close()
 
     expect(list.placeOf("screens", [screen])).toBeUndefined()
+  })
+
+  it("tells an editor window where each of its lens windows is, by the lens each opened for", () => {
+    const { list } = setUp()
+    const editor = new FakeWindow()
+    const other = new FakeWindow()
+    const stories = new FakeWindow({ x: 300, y: 200, width: 900, height: 600 })
+    const pages = new FakeWindow()
+    list.add(stories, editor, "stories")
+    list.add(pages, other, "pages")
+
+    expect(list.placesOf(editor)).toEqual({ stories: { x: 300, y: 200, width: 900, height: 600 } })
+
+    stories.close()
+
+    expect(list.placesOf(editor)).toEqual({})
+  })
+
+  it("says a window put at a saved place is there, though the system opened it a little bigger, until it moves", () => {
+    const { list } = setUp()
+    const editor = new FakeWindow()
+    const asked = { x: 300, y: 200, width: 900, height: 600 }
+    const stories = new FakeWindow({ x: 300, y: 200, width: 904, height: 604 })
+    list.add(stories, editor, "stories", asked)
+
+    expect(list.placesOf(editor)).toEqual({ stories: asked })
+
+    const moved = { x: 500, y: 200, width: 904, height: 604 }
+    stories.moveTo(moved)
+
+    expect(list.placesOf(editor)).toEqual({ stories: moved })
+  })
+
+  it("says where a window put at a saved place is, once it's moved there again on its own", () => {
+    const { list } = setUp()
+    const editor = new FakeWindow()
+    const asked = { x: 300, y: 200, width: 900, height: 600 }
+    const stories = new FakeWindow({ x: 300, y: 200, width: 904, height: 604 })
+    list.add(stories, editor, "stories", asked)
+    stories.close()
+
+    expect(list.placeOf("stories", [screen])).toEqual(asked)
+  })
+
+  it("opens a window at a saved place only while enough of its title bar is on a screen", () => {
+    expect(onAScreen({ x: 300, y: 200, width: 900, height: 600 }, [screen])).toBe(true)
+    expect(onAScreen({ x: 1860, y: 500, width: 900, height: 600 }, [screen])).toBe(false)
+    expect(onAScreen({ x: 300, y: -30, width: 900, height: 600 }, [screen])).toBe(false)
   })
 })

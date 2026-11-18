@@ -8,7 +8,10 @@ export const goneAfterMs = 30_000
 export const keepEntriesMs = 7 * 24 * 60 * 60 * 1000
 
 /** What `state.json` keeps for the window itself, read and checked by the part of the window that owns it. */
-export const stateKeys = ["layout", "recentSearches"] as const
+export const stateKeys = ["layout", "recentSearches", "lensLayouts"] as const
+
+/** How many projects' lens layouts `lensLayouts` keeps: the ones saved most recently, last. */
+export const keptLensLayouts = 50
 
 export type StateKey = (typeof stateKeys)[number]
 
@@ -40,6 +43,11 @@ export type StateChange =
   | { kind: "tabs"; id: string; tabs: SavedTabs; at: number }
   /** A window starting takes the tabs of the newest copy that's gone, or an empty entry when there's none. */
   | { kind: "claim"; id: string; at: number }
+  /**
+   * One project's lens layout, by its root (PAR-1248), made as `lensLayouts` is in the file then, so a copy saving its
+   * project keeps the projects other copies saved.
+   */
+  | { kind: "lensLayout"; project: string; layout: JsonValue }
 
 const entry = z
   .object({
@@ -103,6 +111,14 @@ function fresh(windows: AppState["windows"], now: number): AppState["windows"] {
 export function changeStateData(before: AppState, change: StateChange): AppState {
   if (change.kind === "set") {
     return { ...before, values: { ...before.values, [change.key]: change.value } }
+  }
+
+  if (change.kind === "lensLayout") {
+    const saved = z.record(z.string(), z.json()).catch({}).parse(before.values.lensLayouts)
+    const others = Object.entries(saved).filter(([project]) => project !== change.project)
+    const lensLayouts = { ...Object.fromEntries(others.slice(1 - keptLensLayouts)), [change.project]: change.layout }
+
+    return { ...before, values: { ...before.values, lensLayouts } }
   }
 
   const windows = fresh(before.windows, change.at)

@@ -33,8 +33,12 @@ export interface LensWindowsOptions {
 
 /** The lens windows open now, by their editor windows, and where each lens's window was last. */
 export interface LensWindows<Window extends LensWindowParts> {
-  /** Takes on a lens window its editor window just opened. */
-  add(window: Window, opener: Window, lens: string): void
+  /**
+   * Takes on a lens window its editor window just opened, `asked` at a place, when the layout saved one. Until it moves
+   * or changes size, that's where it's said to be: the system can make a window a few pixels bigger than asked, and
+   * that would grow it each time the layout put it back.
+   */
+  add(window: Window, opener: Window, lens: string, asked?: Bounds): void
   /** Whether `window` is a lens window. */
   has(window: Window): boolean
   /** The lens windows `opener` opened that are open now. */
@@ -43,6 +47,13 @@ export interface LensWindows<Window extends LensWindowParts> {
   closeOf(opener: Window): void
   /** Where a lens's window opens, on screens with these work areas: where it last was, if that's still on one. */
   placeOf(lens: string, screens: readonly Bounds[]): Bounds | undefined
+  /** Where each of `opener`'s lens windows is now, by the lens it opened for, for its page to save with its layout. */
+  placesOf(opener: Window): Record<string, Bounds>
+}
+
+/** Whether a window at `place` would open on one of the screens with these work areas: enough to drag it by. */
+export function onAScreen(place: Bounds, screens: readonly Bounds[]): boolean {
+  return screens.some((screen) => titleBarOn(place, screen))
 }
 
 /** How much of a window's title bar has to be on a screen for it to open there again: enough to drag it by. */
@@ -53,15 +64,32 @@ export function lensWindows<Window extends LensWindowParts>({
   quit
 }: LensWindowsOptions): LensWindows<Window> {
   const openers = new Map<Window, Window>()
+  const lenses = new Map<Window, string>()
+  /** Where each window put at a saved place was asked to be, and where it opened. */
+  const asks = new Map<Window, { asked: Bounds; opened: Bounds }>()
+
+  /** Where a window is, or where it was asked to be while it hasn't moved from where that put it. */
+  const placeOfWindow = (window: Window): Bounds => {
+    const now = window.bounds()
+    const ask = asks.get(window)
+
+    return ask && sameBounds(now, ask.opened) ? ask.asked : now
+  }
+
   const places = new Map<string, Bounds>()
   /** Editor windows whose closing is watched, and those that have closed. */
   const watched = new WeakSet<Window>()
   const closed = new WeakSet<Window>()
 
   return {
-    add(window, opener, lens) {
+    add(window, opener, lens, asked) {
       watchOpener(opener)
       openers.set(window, opener)
+      lenses.set(window, lens)
+
+      if (asked) {
+        asks.set(window, { asked, opened: window.bounds() })
+      }
 
       window.onClose((keepOpen) => {
         // While the editor window decides whether the app quits, its lens windows stay, so its page sees them as they
@@ -72,10 +100,14 @@ export function lensWindows<Window extends LensWindowParts>({
           return
         }
 
-        places.set(lens, window.bounds())
+        places.set(lens, placeOfWindow(window))
       })
 
-      window.onClosed(() => openers.delete(window))
+      window.onClosed(() => {
+        openers.delete(window)
+        lenses.delete(window)
+        asks.delete(window)
+      })
     },
     has: (window) => openers.has(window),
     of: (opener) => childrenOf(opener),
@@ -83,7 +115,12 @@ export function lensWindows<Window extends LensWindowParts>({
     placeOf(lens, screens) {
       const place = places.get(lens)
 
-      return place && screens.some((screen) => titleBarOn(place, screen)) ? place : undefined
+      return place && onAScreen(place, screens) ? place : undefined
+    },
+    placesOf(opener) {
+      const open = childrenOf(opener).filter((window) => !window.destroyed())
+
+      return Object.fromEntries(open.map((window) => [lenses.get(window)!, placeOfWindow(window)]))
     }
   }
 
@@ -119,6 +156,10 @@ export function lensWindows<Window extends LensWindowParts>({
       }
     })
   }
+}
+
+function sameBounds(a: Bounds, b: Bounds): boolean {
+  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
 }
 
 /** Whether enough of a window's title bar, its top edge, is on a screen to drag it by. */

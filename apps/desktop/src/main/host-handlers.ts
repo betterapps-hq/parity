@@ -99,6 +99,7 @@ export interface HostNeeds<Event, Window> {
   /** `state.json`, what the app remembers for itself: the layout, recent searches and each window's tabs. */
   state: {
     set(key: StateKey, value: JsonValue): void
+    setLensLayout(project: string, layout: JsonValue): void
     claimTabs(window: Window): Promise<SavedTabs>
     saveTabs(window: Window, tabs: SavedTabs): void
   }
@@ -209,6 +210,7 @@ export function hostHandlers<Event, Window>(needs: HostNeeds<Event, Window>): Ho
     settingsChange: (change) => needs.settings.change(change),
     projectsChange: (change) => needs.projects.change(change),
     stateSet: ({ key, value }) => needs.state.set(key, value),
+    lensLayoutSave: ({ project, layout }) => needs.state.setLensLayout(project, layout),
     tabsClaim: (_nothing, window) => needs.state.claimTabs(window),
     tabsSave: ({ roots, active }, window) =>
       needs.state.saveTabs(window, active === undefined ? { roots } : { roots, active }),

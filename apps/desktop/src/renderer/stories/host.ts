@@ -466,12 +466,15 @@ export function installHost(): void {
     },
     // Stories start with nothing saved: no layout, tabs or projects.
     saved: () => ({ values: {}, projects: { recent: [], notes: {} } }),
+    // Stories open no lens windows of the app's own.
+    lensWindowPlaces: () => ({}),
     projects: {
       change: () => Promise.resolve({ recent: [], notes: {} }),
       subscribe: () => () => undefined
     },
     state: {
       set: () => undefined,
+      saveLensLayout: () => undefined,
       claimTabs: () => Promise.resolve({ roots: [] }),
       saveTabs: () => undefined
     },

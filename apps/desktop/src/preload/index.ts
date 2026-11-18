@@ -261,6 +261,8 @@ const host: CanvasHost = {
   },
   // SAFETY: main answers this channel with what state.json and projects.json hold, and ships with this script.
   saved: () => ipcRenderer.sendSync(ipc.stateNow) as ReturnType<CanvasHost["saved"]>,
+  // SAFETY: main answers this channel with its lens windows' bounds, and ships with this script.
+  lensWindowPlaces: () => ipcRenderer.sendSync(ipc.lensWindowPlaces) as ReturnType<CanvasHost["lensWindowPlaces"]>,
   projects: {
     change: (change) => ask("projectsChange", change),
     subscribe: (listener) => {
@@ -276,6 +278,7 @@ const host: CanvasHost = {
   },
   state: {
     set: (key, value) => tell("stateSet", { key, value }),
+    saveLensLayout: (project, layout) => tell("lensLayoutSave", { project, layout }),
     claimTabs: () => ask("tabsClaim"),
     saveTabs: (tabs) => tell("tabsSave", tabs)
   },
