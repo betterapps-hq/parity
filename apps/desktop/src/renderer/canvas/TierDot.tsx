@@ -7,9 +7,9 @@ const every = 200
 const colors = { frozen: "#9ca3af", warming: "#f97316", warmed: "#22c55e" }
 
 /**
- * Temporary, to watch route frames' tiers work (PAR-1301): a dot in a route board's corner, grey while it shows its
- * frozen copy or picture, orange while a spare warms on its route, green once one waits there or the board is live.
- * Remove this file, `Pool.spareRoutes` and its use in `RouteBoard`.
+ * A dot beside a route board's top-right corner for watching route frames' tiers work, with the Route frame tiers
+ * setting (PAR-1301): grey while it shows its frozen copy or picture, orange while a spare warms on its route, green
+ * once one waits there or the board is live.
  */
 export function TierDot({ project, url, warmed }: { project: string; url: string; warmed: boolean }) {
   const [spare, setSpare] = useState<"warming" | "ready">()
@@ -32,8 +32,8 @@ export function TierDot({ project, url, warmed }: { project: string; url: string
       style={{
         position: "absolute",
         // The same size on screen at any zoom, once the zoom settles.
-        top: "calc(6px * var(--tl-scale, 1))",
-        right: "calc(6px * var(--tl-scale, 1))",
+        top: 0,
+        left: "calc(100% + 6px * var(--tl-scale, 1))",
         width: "calc(12px * var(--tl-scale, 1))",
         height: "calc(12px * var(--tl-scale, 1))",
         borderRadius: "50%",

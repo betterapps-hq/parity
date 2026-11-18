@@ -544,10 +544,10 @@ menubar's command. A row in the Layers panel has a menu of its own, built the sa
   alike, so a command looks the same in the menubar, the canvas menu, the Layers row menu and a design title's menu.
   Paste here takes Paste's.
 - **The menubar offers each command once** (PAR-1039): New screen and New component are Object's, Settings is File's,
-  Developer tools, Performance stats and Clear bitmap cache are in Help › Developer, and Install the Parity CLI… follows
-  Check for updates. Close project (Ctrl+W) closes the project. A toggle, such as Panels or Performance stats, keeps its
-  icon where every item's goes and shows a tick on the right, before its keys, while it's on. No menu adds a line saying
-  what to select; its greyed items say enough.
+  Developer tools, Performance stats, Route frame tiers and Clear bitmap cache are in Help › Developer, and Install the
+  Parity CLI… follows Check for updates. Close project (Ctrl+W) closes the project. A toggle, such as Panels or
+  Performance stats, keeps its icon where every item's goes and shows a tick on the right, before its keys, while it's
+  on. No menu adds a line saying what to select; its greyed items say enough.
 
 - **The items**, in groups with a line between them: Select layer; Copy, Copy as PNG, Paste here, Paste over selection,
   Paste to replace and Duplicate; Bring to front, Bring forward, Send backward and Send to back; Wrap in layout, Make
@@ -8888,6 +8888,12 @@ A screen is named for the component its route draws, else its path.
   refills, 1.5 s after a board goes live, since a project's frames share one process. A window that isn't focused keeps
   no spares. `routeFrame.live` says how a board went live and how long it took, and `routeFrame.miss` that no spare was
   there.
+- **Route frame tiers (PAR-1301).** With Settings › Diagnostics › Route frame tiers on, or Help › Developer › Route
+  frame tiers, each route board has a dot just right of its top-right corner, where the live page can't cover it
+  (`TierDot`): grey while it shows its frozen copy or picture, orange while a spare loads at or moves to its route, and
+  green once a spare waits on its route or the board is live (`Pool.spareRoutes`, and the board's own `ready` and
+  `live`). It's the same size on screen at any zoom, once the zoom settles. Off by default; it's for watching the pool
+  work. Tried in a development build on the example project.
 - **When the page process fails.** A project's pages share one renderer process. When main sees it go, it closes the
   freezer's channel, or a request misses its deadline, it's one failure: the live frame, spares and freezer close at
   once, and open again after 1 s, then 5 s, then 30 s. After three failures in two minutes Parity stops opening them for

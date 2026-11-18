@@ -805,8 +805,8 @@ export class Pool {
   }
 
   /**
-   * Temporary, for the tier dot (PAR-1301): each route a spare is on, "ready" when one waits there and "warming" while
-   * one loads or moves there. Remove with `TierDot`.
+   * Each route a spare is on, "ready" when one waits there and "warming" while one loads or moves there, for the tier
+   * dot (`TierDot`).
    */
   spareRoutes(): ReadonlyMap<string, "warming" | "ready"> {
     const routes = new Map<string, "warming" | "ready">()

@@ -250,6 +250,17 @@ export const settings: Setting[] = [
     default: false
   },
   {
+    id: "routeFrameTiers",
+    page: "diagnostics",
+    label: "Route frame tiers",
+    detail: "A dot on each page: grey when frozen, orange while warming, green when warmed.",
+    keywords: ["live", "frozen", "spare", "debug"],
+    group: "Performance",
+    scope: "app",
+    control: { kind: "switch" },
+    default: false
+  },
+  {
     id: "betaUpdates",
     page: "updates",
     label: "Get beta updates",

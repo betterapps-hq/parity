@@ -20,7 +20,8 @@ const preferenceIds = [
   "snapping",
   "layoutGrid",
   "exportSizes",
-  "performanceStats"
+  "performanceStats",
+  "routeFrameTiers"
 ] as const satisfies readonly (keyof Preferences)[]
 
 export type PreferenceId = (typeof preferenceIds)[number]
@@ -61,7 +62,7 @@ const flag = z.boolean()
 const preferenceValue = z.discriminatedUnion("id", [
   z.object({ id: z.literal("theme"), value: z.enum(["light", "dark", "system"]) }),
   z.object({ id: z.literal("componentsView"), value: z.enum(["names", "list", "grid"]) }),
-  z.object({ id: z.enum(["autosave", "snapping", "layoutGrid", "performanceStats"]), value: flag })
+  z.object({ id: z.enum(["autosave", "snapping", "layoutGrid", "performanceStats", "routeFrameTiers"]), value: flag })
 ])
 
 /** One of the person's preferences, from a value Settings' control gave. */

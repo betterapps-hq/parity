@@ -1,7 +1,7 @@
 {
-  "type": "none",
-  "comment": "Show a temporary dot on each route board for its route frame's tier",
+  "type": "minor",
+  "comment": "Route frame tiers, in Settings \u203a Diagnostics and Help \u203a Developer, puts a dot beside each route board: grey when frozen, orange while a spare warms on its route, green when warmed",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
+  "dependentChangeType": "patch"
 }

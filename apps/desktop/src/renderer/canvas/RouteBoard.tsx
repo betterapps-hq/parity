@@ -18,6 +18,7 @@ import { type BoardTier, boardTier, type PageMode } from "@parity-app/frames"
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useMaybeEditor, useValue } from "tldraw"
 import { pageRenderJob } from "../../shared/render-job.ts"
+import { usePreferences } from "../chrome/preferences.ts"
 import { copyNodeAttribute, copyRootAttribute } from "../copy-sheets.ts"
 import { findFrames, findNodeElements, registerFrame, setDrawnNodes, setInnerNodes } from "../frame.ts"
 import { mountCopy } from "../page-copy.ts"
@@ -240,39 +241,42 @@ export function RouteBoard({
   }, [copy, design, doc, primary])
 
   const shown = !frozen && picture.src
+  const tierDots = usePreferences().routeFrameTiers
 
   return (
-    <div
-      ref={box}
-      className="mode-frame relative overflow-hidden bg-white shadow-lg ring-1 ring-black/15"
-      data-tier={frozen ? "frozen" : "picture"}
-      data-live={liveAttribute(live)}
-      data-ready={ready ? "" : undefined}
-      style={{
-        width: Math.round(frame.width * scale),
-        height: Math.round(height * scale),
-        // With Interact the board takes the press that makes it live; otherwise the canvas has the pointer.
-        pointerEvents: interactive ? "auto" : undefined
-      }}
-    >
-      <div data-frame-box="">
-        <div
-          ref={host}
-          data-frame=""
-          data-design={design}
-          data-mode={mode.id}
-          data-state={state}
-          data-primary={primary}
-          data-copy={frozen ? "" : undefined}
-          inert
-          style={{ width: frame.width, height, zoom: scale }}
-        />
+    <>
+      <div
+        ref={box}
+        className="mode-frame relative overflow-hidden bg-white shadow-lg ring-1 ring-black/15"
+        data-tier={frozen ? "frozen" : "picture"}
+        data-live={liveAttribute(live)}
+        data-ready={ready ? "" : undefined}
+        style={{
+          width: Math.round(frame.width * scale),
+          height: Math.round(height * scale),
+          // With Interact the board takes the press that makes it live; otherwise the canvas has the pointer.
+          pointerEvents: interactive ? "auto" : undefined
+        }}
+      >
+        <div data-frame-box="">
+          <div
+            ref={host}
+            data-frame=""
+            data-design={design}
+            data-mode={mode.id}
+            data-state={state}
+            data-primary={primary}
+            data-copy={frozen ? "" : undefined}
+            inert
+            style={{ width: frame.width, height, zoom: scale }}
+          />
+        </div>
+        {shown && <img className="page-picture" data-picture="" src={shown} alt="" draggable={false} />}
+        {!frozen && !shown && <div className="frame-placeholder" data-placeholder aria-hidden />}
       </div>
-      {shown && <img className="page-picture" data-picture="" src={shown} alt="" draggable={false} />}
-      {!frozen && !shown && <div className="frame-placeholder" data-placeholder aria-hidden />}
-      {/* Temporary (PAR-1301). */}
-      <TierDot project={project} url={url} warmed={ready || !!live} />
-    </div>
+      {/* Beside the board rather than on it, where the live page would cover it. */}
+      {tierDots && <TierDot project={project} url={url} warmed={ready || !!live} />}
+    </>
   )
 }
 

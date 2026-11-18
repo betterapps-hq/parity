@@ -26,6 +26,11 @@ export const settingValues = {
   autosave: z.boolean(),
   /** Frame rate, memory and CPU in the status bar, for spotting what slows the app down. */
   performanceStats: z.boolean(),
+  /**
+   * A dot on each route board for its route frame's tier: grey frozen, orange while a spare warms on its route, green
+   * once one is ready there or the board is live (PAR-1301).
+   */
+  routeFrameTiers: z.boolean(),
   /** The editor View code opens a component's file in: one, the first installed, or the system's default app. */
   codeEditor: z.enum(["vscode", "cursor", "windsurf", "zed", "auto", "system"])
 } as const
@@ -43,6 +48,7 @@ export const defaultSettings: AppSettings = {
   layoutGrid: false,
   autosave: false,
   performanceStats: false,
+  routeFrameTiers: false,
   codeEditor: "auto"
 }
 
