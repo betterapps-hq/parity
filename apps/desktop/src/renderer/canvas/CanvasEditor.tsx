@@ -51,7 +51,7 @@ import { NoteUtil } from "./NoteUtil.tsx"
 import { sizeWhileShown } from "./overlay-canvas.ts"
 import { PageLinksUtil } from "./PageLinksUtil.tsx"
 import { placedBoards } from "./placed-boards.ts"
-import { tellGesture } from "./presence-gestures.ts"
+import { tellBrushing, tellGesture } from "./presence-gestures.ts"
 import { ReferenceUtil } from "./ReferenceUtil.tsx"
 import { recordRestedFar } from "./rested-far.ts"
 import { isRoutePage, routePageLinks } from "./route-pages.ts"
@@ -583,6 +583,8 @@ export function CanvasEditor({
       // A pan or a zoom is a gesture of its own, recorded once the camera settles (PAR-640).
       const camera = new CameraGestures()
       const stopCamera = react("camera gestures", () => camera.moved(editor.getCamera()))
+      // A box drawn on the empty canvas, told as this person's gesture (`parity.presence`).
+      const stopBrushing = tellBrushing(editor, project)
 
       // A board or note dragged by tldraw moves in one gesture, from its first move until tldraw stops translating.
       let translation:
@@ -857,6 +859,7 @@ export function CanvasEditor({
 
         translation = undefined
         stopCamera()
+        stopBrushing()
         camera.stop()
         stopMoves()
         stopSelection()

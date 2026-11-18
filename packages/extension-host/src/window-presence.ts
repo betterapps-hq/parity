@@ -5,7 +5,7 @@ import type { WindowSurface } from "./window-modules.ts"
 /*
  * `parity.presence` for one project tab (docs/proposals/extensions-in-the-window.md, "The event and call tables"): this
  * person's pointer at most once a frame, the latest, with its leaving never dropped; every gesture in order; and what
- * they're viewing on each change. The window gives the raw events as a port; nothing is collected while no window
+ * they're viewing on each change, and who's signed in whenever that changes. The window gives the raw events as a port; nothing is collected while no window
  * module listens. A move's drop and its end wait for the changes committed before them to be told to
  * `sync.onLocalChanges`, so a copy that sends both on one ordered channel delivers the write first.
  */
@@ -21,6 +21,8 @@ export interface Pointer {
 /** What the tab's window tells of this person. */
 export interface PresencePort {
   self(): Self
+  /** Told whenever who's signed in may have changed; `self` is read again then. Returns what stops it. */
+  onSelfChange(listener: () => void): () => void
   /** Every move of the pointer over the canvas, and its leaving. Returns what stops it. */
   onPointer(listener: (pointer: Pointer) => void): () => void
   onGesture(listener: (gesture: Gesture) => void): () => void
@@ -36,10 +38,42 @@ export function windowPresence(port: PresencePort): WindowSurface {
   const pointers = new Set<(pointer: Pointer) => void>()
   const gestures = new Set<(gesture: Gesture) => void>()
   const viewings = new Set<(viewing: Viewing) => void>()
+  const selves = new Set<(self: Self) => void>()
   let stopPointer: (() => void) | undefined
   let stopGesture: (() => void) | undefined
   let stopViewing: (() => void) | undefined
+  let stopSelf: (() => void) | undefined
   let lastViewing: string | undefined
+
+  // Who's signed in, kept as one object until it changes, so a module can compare it or hand it to React as it is.
+  let self: Self | undefined
+  let selfKey: string | undefined
+
+  /** Who's signed in now: the same object as when it was last read, unless it's changed since. */
+  const readSelf = (): Self => {
+    const next = port.self()
+    const key = JSON.stringify(next)
+
+    if (!self || key !== selfKey) {
+      self = next
+      selfKey = key
+    }
+
+    return self
+  }
+
+  const heardSelf = () => {
+    const before = self
+    const now = readSelf()
+
+    if (now === before) {
+      return
+    }
+
+    for (const listener of selves) {
+      listener(now)
+    }
+  }
 
   // The latest pointer this frame, sent when the frame comes.
   let pending: Pointer | undefined
@@ -120,7 +154,26 @@ export function windowPresence(port: PresencePort): WindowSurface {
     make(context) {
       const presence: Presence = {
         get self() {
-          return port.self()
+          return readSelf()
+        },
+        onSelfChange(listener) {
+          const handle = listen(
+            selves,
+            context.listener("presence.onSelfChange", listener),
+            () => {
+              // Read first, so the change is measured from who was signed in as the module began listening.
+              readSelf()
+              stopSelf = port.onSelfChange(heardSelf)
+            },
+            () => {
+              stopSelf?.()
+              stopSelf = undefined
+            }
+          )
+
+          context.onEnd(() => handle.dispose())
+
+          return handle
         },
         onPointer(listener) {
           const handle = listen(

@@ -6463,8 +6463,9 @@ the signed-in person's first name.
   behind the positions sent and moved between them on every frame, so it doesn't stop and jump when one is late
   (PAR-1307). Their marquee and drag are drawn from the same positions, so they move with it. It stays where it was,
   faded, when they leave the canvas. What they've selected, and the text they're typing in, is outlined in their color
-  with their name, with their caret where they're typing (PAR-1275). Their marquee shows as they drag it. A drag shows
-  through `parity.canvas.preview`, with the lift, carry and settle of a local drag (PAR-1199), and settles on its write.
+  with their name, with their caret where they're typing (PAR-1275). Their marquee shows as they drag it, whether it
+  starts on a frame's background or on the empty canvas (PAR-1311). A drag shows through `parity.canvas.preview`, with
+  the lift, carry and settle of a local drag (PAR-1199), and settles on its write.
 - **Coming back.** A copy whose connection to the relay comes back drops everyone who left meanwhile as if it had heard
   them leave: their pointer, a drag they were showing, following them, and their color (PAR-1282).
 - **Who's here.** The avatar stack sits on the zoom controls' row, just left of them and as tall, with everyone in one
@@ -6475,7 +6476,8 @@ the signed-in person's first name.
 - **Your own face.** Signed in, your face in the stack and your card look like your account avatar in the window's top
   right: your provider's picture, or your initials on your email's color (PAR-1309). Only your window draws you so; the
   room is told only your first name, and everyone else sees you in the palette the host assigned you, as do your
-  pointer, outlines and drags. Signed out, your face keeps your palette.
+  pointer, outlines and drags. Signed out, your face keeps your palette. Signing in, out or switching accounts redraws
+  your face at once, and the room hears your new first name (PAR-1310).
 - **Agents.** This copy's agents' steps go to the room, and steps from the room go to `parity.agents.receive`, so agent
   presence, where it's on, draws every copy's agents. The host numbers agents' colors as it does people's, by copy and
   agent, so an agent is the same color in every copy (PAR-1277). Each copy assigns the numbers under the keys agent
@@ -6554,6 +6556,10 @@ Tests:
   avatar shows you while signed in, without a picture when there's none, and in your palette signed out; each person's
   latest presence, gesture and color; their pointer positions kept in a trail drawn a little behind, and forgotten when
   they leave; dragged nodes placed from the pointer; selections grouped by node; a caret's mark.
+- `apps/desktop/src/renderer/canvas/presence-gestures.test.ts`, "tellBrushing" (PAR-1311): a box on the empty canvas
+  told as a marquee from where the press started, ended when let go, and called off on Escape or as the canvas goes.
+- `packages/extension-host/src/window-seams.test.ts`, "tells who's signed in only when that changes" (PAR-1310):
+  `parity.presence.onSelfChange` told only on a real change, with `self` the same object until then.
 - `apps/desktop/src/renderer/account/look.test.ts`: initials from a name, an email or neither; an account's look, with
   and without a picture. `packages/presence-colors/src/account.test.ts`: the email's color, unchanged from before, and
   its hue.

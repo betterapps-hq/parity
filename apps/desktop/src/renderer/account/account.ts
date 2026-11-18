@@ -173,6 +173,11 @@ export function startAccount(): void {
     })
 }
 
+/** Hears every change to the account view, which includes who's signed in, until the function it gives is called. */
+export function onAccountChange(listener: () => void): () => void {
+  return account.subscribe(listener)
+}
+
 /** Who's signed in now, if anyone. */
 export function signedInPerson(): AccountPerson | undefined {
   return account.get().state.account ?? undefined

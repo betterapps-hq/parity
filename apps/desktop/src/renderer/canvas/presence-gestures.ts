@@ -99,6 +99,50 @@ export function telling(
   }
 }
 
+/** What `tellBrushing` reads of tldraw's editor: whether it's brushing, its events, and where the press started. */
+export interface BrushingEditor {
+  isIn(path: "select.brushing"): boolean
+  on(event: "event", listener: (info: { name: string }) => void): void
+  off(event: "event", listener: (info: { name: string }) => void): void
+  inputs: { getOriginPagePoint(): { x: number; y: number } }
+}
+
+/**
+ * Tells a box drawn on the empty canvas, tldraw's own brush, as a `marquee` gesture (PAR-1311): started as tldraw starts
+ * brushing, from where the press started, ended when the pointer's let go, and called off otherwise, as by Escape or a
+ * switch to another tool. A box drawn on a frame's background is `pressBackground`'s, which tells it itself. tldraw
+ * says what an event did only after handling it, so each event is checked once tldraw has handled it.
+ */
+export function tellBrushing(editor: BrushingEditor, project: GestureProject): () => void {
+  let from: { x: number; y: number } | undefined
+
+  const heard = (info: { name: string }) => {
+    const brushing = editor.isIn("select.brushing")
+
+    if (brushing && !from) {
+      const origin = editor.inputs.getOriginPagePoint()
+      from = { x: origin.x, y: origin.y }
+      tellGesture(project, { kind: "marquee", phase: "start", from })
+    } else if (!brushing && from) {
+      const phase = info.name === "pointer_up" || info.name === "complete" ? "end" : "cancel"
+      tellGesture(project, { kind: "marquee", phase, from })
+      from = undefined
+    }
+  }
+
+  editor.on("event", heard)
+
+  return () => {
+    editor.off("event", heard)
+
+    // A box still being drawn as the canvas goes, as when its tab closes.
+    if (from) {
+      tellGesture(project, { kind: "marquee", phase: "cancel", from })
+      from = undefined
+    }
+  }
+}
+
 /** A design's layer, as `parity.selection` names it: its type in the design, and `designKey/layerId`. */
 export function layerRef(
   doc: { design(key: string): { root: DesignNode } | undefined },
