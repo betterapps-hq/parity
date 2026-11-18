@@ -47,6 +47,12 @@ export interface PlacedPage {
 /** How far a group's pages sit inside its sides, on the canvas. */
 export const groupInset = 48
 
+/** How much room a page's board takes on the canvas. */
+export interface PageSize {
+  width: number
+  height: number
+}
+
 /** Where the tree goes and how big each page is. */
 export interface PageLayout {
   /** The app's origin, as `http://127.0.0.1:5173`. */
@@ -54,11 +60,17 @@ export interface PageLayout {
   /** The top left of the tree. */
   x: number
   y: number
+  /** A page's size when `size` doesn't give one: its board showing one mode. */
   width: number
   height: number
   /** Between pages side by side, and between a page and the pages under it. */
   gap: number
   levelGap: number
+  /**
+   * How much room a page's board takes, as when it shows more modes side by side (PAR-1317), so the pages beside it and
+   * the levels under it make room. Without it, each page is `width` by `height`.
+   */
+  size?: (route: ProjectRoute) => PageSize
 }
 
 /**
@@ -113,26 +125,30 @@ export function pageTree(routes: readonly ProjectRoute[]): PageNode[] {
 
 /**
  * The tree laid out top down: each page centered over the pages under it, which sit side by side a level below, and
- * the trees of a forest side by side. A group's pages sit side by side inside it, on the group's own level.
+ * the trees of a forest side by side. A group's pages sit side by side inside it, on the group's own level. Each page
+ * takes the room its board does (`layout.size`), and each level is as tall as its tallest page.
  */
 export function placePages(tree: readonly PageNode[], layout: PageLayout): PlacedPage[] {
   const placed: PlacedPage[] = []
+  const sizeOf = (route: ProjectRoute) => layout.size?.(route) ?? { width: layout.width, height: layout.height }
+  const levels = levelTops(tree, layout, sizeOf)
 
   const row = (nodes: readonly PageNode[]): number =>
     nodes.reduce((total, node, index) => total + span(node) + (index > 0 ? layout.gap : 0), 0)
 
   const span = (node: PageNode): number =>
-    node.group ? row(node.children) + groupInset * 2 : Math.max(layout.width, row(node.children))
+    node.group ? row(node.children) + groupInset * 2 : Math.max(sizeOf(node.route).width, row(node.children))
 
   const place = (node: PageNode, left: number, depth: number, parent?: string) => {
     const width = span(node)
+    const y = levels[depth] ?? layout.y
 
     if (node.group) {
       const group: PlacedPage = {
         route: node.route,
         url: new URL(samplePath(node.route), layout.origin).href,
         x: left,
-        y: layout.y + depth * (layout.height + layout.levelGap),
+        y,
         group: { ...node.group, width }
       }
 
@@ -154,8 +170,8 @@ export function placePages(tree: readonly PageNode[], layout: PageLayout): Place
     const page: PlacedPage = {
       route: node.route,
       url: new URL(samplePath(node.route), layout.origin).href,
-      x: left + (width - layout.width) / 2,
-      y: layout.y + depth * (layout.height + layout.levelGap)
+      x: left + (width - sizeOf(node.route).width) / 2,
+      y
     }
 
     if (parent !== undefined) {
@@ -179,6 +195,44 @@ export function placePages(tree: readonly PageNode[], layout: PageLayout): Place
   }
 
   return placed
+}
+
+/** The top of each level of the tree: the first at `layout.y`, each next one `levelGap` below the tallest page above. */
+function levelTops(
+  tree: readonly PageNode[],
+  layout: Pick<PageLayout, "y" | "height" | "levelGap">,
+  sizeOf: (route: ProjectRoute) => { height: number }
+): number[] {
+  const tallest: number[] = []
+
+  const visit = (node: PageNode, depth: number) => {
+    if (!node.group) {
+      tallest[depth] = Math.max(tallest[depth] ?? layout.height, sizeOf(node.route).height)
+    }
+
+    for (const child of node.children) {
+      visit(child, node.group ? depth : depth + 1)
+    }
+  }
+
+  for (const node of tree) {
+    visit(node, 0)
+  }
+
+  const tops = [layout.y]
+
+  for (const height of tallest) {
+    tops.push(tops.at(-1)! + (height ?? layout.height) + layout.levelGap)
+  }
+
+  return tops
+}
+
+/** How tall a tree's levels are together, each with the gap under it: `treeDepth` levels as `placePages` lays them. */
+function treeHeight(tree: readonly PageNode[], layout: Pick<PageLayout, "height" | "levelGap" | "size">): number {
+  const sizeOf = (route: ProjectRoute) => layout.size?.(route) ?? { height: layout.height }
+
+  return levelTops(tree, { ...layout, y: 0 }, sizeOf)[treeDepth(tree)] ?? 0
 }
 
 /** How many levels a tree has. A group's pages are on its own level. */
@@ -353,7 +407,7 @@ export function routeTree(
   layout: Omit<PageLayout, "y"> & { bottom: number }
 ): RouteTree {
   const tree = pageTree(routes)
-  const tall = treeDepth(tree) * (layout.height + layout.levelGap)
+  const tall = treeHeight(tree, layout)
   const placed = placePages(tree, { ...layout, y: layout.bottom - tall })
   const groups: RouteGroup[] = []
   const byId = new Map(routes.map((route) => [route.id, route]))

@@ -8986,6 +8986,18 @@ A screen is named for the component its route draws, else its path.
   `keepCodeDesigns` in `apps/desktop/src/renderer/canvas/code-designs.ts`. Tests:
   `packages/editor/src/tried-size.test.ts`, "what's set on a design drawn from code". Gaps: a story's kept modes and
   tried sizes weren't tried in the app, and `code-designs.ts` has no unit test.
+- **Room for a page's modes (PAR-1317).** A page takes the room its board does with the modes it shows, as Screens lays
+  out a design's modes side by side. Turning more of a page's modes on, from its Modes menu or through `updateView`,
+  lays the pages out again: the pages beside it move aside, a level under a taller page moves down, and turning them off
+  brings them back. Changing the project's modes lays them out again too, with the modes as they are now, so a mode
+  added in the Modes panel and shown beside a page takes its room. A page opens with the room of the modes it was left
+  showing. Only a page the new layout puts somewhere else moves, so one the person moved stays put unless it has to make
+  room, and the move is neither a step to undo nor saved. Before, every page was laid out 1280 wide, so Login showing
+  Desktop Dark, Tablet Light and Mobile Light, 3193 wide, ran over the pages beside it. Code: `size` on `PageLayout` in
+  `packages/editor/src/route-boards.ts`; `pageRoom` and `followPageViews` in
+  `apps/desktop/src/renderer/canvas/route-pages.ts`. Tests: `packages/editor/src/route-boards.test.ts`, "moves the pages
+  beside a wider page aside, and the level under a taller page down", and
+  `apps/desktop/src/renderer/canvas/route-pages.test.ts`, "followPageViews".
 - **Never saved.** Page screens are laid out from the routes each time the project opens, in a design file of their own
   that's never written. They can be selected and moved, but a move isn't kept. A copy takes no pointer, so the canvas
   pans and selects over it. With the Interact tool, a press makes the board live (below), and clicking Pricing in App's
