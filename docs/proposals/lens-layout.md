@@ -171,9 +171,9 @@ The steps go in this order, each after the one before:
 | Screens holding only designs                                             | PAR-1251 |
 | Components as a lens of its own                                          | PAR-1245 |
 
-Once Components lands, the rest follow: today's canvas tried in a lens's own window (PAR-1242), then lens windows in the
-desktop app (PAR-1247), and each project's layout saved and restored (PAR-1248). Data's canvas, the ERD, comes with the
-Data lens's own work (PAR-40).
+Today's canvas has been tried in a lens's own window (PAR-1242, in [On Dockview](#on-dockview)). Once Components lands,
+the rest follow: lens windows in the desktop app (PAR-1247), and each project's layout saved and restored (PAR-1248).
+Data's canvas, the ERD, comes with the Data lens's own work (PAR-40).
 
 ## On Dockview
 
@@ -204,8 +204,50 @@ What we'd build on top, each found in the spike:
   is in.
 - **Electron allowing the window.** The main window's `setWindowOpenHandler` denies every `window.open` today; it would
   allow the pop-out page and set the window's frame and title bar.
-- **The real canvas in a lens's own window.** Not tried: tldraw listens on `window` and `document`, which in a pop-out
-  are the main window's.
+- **The real canvas in a lens's own window.** Tried in PAR-1242, below: tldraw follows it, and what breaks is Parity's.
+
+### Today's canvas in a lens's own window
+
+PAR-1242 moved Screens, with today's canvas, into a Dockview pop-out: a same-origin `window.open` child, as the shell
+makes one. The story Parity/Explorations/Lenses/Canvas window has the app's lenses with lens windows on, and the
+window's shortcuts. Each action was tried first in the main window, then in the pop-out, with Playwright driving Chrome:
+the built-in browser pane opens `window.open` in its own tab, so it can't show a pop-out.
+
+Dockview moves the group's elements into the new window rather than drawing them again. The React tree and the tldraw
+editor carry on with the same camera and selection. tldraw 5.6 reads its container's document and window when it uses
+them (`getContainerDocument`, `getOwnerWindow`), so it follows the canvas there and measures it again.
+
+| In the lens's own window                              | Result | Why                                                                                                   |
+| ----------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------- |
+| Scrolling, Ctrl+wheel zoom, the zoom buttons          | Works  | tldraw listens on its container                                                                       |
+| Resizing the window                                   | Works  | tldraw watches its container's size                                                                   |
+| Selecting a design or a layer, the outlines, brushing | Works  | tldraw and the overlays take pointer events on the canvas                                             |
+| Double-clicking into a design, editing its text       | Works  | the text editor is in the window, takes the focus and the typing                                      |
+| Moving the tab back to the main window                | Works  | the canvas goes back with its camera                                                                  |
+| How designs look                                      | Breaks | each frame's shadow root loses its stylesheets (32 of 32 in the main window, 0 in the pop-out)        |
+| Tool keys, Zoom to fit, Ctrl and a lens's number      | Breaks | the app's shortcuts, Undo's too, listen on the main window (`canvas/shortcuts.ts`, `LensWorkspace`)   |
+| Dragging a board by its title                         | Breaks | the press selects it, but `followPress` in `canvas/gesture.ts` follows the pointer on the main window |
+| The canvas's menu, the toolbar's menus, tooltips      | Breaks | Base UI draws them into the main window's document                                                    |
+
+The frames' stylesheets are `CSSStyleSheet`s the main window made, which only its own document can adopt; moving a
+shadow root to another document leaves it with none. Other gestures that follow the pointer or keys on `window`, such as
+`ResizeHandles`, `layer-drag.ts` and `CanvasOverlay`, weren't tried, but listen where the board's drag does. tldraw's
+own listeners on the window and body, such as its focus handling and the window's blur, stay on the main window; nothing
+tried showed it, and remounting the canvas in its new window would move them.
+
+What it would take, with the canvas in the main window's renderer:
+
+- **Frames:** make each frame's stylesheets in the document it's drawn in, and make them again when it moves to another.
+- **Shortcuts:** listen on each lens window as well as the main one. Dockview reports each window as it opens
+  (`onDidAddPopoutGroup`), which `dock-adapter.ts` already uses for drags.
+- **Gestures:** follow the pointer and keys on the window the press came from (`event.view`), not on `window`.
+- **Menus and tooltips:** give Base UI a portal container in each window, through a context the lens's window provides.
+- **tldraw:** nothing beyond remounting the canvas in the window it moves to, if a listener left behind turns out to
+  matter.
+
+The other two routes cost more. A renderer of its own for each lens window would need the open project, its store and
+its code kept in step between processes. Keeping canvases in the main window would leave lens windows for panels and
+lists alone. So PAR-1247 can carry today's canvas in a child window, with the fixes above.
 
 ## Open questions
 
