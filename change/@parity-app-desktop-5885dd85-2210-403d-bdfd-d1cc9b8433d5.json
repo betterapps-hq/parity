@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Design Border and Outline rows and a Line style field in Storybook",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}
