@@ -54,12 +54,13 @@ match, in this order. Every section needs `styled`.
 | Transform             | not `root`             | Move, scale and flips, and origin; drawn inside Placement and insets                                                        |
 | Size and aspect ratio | not `frame`            | W and H with the Sizing menu (Fill needs `inFlex`, `inGrid` or `box`), min and max, aspect ratio; align self needs `inFlex` |
 | Grid placement        | `inGrid`               | Span, start and end lines, align and justify self                                                                           |
-| Spacing               | none                   | The box model: padding, and margin when not `root`; in Size                                                                 |
+| Spacing               | none                   | The box model: padding, the border's width with a border, margin when not `root`; Box sizing; in Size                       |
 | Layout                | `box`                  | Direction, wrap, alignment, gap, grid tracks                                                                                |
 | Text                  | `text` or `textInside` | Preset, font, weight, size, line height, letter spacing, align, case, wrap; tag and max lines need `text`                   |
 | Appearance            | none                   | Opacity, blend mode, radius and corner shape, clip, cursor                                                                  |
 | Fill                  | none                   | The paint stack: colors, gradients and images                                                                               |
-| Stroke                | none                   | Color, width per side, style, position                                                                                      |
+| Border                | none                   | Width (one, or each side), style, color; adds to the layer's size; its width shows in Spacing too                           |
+| Outline               | none                   | Width, style, color and offset, outside the edge or inside it; never moves the layout                                       |
 | Effects               | none                   | Shadows, blurs and filters                                                                                                  |
 | Motion                | none                   | Transitions with time and easing                                                                                            |
 | Raw CSS               | none                   | Properties the sections don't cover                                                                                         |
@@ -77,12 +78,14 @@ tests check, for each layer kind, which sections and conditional controls show.
 | Placement and insets | `position`: fixed, sticky, relative                                                     |
 | Layer order          | z-index                                                                                 |
 | Size                 | Aspect ratio                                                                            |
+| Spacing              | Box sizing                                                                              |
 | Grid placement       | Start and end lines, justify self                                                       |
 | Layout               | Reverse, distribute, dense flow, auto rows, items alignment                             |
 | Appearance           | Blend mode, corner shape, cursor                                                        |
 | Text                 | Wrap, the preset; the tag is HTML, so it's the node's, not its style's                  |
 | Fill                 | A stack of paints in place of one background                                            |
-| Stroke               | Width per side, style per side, position (outline and offset)                           |
+| Border               | Width per side, style                                                                   |
+| Outline              | Color, width, style and offset                                                          |
 | Effects              | A stack of shadows, blurs and filters, and transform (today's `transform` is text case) |
 | Motion               | Transitions                                                                             |
 | Raw CSS              | Other properties                                                                        |
@@ -97,7 +100,7 @@ PAR-892 is too large for one pull request, so it's split, each its own issue and
    with their stories under `Parity/Inspector/Controls`, since the shared parts and the stand-in tokens they fall back
    on are tangled. Field names its control. The capability table drives today's sections.
 2. **Sections the document already holds:** Layout, Size, Spacing, Placement and insets (absolute), Appearance (opacity,
-   radius, clip), Stroke (one width), and Text, on the shared parts, replacing today's inputs.
+   radius, clip), Border (one width), and Text, on the shared parts, replacing today's inputs.
 3. **One issue per row of the table above:** the property in `NodeStyle`, what it writes and reads back, the agent's
    tools, and its controls in the panel.
 4. **The stand-ins go** once every control edits the document: the draft models, stand-in tokens and playground.
