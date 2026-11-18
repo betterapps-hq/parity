@@ -61,7 +61,10 @@ export class Recorder {
   designAdded(key: DesignKey, path: string): void {
     this.design(key, path)
 
-    if (!this.designsRemoved.delete(key)) {
+    // A design removed and added again under its key was replaced: it's changed, whole, rather than added.
+    if (this.designsRemoved.delete(key)) {
+      this.designField(key, path, "root")
+    } else {
       this.designsAdded.add(key)
     }
   }

@@ -68,6 +68,17 @@ describe("changedBoards", () => {
     })
   })
 
+  it("names a design removed and added again under its key in one change", () => {
+    const { boards } = open()
+
+    expect(
+      boards([
+        { op: "removeDesign", design: "app.par#a" },
+        { op: "addDesign", file: "app.par", design: { ...design("a"), position: { x: 50, y: 60 }, locked: true } }
+      ])
+    ).toEqual({ designs: ["app.par#a"], notes: [], references: [] })
+  })
+
   it("names no board for a change inside a design's layers", () => {
     const { boards } = open()
 
