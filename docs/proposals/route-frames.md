@@ -779,16 +779,16 @@ Each is an issue, in this order.
    `CopyKey`, with the mode's id, and remember the mode as drawn, so an edited mode is frozen again; two states of a
    route share a copy. Since PAR-1298 a copy's trace is its picture's (`pageTrace`), asked of the project service after
    each snapshot (`pages.trace`), so a change refreezes only the copies whose traces list it. Where routes are named by
-   folder, the trace keeps the folders `folderRouteFiles` reads, and a file added there counts too; a whole-project
-   trace is `"all"`, so an added file counts anywhere. A copy whose files changed while its page loaded is frozen again
-   at once. A refreeze takes one snapshot per markup group (`groupLeaders`), which stands in for the group's other modes
-   until each is checked once nothing is missing. The freezer takes a second hello as a reload: it waits for
-   `page.ready` and asks again, three times at most. Until step 5's live frame, the page drawn with the Interact tool is
-   what's started again, unless its `page.ready` named Next's router (`updatesItself`), and the webpack-compatible
-   builders' polling reload is gone. The style preview that exists today is token values edited and not saved, which go
-   into one sheet per project every copy adopts and to the page through `preview.set`, into a sheet snapshots never
-   list. A copy's layer previews a style field's value while it's typed or scrubbed, in every copy of the page, and
-   never saves it.
+   folder, the trace keeps the folders `folderRouteFiles` reads, and a file added there or in `public` counts too; a
+   whole-project trace is `"all"`, so an added file counts anywhere. It reads the project's files as they are now. A
+   copy whose files changed while its page loaded is frozen again at once. A refreeze takes one snapshot per markup
+   group (`groupLeaders`), which stands in for the group's other modes until each is checked once nothing is missing.
+   The freezer takes a second hello as a reload: it waits for `page.ready` and asks again, three times at most. Until
+   step 5's live frame, the page drawn with the Interact tool is what's started again, unless its `page.ready` named
+   Next's router (`updatesItself`), and the webpack-compatible builders' polling reload is gone. The style preview that
+   exists today is token values edited and not saved, which go into one sheet per project every copy adopts and to the
+   page through `preview.set`, into a sheet snapshots never list. A copy's layer previews a style field's value while
+   it's typed or scrubbed, in every copy of the page, and never saves it.
 8. **React Router's and Next's page routers** (PAR-1265), with the wrapped `createBrowserRouter` and `createHashRouter`
    for library mode. Built: React Router's reads `__reactRouterDataRouter`, or in library mode `__parityDataRouter`,
    which Parity's `react-router` sets. A manifest's `pageWraps` names the packages a router serves in place of the

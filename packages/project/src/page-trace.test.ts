@@ -140,7 +140,8 @@ describe("pageTrace", () => {
         "src/routes/projects.$id.tsx",
         "src/routes/projects.tsx",
         "src/styles.css"
-      ]
+      ],
+      folders: { prefixes: ["public/"], folders: [] }
     })
   })
 
@@ -148,7 +149,7 @@ describe("pageTrace", () => {
     const trace = pageTrace(next)
 
     expect(trace.folders).toEqual({
-      prefixes: ["app/blog/[slug]/", "app/blog/@", "app/@"],
+      prefixes: ["app/blog/[slug]/", "app/blog/@", "app/@", "public/"],
       folders: ["app/blog", "app"]
     })
     expect(trace.files).not.toContain("app/about/page.tsx")

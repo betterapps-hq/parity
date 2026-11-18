@@ -8783,21 +8783,22 @@ A screen is named for the component its route draws, else its path.
 - **Only a route's own files refreeze its copies (PAR-1298).** After each snapshot the freezer asks the project service
   for the copy's trace (`pages.trace`), the same files as its picture's (`pageTrace`): the route's chain, what the
   builder says it loads, Parity's scan of their imports, what mounts the app, the stylesheets, the shared config and the
-  `public` folder. A change to a file in it makes the copy stale; another route's file leaves it as it is. Where the
-  router names routes by folder, as Next's, a file added in the route's folder, directly in a folder above it or in
-  their parallel slots counts too, as a new layout or loading file does. Where the builder can't say, for a page that
-  redirected or drew its not-found or error page, and when the service doesn't answer, the trace is the whole project,
-  so any change, an added file included, makes the copy stale. A copy one of whose files changed while its page loaded
-  is frozen again at once. A stale copy stays shown until the freezer has a new one, nearest the view first. Modes whose
-  snapshots drew the same markup form a markup group: a route frozen again takes one snapshot per group, which every
-  copy in the group shows at once with its own height, and each other mode is checked with a snapshot of its own once
-  nothing is missing or stale. Two states of a route share a copy. A page that loads again while it's frozen says hello
-  again with the same id: the freezer replaces its channel, waits for it to be ready and takes the snapshot again, three
-  times at most. With the Interact tool, when the app's files change, a project's live page under Vite or a
-  webpack-compatible builder, which keeps the modules it loaded, is loaded again where it is (`page.reload`, or at its
-  last location when it doesn't answer), and a frame still going live once it's live; its spares are closed and opened
-  again. A page whose router is Next's takes Next's hot updates in place. The webpack-compatible builders' pages no
-  longer poll and reload themselves.
+  `public` folder, read from the project's files as they are now, not as its builder started. A change to a file in it
+  makes the copy stale; another route's file leaves it as it is. A file added in `public`, as a logo the page asked for
+  before it was there, counts too, and where the router names routes by folder, as Next's, so does a file added in the
+  route's folder, directly in a folder above it or in their parallel slots, as a new layout or loading file. Where the
+  builder can't say, for a page that redirected or drew its not-found or error page, and when the service doesn't
+  answer, the trace is the whole project, so any change, an added file included, makes the copy stale. A copy one of
+  whose files changed while its page loaded is frozen again at once. A stale copy stays shown until the freezer has a
+  new one, nearest the view first. Modes whose snapshots drew the same markup form a markup group: a route frozen again
+  takes one snapshot per group, which every copy in the group shows at once with its own height, and each other mode is
+  checked with a snapshot of its own once nothing is missing or stale. Two states of a route share a copy. A page that
+  loads again while it's frozen says hello again with the same id: the freezer replaces its channel, waits for it to be
+  ready and takes the snapshot again, three times at most. With the Interact tool, when the app's files change, a
+  project's live page under Vite or a webpack-compatible builder, which keeps the modules it loaded, is loaded again
+  where it is (`page.reload`, or at its last location when it doesn't answer), and a frame still going live once it's
+  live; its spares are closed and opened again. A page whose router is Next's takes Next's hot updates in place. The
+  webpack-compatible builders' pages no longer poll and reload themselves.
 - **Style previews in copies.** Token values edited and not yet saved show in every copy, in the same frame as in the
   design frames: the page's own stylesheets hold the saved values, so the project's previewed values go into one sheet
   every copy of its routes adopts after its own (`tokenPreviewCss`). A default value is declared on the copy's host and
@@ -9024,26 +9025,26 @@ pool itself (`live-frames.ts`) has no unit test; it was tried in the app. Pictur
 says the files load, with their scan, styles and shared files; every file under the route's folder, and those directly
 in the folders above it and their parallel slots, for routes named by folder; the whole project where the builder can't
 say or the route isn't known, and for a page that didn't land; `pageTrace`: the whole project as `"all"`, the route's
-own files where the builder says, and a folder router's folders), `apps/desktop/src/utility/page-traces.test.ts` (10:
+own files where the builder says, and a folder router's folders), `apps/desktop/src/utility/page-traces.test.ts` (11:
 the route's files, imports, loads, stylesheets and shared config; the whole project without the builder's word; none
 when a file changed after the copy's page started loading; holding until a file it lists changes; stopping when a file
 it would now list is added; a Next template's imports scanned; what mounts the app and its imports outside the routes; a
-copy's trace of the route's own files, the whole project without the builder's word or for a page that didn't land, and
-`changed` for a file changed while its page loaded), `render.test.ts` (5, "canvasRender with a page's copy": built at
-the mode's width and the page's full height with viewport units measuring the window; sanitized again so nothing in it
-runs; lazy images loaded at once; clipped at the frame's own height; why when there's no copy), `render-job.test.ts` (3,
-"a page's picture's name": by path and query, not the builder's address; changed by the mode, state and scale; without
-the copy), `bitmap-store.test.ts` (2, "a page's picture in the store": kept while its trace holds and stale after; apart
-from frames' bitmaps and the page in another mode), `frame-bitmaps.test.ts` (a page's picture asked of the service again
-each time, so a stale verdict holds) and `copy-sheets.test.ts`, which moved from `freezer.test.ts`. Gaps: reading routes
-when the project opens, the page frames, the freezer (its stale copies, markup groups and second hello included),
-building and selecting copies, a board's tier as the camera moves, `usePagePicture`, drawing the lines, groups, landing
-warning and the titles' backdrop, Layers' route tree, and the bundling have no test of their own; all were tried in the
-app. The lines were checked on the example at 5%, 10% and 22%: every page's name and path read clearly, with each line
-meeting its page's top edge. Each page frame was checked on the example at 1280 wide: App at 849 tall with no scrollbar,
-the rest at 800. Bringing lines forward was checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the
-example opened with its own routes and Settings' redirect) at 5% and 10%, by selecting Pricing, Settings' group and
-Billing and hovering Projects.
+copy's trace of the route's own files, the whole project without the builder's word or for a page that didn't land,
+`changed` for a file changed while its page loaded, and a file added since the builder started), `render.test.ts` (5,
+"canvasRender with a page's copy": built at the mode's width and the page's full height with viewport units measuring
+the window; sanitized again so nothing in it runs; lazy images loaded at once; clipped at the frame's own height; why
+when there's no copy), `render-job.test.ts` (3, "a page's picture's name": by path and query, not the builder's address;
+changed by the mode, state and scale; without the copy), `bitmap-store.test.ts` (2, "a page's picture in the store":
+kept while its trace holds and stale after; apart from frames' bitmaps and the page in another mode),
+`frame-bitmaps.test.ts` (a page's picture asked of the service again each time, so a stale verdict holds) and
+`copy-sheets.test.ts`, which moved from `freezer.test.ts`. Gaps: reading routes when the project opens, the page frames,
+the freezer (its stale copies, markup groups and second hello included), building and selecting copies, a board's tier
+as the camera moves, `usePagePicture`, drawing the lines, groups, landing warning and the titles' backdrop, Layers'
+route tree, and the bundling have no test of their own; all were tried in the app. The lines were checked on the example
+at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting its page's top edge. Each page frame
+was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was
+checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example opened with its own routes and Settings'
+redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 

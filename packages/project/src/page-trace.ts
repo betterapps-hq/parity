@@ -73,6 +73,9 @@ export interface PageTrace {
   folders?: RouteFolders
 }
 
+/** The root's `public` folder: a page reaches its files by URL, so one added there, as a missing logo, counts too. */
+const publicFolder = "public/"
+
 /**
  * A route's page trace:
  *
@@ -85,8 +88,8 @@ export interface PageTrace {
  * - Otherwise, for a route that isn't known, or for a page that didn't land on its own route: the whole project.
  *
  * Each with the stylesheets, the files every page depends on, and the files in the root's `public` folder, which pages
- * reach by URL rather than by import, as an image or a font, so no scan finds which one a page draws. Its files are
- * sorted.
+ * reach by URL rather than by import, as an image or a font, so no scan finds which one a page draws, and a file added
+ * there counts too. Its files are sorted.
  */
 export function pageTrace(input: PageTraceInput): PageTrace {
   const chain = routeChain(input.route, input.routes)
@@ -99,12 +102,13 @@ export function pageTrace(input: PageTraceInput): PageTrace {
   const common = [...chain, ...input.scanned, ...input.styles, ...input.shared, ...assets]
 
   if (input.loaded !== undefined) {
-    return { files: sorted([...common, ...input.loaded]) }
+    return { files: sorted([...common, ...input.loaded]), folders: { prefixes: [publicFolder], folders: [] } }
   }
 
   const folders = routeFolders(chain[0]!)
+  const files = sorted([...common, ...input.files.filter((path) => inFolders(folders, path))])
 
-  return { files: sorted([...common, ...input.files.filter((path) => inFolders(folders, path))]), folders }
+  return { files, folders: { prefixes: [...folders.prefixes, publicFolder], folders: folders.folders } }
 }
 
 /** The files a route's page trace lists, sorted (`pageTrace`), every file of the project for the whole project. */

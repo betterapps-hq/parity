@@ -137,8 +137,16 @@ describe("a frozen copy's trace (PAR-1298)", () => {
   it("lists the route's own files, so another route's change leaves its copies as they are", async () => {
     const trace = await pageTraces(projects([])).copy(page)
     expect(trace).toEqual({
-      files: ["package.json", "src/data/plans.ts", "src/index.css", "src/routes/__root.tsx", "src/routes/pricing.tsx"]
+      files: ["package.json", "src/data/plans.ts", "src/index.css", "src/routes/__root.tsx", "src/routes/pricing.tsx"],
+      folders: { prefixes: ["public/"], folders: [] }
     })
+  })
+
+  it("reads the project's files as they are now, so a file added since the builder started is scanned", async () => {
+    const traces = pageTraces(projects([]))
+    await write("src/data/prices.ts", "export const prices = []\n")
+    await write("src/routes/pricing.tsx", 'import { prices } from "../data/prices"\nexport const Route = {}\n')
+    expect((await traces.copy(page))?.files).toContain("src/data/prices.ts")
   })
 
   it("is the whole project where the builder can't say, or the page didn't land on its route", async () => {
