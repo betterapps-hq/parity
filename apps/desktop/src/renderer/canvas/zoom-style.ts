@@ -8,23 +8,20 @@ import { type Editor, react, type Signal, useMaybeEditor } from "tldraw"
 export const BoardNearContext = createContext<Signal<boolean> | undefined>(undefined)
 
 /**
- * Calls `apply` with the camera's zoom as it changes, until the returned function is called. While `near` says the
- * board is away from the view, it waits for the zoom to settle or the board to come near, then applies the zoom it's
- * reached; a zoom already applied isn't applied again.
+ * Calls `apply` with the camera's zoom as it changes, and again as anything `apply` reads changes, such as the boards a
+ * title runs up to, until the returned function is called. While `near` says the board is away from the view, it waits
+ * for the zoom to settle or the board to come near, then applies the zoom it's reached.
  */
 export function followZoom(
   editor: Pick<Editor, "getZoomLevel" | "getEfficientZoomLevel">,
   near: Signal<boolean> | undefined,
   apply: (zoom: number) => void
 ): () => void {
-  let applied: number | undefined
-
   return react("zoom style", () => {
     const zoom = editor.getZoomLevel()
     const settled = zoom === editor.getEfficientZoomLevel()
 
-    if (zoom !== applied && ((near?.get() ?? true) || settled)) {
-      applied = zoom
+    if ((near?.get() ?? true) || settled) {
       apply(zoom)
     }
   })

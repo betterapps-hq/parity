@@ -58,14 +58,12 @@ describe("followZoom", () => {
     expect(applied).toEqual([1, 0.8, 0.6])
   })
 
-  it("doesn't apply a zoom twice as its board goes away and comes back", () => {
-    const near = atom("near", true)
-    const applied = follow(near)
-    near.set(false)
-    near.set(true)
-    efficient.set(0.5)
-    efficient.set(1)
+  it("applies again as something it reads changes at the same zoom, such as a board beside a title", () => {
+    const room = atom("room", 100)
+    const applied: string[] = []
+    stops.push(followZoom(camera, atom("near", true), (at) => applied.push(`${at} ${room.get()}`)))
+    room.set(60)
 
-    expect(applied).toEqual([1])
+    expect(applied).toEqual(["1 100", "1 60"])
   })
 })
