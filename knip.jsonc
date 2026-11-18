@@ -96,7 +96,9 @@
     },
     "packages/extension-react-router": {
       "entry": ["src/**/*.test.ts"],
-      "project": ["src/**/*.ts"]
+      "project": ["src/**/*.ts"],
+      // An optional peer its react-router-dom page wrap imports, which runs only in an app that has it (PAR-1299).
+      "ignoreDependencies": ["react-router-dom"]
     },
     "packages/extension-nextjs": {
       "entry": ["src/**/*.test.ts"],

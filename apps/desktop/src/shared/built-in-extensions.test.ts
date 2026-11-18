@@ -72,10 +72,11 @@ describe("the built-in list", () => {
       "page/tanstack-router": "@parity-app/extension-tanstack-router/page",
       "page/react-router": "@parity-app/extension-react-router/page",
       "page/react-router--react-router": "@parity-app/extension-react-router/page-wrap/react-router",
+      "page/react-router--react-router-dom": "@parity-app/extension-react-router/page-wrap/react-router-dom",
       "page/nextjs": "@parity-app/extension-nextjs/page"
     })
-    // The module that wraps React Router imports the app's copy, so its bundle leaves it out.
-    expect(pageExternals()).toEqual(["react-router"])
+    // The modules that wrap React Router import the app's copies, so their bundles leave them out.
+    expect(pageExternals()).toEqual(["react-router", "react-router-dom"])
   })
 
   it("refuses both of two built-in extensions that bring the room", () => {
