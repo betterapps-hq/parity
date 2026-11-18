@@ -79,6 +79,22 @@ describe("changedBoards", () => {
     ).toEqual({ designs: ["app.par#a"], notes: [], references: [] })
   })
 
+  it("names the notes of a file removed and added again in one change", () => {
+    const { boards } = open()
+    boards([{ op: "setNote", file: "more.par", note: note("m") }])
+
+    expect(
+      boards([
+        { op: "removeFile", file: "more.par" },
+        { op: "addFile", file: "more.par" }
+      ])
+    ).toEqual({
+      designs: [],
+      notes: ["more.par#m"],
+      references: []
+    })
+  })
+
   it("names no board for a change inside a design's layers", () => {
     const { boards } = open()
 
