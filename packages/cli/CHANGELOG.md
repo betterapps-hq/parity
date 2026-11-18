@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 17 Nov 2026 21:41:48 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 18 Nov 2026 01:16:47 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.85.0
+
+Wed, 18 Nov 2026 01:16:47 GMT
+
+### Minor changes
+
+- Style fields on a page copy's layer preview while you type or scrub, in every copy of the page, without saving
+  (ajcraswell@gmail.com)
 
 ## 0.84.0
 
