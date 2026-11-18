@@ -1,8 +1,29 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Wed, 18 Nov 2026 13:03:28 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 18 Nov 2026 21:48:13 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.115.0
+
+Wed, 18 Nov 2026 21:48:13 GMT
+
+### Minor changes
+
+- Each project reopens with its lens layout: groups, tabs, splits and lens windows where they were
+  (ajcraswell@gmail.com)
+- Lenses move to windows of their own: Move to new window, or a tab let go outside the window, opens one with the app's
+  title bar, named for its lens and project. The canvas works there, with its styles, shortcuts, drags, menus and
+  tooltips, and it closes with the project and opens again where it was. (ajcraswell@gmail.com)
+- Settings › Diagnostics has a Record sessions switch that turns Session Replay off on its own, while errors and crashes
+  are still shared. (ajcraswell@gmail.com)
+
+### Patches
+
+- A selected component's inspector no longer lists where it's used, until that list has a design. (ajcraswell@gmail.com)
+- Keep a live page's state in its board's copy when live ends (ajcraswell@gmail.com)
+- Put the page runtime in pages Vite's server renders, as TanStack Start's, so their route boards get copies and spares
+  (ajcraswell@gmail.com)
 
 ## 0.114.0
 

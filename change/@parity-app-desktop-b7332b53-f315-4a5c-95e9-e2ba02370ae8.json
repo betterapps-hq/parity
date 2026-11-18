@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Keep a live page's state in its board's copy when live ends",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Put the page runtime in pages Vite's server renders, as TanStack Start's, so their route boards get copies and spares",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

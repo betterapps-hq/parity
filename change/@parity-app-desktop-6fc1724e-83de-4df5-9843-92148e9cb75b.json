@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Lenses move to windows of their own: Move to new window, or a tab let go outside the window, opens one with the app's title bar, named for its lens and project. The canvas works there, with its styles, shortcuts, drags, menus and tooltips, and it closes with the project and opens again where it was.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

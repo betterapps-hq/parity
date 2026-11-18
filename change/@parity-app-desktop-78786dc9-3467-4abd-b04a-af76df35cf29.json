@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Add a Storybook exploration auditing the app's Lucide icons with proposed Fluent replacements",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

@@ -2,6 +2,61 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Wed, 18 Nov 2026 21:48:13 GMT",
+      "version": "0.115.0",
+      "tag": "@parity-app/desktop_v0.115.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1cfb62c785268e0edd07ebf0d58daca85f9211b5",
+            "comment": "Each project reopens with its lens layout: groups, tabs, splits and lens windows where they were"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "8ef6b549af62fb9a637f34bf7be5e83367c02db1",
+            "comment": "Lenses move to windows of their own: Move to new window, or a tab let go outside the window, opens one with the app's title bar, named for its lens and project. The canvas works there, with its styles, shortcuts, drags, menus and tooltips, and it closes with the project and opens again where it was."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ece33e4a39feb1ca0a172f29a1c18c3393b455d3",
+            "comment": "Settings › Diagnostics has a Record sessions switch that turns Session Replay off on its own, while errors and crashes are still shared."
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "468043cab4f8c495922df0f5198fa6c6c6205ca5",
+            "comment": "Add a Storybook exploration auditing the app's Lucide icons with proposed Fluent replacements"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5773388449ab3acdec9c946677d96883b263df79",
+            "comment": "A selected component's inspector no longer lists where it's used, until that list has a design."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4222f125a4f4b24b8540e02c2f572b956ba8f65e",
+            "comment": "Keep a live page's state in its board's copy when live ends"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7a4d0b9111bf8ab22fafab058481f0afd6757643",
+            "comment": "Put the page runtime in pages Vite's server renders, as TanStack Start's, so their route boards get copies and spares"
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 18 Nov 2026 13:03:28 GMT",
       "version": "0.114.0",
       "tag": "@parity-app/desktop_v0.114.0",
