@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Wed, 18 Nov 2026 12:00:18 GMT",
+      "version": "0.112.1",
+      "tag": "@parity-app/desktop_v0.112.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "49285a6a357930ee88176e4ef7bd17a44fd318b1",
+            "comment": "In the live room, your own face and card look like your account avatar: your picture, or your initials on your own color. Everyone else still sees you in your room color."
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 18 Nov 2026 11:40:54 GMT",
       "version": "0.112.0",
       "tag": "@parity-app/desktop_v0.112.0",
