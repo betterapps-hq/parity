@@ -266,8 +266,8 @@ the canvas.
 6. **Decorator order and context.** When the project's own decorators join, Parity's order and context must match
    Storybook's exactly, or a decorator that works in Storybook breaks on the canvas. See the next section. **Fix:**
    compile everything into Storybook's order, pass the full context, and test with a decorator that depends on both.
-7. **Stopping on macOS and Linux.** Only the direct child process is signalled, so Storybook's own child processes can
-   be left running. **Fix:** start it in its own process group and stop the group, as Windows stops the tree.
+7. **Stopping on macOS and Linux.** Fixed (PAR-980): Storybook is stopped with every process it started, which `ps`
+   lists on macOS and Linux and `taskkill /T` ends on Windows, so none of its own child processes are left running.
 8. **The demo hides a path.** The example's `autodocs` means "no docs page, open the first story" never happens there.
    **Fix:** a validation project, or one example component, with stories and no docs page.
 9. **Version entries are added by hand.** Each new Storybook major needs a line in detect.ts. That's the support policy
