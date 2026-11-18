@@ -5,7 +5,7 @@
 // needs no install of its own; run `pnpm install` first so the example has them.
 // Usage: node scripts/heavy-app.ts <folder> [--routes 40] [--stories 12]
 // Then measure it: pnpm perf --project <folder>, or open it in the app with pnpm dev:prod <folder>.
-import { cpSync, existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { print } from "../../../scripts/output.ts"
 
@@ -33,6 +33,16 @@ if (!existsSync(join(example, "node_modules/.buildkit/shadcn"))) {
   throw new Error("examples/shadcn-vite has no node_modules yet: run pnpm install first")
 }
 
+// A folder this script made says so, and only such a folder is cleared to make it again: anything else that isn't empty
+// is left alone, so pointing it at the wrong folder loses nothing. A folder made again starts over, with nothing kept.
+const mark = ".heavy-app"
+
+if (existsSync(target) && readdirSync(target).length > 0 && !existsSync(join(target, mark))) {
+  throw new Error(
+    `${target} isn't empty and wasn't made by this script, so it's left alone: give an empty or new folder`
+  )
+}
+
 // The link to the example's node_modules goes first, on its own, so clearing the folder never reaches through it.
 rmSync(join(target, "node_modules"), { force: true })
 
@@ -47,6 +57,11 @@ cpSync(example, target, {
 })
 
 symlinkSync(join(example, "node_modules"), join(target, "node_modules"), "junction")
+
+writeFileSync(
+  join(target, mark),
+  "Made by apps/desktop/scripts/heavy-app.ts, which clears this folder to make it again.\n"
+)
 
 const kinds = ["overview", "orders", "people", "reports", "settings"] as const
 const words = ["Atlas", "Beacon", "Cobalt", "Delta", "Ember", "Fjord", "Garnet", "Harbor", "Iris", "Juniper"]
