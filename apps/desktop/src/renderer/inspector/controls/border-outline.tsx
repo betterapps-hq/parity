@@ -43,7 +43,7 @@ function useNewColor() {
 
 /**
  * Border: a title with + until it's set, which adds the project's usual border, `border border-border`, and − takes it
- * off. Then its color, its width, one field or each side's, and its style.
+ * off. Then its width, one field or each side's, its style and its color, in the order CSS's `border` shorthand takes.
  */
 export function BorderSection({ value, set }: { value: BorderValue; set: (next: BorderValue) => void }) {
   const newColor = useNewColor()
@@ -62,15 +62,6 @@ export function BorderSection({ value, set }: { value: BorderValue; set: (next: 
     <PanelSection title="Border" action={action}>
       {bordered && (
         <div className="flex flex-col gap-2.5">
-          <Field label="Color">
-            <ColorInput
-              label="Border"
-              used={usedColors}
-              value={value.color}
-              alpha={value.alpha}
-              onChange={(color, alpha) => set({ ...value, color, alpha })}
-            />
-          </Field>
           <FourSidesField
             label="Width"
             rules={sideRules.border}
@@ -81,6 +72,15 @@ export function BorderSection({ value, set }: { value: BorderValue; set: (next: 
           <Field label="Style">
             <LineStyleField label="Border style" value={value.style} onChange={(style) => set({ ...value, style })} />
           </Field>
+          <Field label="Color">
+            <ColorInput
+              label="Border"
+              used={usedColors}
+              value={value.color}
+              alpha={value.alpha}
+              onChange={(color, alpha) => set({ ...value, color, alpha })}
+            />
+          </Field>
         </div>
       )}
     </PanelSection>
@@ -89,7 +89,7 @@ export function BorderSection({ value, set }: { value: BorderValue; set: (next: 
 
 /**
  * Outline: a title with + until it's set, which adds a 2px outline in the project's border color, and − takes it off.
- * Then its color, width, style, and offset: 0 draws it against the edge, outside; a positive offset leaves a gap, and a
+ * Then its width, style and color, as `outline` takes them, and its offset: 0 draws it against the edge, outside; a positive offset leaves a gap, and a
  * negative one draws it inside the layer.
  */
 export function OutlineSection({ value, set }: { value: OutlineValue; set: (next: OutlineValue) => void }) {
@@ -105,15 +105,6 @@ export function OutlineSection({ value, set }: { value: OutlineValue; set: (next
     <PanelSection title="Outline" action={action}>
       {outlined && (
         <div className="flex flex-col gap-2.5">
-          <Field label="Color">
-            <ColorInput
-              label="Outline"
-              used={usedColors}
-              value={value.color}
-              alpha={value.alpha}
-              onChange={(color, alpha) => set({ ...value, color, alpha })}
-            />
-          </Field>
           <Field label="Width" half>
             <NumberField
               label="Outline width"
@@ -127,6 +118,15 @@ export function OutlineSection({ value, set }: { value: OutlineValue; set: (next
           </Field>
           <Field label="Style">
             <LineStyleField label="Outline style" value={value.style} onChange={(style) => set({ ...value, style })} />
+          </Field>
+          <Field label="Color">
+            <ColorInput
+              label="Outline"
+              used={usedColors}
+              value={value.color}
+              alpha={value.alpha}
+              onChange={(color, alpha) => set({ ...value, color, alpha })}
+            />
           </Field>
           <Field label="Offset" half hint="Below 0 draws it inside the layer">
             <NumberField
