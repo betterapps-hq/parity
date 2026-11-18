@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Wed, 18 Nov 2026 09:52:39 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 18 Nov 2026 12:01:02 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.85.3
+
+Wed, 18 Nov 2026 12:01:02 GMT
+
+### Patches
+
+- In the live room, your own face and card look like your account avatar: your picture, or your initials on your own
+  color. Everyone else still sees you in your room color. (ajcraswell@gmail.com)
 
 ## 0.85.2
 

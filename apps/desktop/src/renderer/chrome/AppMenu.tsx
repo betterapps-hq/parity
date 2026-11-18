@@ -17,6 +17,7 @@ import { containerEntries } from "@parity-app/multiplayer"
 import {
   Bug,
   Check,
+  CircleDot,
   Gauge,
   Grid3x3,
   type LucideIcon,
@@ -363,6 +364,13 @@ function HelpItems() {
             onChange={(performanceStats) => setPreferences({ performanceStats })}
           >
             Performance stats
+          </Toggle>
+          <Toggle
+            icon={CircleDot}
+            checked={preferences.routeFrameTiers}
+            onChange={(routeFrameTiers) => setPreferences({ routeFrameTiers })}
+          >
+            Route frame tiers
           </Toggle>
           <MenubarItem onClick={() => void clearBitmapCache()}>
             <ImageOff /> Clear bitmap cache

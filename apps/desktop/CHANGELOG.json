@@ -2,6 +2,42 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Wed, 18 Nov 2026 12:00:18 GMT",
+      "version": "0.112.1",
+      "tag": "@parity-app/desktop_v0.112.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "49285a6a357930ee88176e4ef7bd17a44fd318b1",
+            "comment": "In the live room, your own face and card look like your account avatar: your picture, or your initials on your own color. Everyone else still sees you in your room color."
+          }
+        ]
+      }
+    },
+    {
+      "date": "Wed, 18 Nov 2026 11:40:54 GMT",
+      "version": "0.112.0",
+      "tag": "@parity-app/desktop_v0.112.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "979042b75fd7df37cb3401b0231a42f75740bd4b",
+            "comment": "Route frame tiers, in Settings › Diagnostics and Help › Developer, puts a dot beside each route board: grey when frozen, orange while a spare warms on its route, green when warmed"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2d33b3ef12c2e2405de108d2a50fa41def70006a",
+            "comment": "Screens holds only designs: each lens's canvas loads the first time its tab is in front, so a project opens without drawing pages or stories it doesn't show."
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 18 Nov 2026 11:07:26 GMT",
       "version": "0.111.0",
       "tag": "@parity-app/desktop_v0.111.0",

@@ -428,7 +428,12 @@ export default defineWindowModule({
       ),
       parity.canvas.layer(
         { id: "multiplayer.people", space: "screen", order: "edge", placement: "topRight" },
-        <Faces people={people} you={{ peer, name: parity.presence.self.name }} follow={follow} camera={parity.camera} />
+        <Faces
+          people={people}
+          you={{ peer, self: () => parity.presence.self }}
+          follow={follow}
+          camera={parity.camera}
+        />
       ),
       parity.canvas.layer(
         { id: "multiplayer.following", space: "screen", order: "edge", placement: "fill" },

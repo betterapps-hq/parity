@@ -2,13 +2,15 @@ import { FaceStack, type Presence } from "@parity-app/presence-ui"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
 import { expect, userEvent, waitFor, within } from "storybook/test"
+import type { AccountPerson } from "../../shared/account.ts"
+import { PersonAvatar } from "../account/PersonAvatar.tsx"
 import { scrolls } from "../stories/canvas-kit.tsx"
 import { CanvasBoard } from "../stories/CanvasBoard.tsx"
 import { CanvasPane } from "../stories/CanvasPane.tsx"
 import { DashboardDesign } from "../stories/DashboardDesign.tsx"
 import { Themes } from "../stories/Themes.tsx"
 import { useResolvedTheme } from "../theme.ts"
-import { members, presences, TopRight } from "./story-kit.tsx"
+import { accounts, members, presences, signedIn, TopRight } from "./story-kit.tsx"
 
 /**
  * Who's here, on a bar of its own just left of the canvas's zoom, at its height, built as the toolbar and zoom are
@@ -16,7 +18,9 @@ import { members, presences, TopRight } from "./story-kit.tsx"
  * initials on their soft gradient, an agent's sparkle on its vivid one. They overlap, and spread apart under the
  * pointer so each is easy to hit; a face rises as you point at it and says who it is. Whoever you follow comes next,
  * ringed in their color; each person's agents come just after them; anyone away is faded and last. Past four others, a
- * count opens everyone, people and agents apart. Your face opens your card, where you can present.
+ * count opens everyone, people and agents apart. Your face opens your card, where you can present. Signed in, your own
+ * face is drawn as your account avatar in the window's top right draws you, so you can tell which face is yours (PAR-1309);
+ * everyone else still sees you in your palette.
  */
 const meta = {
   title: "Parity/Multiplayer/Avatar stack",
@@ -71,6 +75,76 @@ export const States: Story = {
       )}
     </Themes>
   )
+}
+
+/** A stack beside the account avatar the window's top right shows for the same person. */
+function Matching({ label, account, children }: { label: string; account?: AccountPerson; children: ReactNode }) {
+  return (
+    <Row label={label}>
+      <div className="flex items-center gap-4">
+        {children}
+        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          Account
+          {account ? (
+            <span data-testid="account-avatar">
+              <PersonAvatar person={account} size={28} />
+            </span>
+          ) : (
+            <span>signed out</span>
+          )}
+        </span>
+      </div>
+    </Row>
+  )
+}
+
+/**
+ * Your face, as you see it: signed in, it matches your account avatar, your picture or your initials on your own color;
+ * signed out, it keeps your palette. Others' faces keep theirs either way.
+ */
+export const YourOwnFace: Story = {
+  render: () => (
+    <Themes width={620} height={300}>
+      {() => (
+        <div className="flex flex-col py-1">
+          <Matching label="Signed in, with a picture" account={accounts.picture}>
+            <FaceStack here={[mia, jonas]} you={signedIn.picture} />
+          </Matching>
+          <Matching label="Signed in, with initials" account={accounts.initials}>
+            <FaceStack here={[mia, jonas]} you={signedIn.initials} />
+          </Matching>
+          <Matching label="Signed out">
+            <FaceStack here={[mia, jonas]} you={you} />
+          </Matching>
+        </div>
+      )}
+    </Themes>
+  ),
+  play: async ({ canvasElement }) => {
+    const pane = within(canvasElement).getAllByRole("list", { name: "People here" }).slice(0, 3)
+    const [picture, initials, signedOut] = pane.map((list) => within(list).getAllByRole("button"))
+
+    const fallback = (face: HTMLElement | undefined) =>
+      face?.querySelector<HTMLElement>('[data-slot="avatar-fallback"]')
+
+    const account = within(canvasElement).getAllByTestId("account-avatar")
+
+    // With a picture, your face shows the account's picture.
+    await waitFor(() =>
+      expect(picture?.[0]?.querySelector("img")?.getAttribute("src")).toBe(accounts.picture.pictureUrl)
+    )
+
+    // With initials, your face has the account avatar's letters and color.
+    const yours = fallback(initials?.[0])
+    const avatar = account[1]?.querySelector("span")
+    await expect(yours).toHaveTextContent("AC")
+    await expect(getComputedStyle(yours!).backgroundColor).toBe(getComputedStyle(avatar!).backgroundColor)
+
+    // Signed out, your face keeps your palette's gradient, and Jonas keeps his everywhere.
+    await expect(fallback(signedOut?.[0])?.style.background).toContain("linear-gradient")
+    await expect(fallback(initials?.[2])?.style.background).toBe(fallback(signedOut?.[2])?.style.background)
+    await expect(fallback(initials?.[2])?.style.background).toContain("linear-gradient")
+  }
 }
 
 /** Two of you on a canvas wide enough for the row: one stack, beside zoom, at its height. */

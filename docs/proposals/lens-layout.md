@@ -149,10 +149,10 @@ operations the package returns, and tells the shell when a tab is let go outside
 package's data, an icon and its three views. The title bar's View menu and a lens's own views, such as the inspector's
 links, act through `useLensWorkspace`. The exploration's story renders `LensWorkspace` with its test lenses, and a saved
 layout's windows open in the main window until PAR-1248 restores them. The app renders it with `appLenses`, the lenses
-that are built: Screens, today's canvas, Layers and inspector in `lenses/screens.tsx`, Pages in `lenses/pages.tsx`, and
-Stories in `lenses/stories.tsx`. Each lens's canvas is a tldraw editor of its own (`lenses/project-canvas.tsx`), and the
-project holds the one in focus, which the panels, menus and shortcuts act on. It passes the lens window page as
-`popoutUrl`, so lenses move to windows of their own (PAR-1247, in
+that are built: Screens, today's canvas, Layers and inspector in `lenses/screens.tsx`, Pages in `lenses/pages.tsx`,
+Components in `lenses/components.tsx`, and Stories in `lenses/stories.tsx`. Each lens's canvas is a tldraw editor of its
+own (`lenses/project-canvas.tsx`), and the project holds the one in focus, which the panels, menus and shortcuts act on.
+It passes the lens window page as `popoutUrl`, so lenses move to windows of their own (PAR-1247, in
 [editor.md](../editor.md#lens-windows-par-1247-par-1242)).
 
 **The lens registry is where the two meet.** A lens is its data from the package and three components: a canvas, a left
@@ -170,7 +170,7 @@ The steps go in this order, each after the one before:
 | Pages as a lens of its own (built)                                       | PAR-1244 |
 | Stories as a lens of its own (built)                                     | PAR-1246 |
 | Screens holding only designs (built)                                     | PAR-1251 |
-| Components as a lens of its own                                          | PAR-1245 |
+| Components as a lens of its own (built)                                  | PAR-1245 |
 
 Today's canvas has been tried in a lens's own window (PAR-1242, in [On Dockview](#on-dockview)), and lens windows are
 built in the desktop app (PAR-1247), with the fixes the spike found. Each project's layout saved and restored, its lens

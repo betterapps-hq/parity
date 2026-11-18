@@ -74,6 +74,12 @@ const extras: Item[] = [
     run: () => setPreferences({ performanceStats: !getPreferences().performanceStats })
   },
   {
+    id: "action:routeFrameTiers",
+    group: "View",
+    label: "Route frame tiers",
+    run: () => setPreferences({ routeFrameTiers: !getPreferences().routeFrameTiers })
+  },
+  {
     id: "action:clearBitmapCache",
     group: "View",
     label: "Clear bitmap cache",

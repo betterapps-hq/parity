@@ -3,8 +3,9 @@ import type { NodeRef } from "@parity-app/extension"
 import { agentStepOf, type AgentsPort } from "@parity-app/extension-host/window-agents"
 import { targetOf } from "@parity-app/extension-host/window-canvas"
 import type { Pointer, PresencePort } from "@parity-app/extension-host/window-presence"
-import type { Viewing } from "@parity-app/extension/internal"
-import { firstName } from "./account/account.ts"
+import type { Self, Viewing } from "@parity-app/extension/internal"
+import { firstName, signedInPerson } from "./account/account.ts"
+import { lookOf } from "./account/look.ts"
 import { presence } from "./agent/presence.ts"
 import { onGestures } from "./canvas/presence-gestures.ts"
 import { track } from "./report-error.ts"
@@ -20,7 +21,7 @@ import type { ProjectSession } from "./workspace.ts"
 /** This person's pointer, gestures and what they view in the tab, for `windowPresence`. */
 export function windowPresencePort(slot: TabSlot): PresencePort {
   return {
-    self: () => ({ name: import.meta.env.VITE_PARITY_ROOM_NAME ?? firstName() ?? "Guest" }),
+    self,
     onPointer: (listener) => slot.when((session) => followPointer(session, listener)),
     onGesture: (listener) => slot.when((session) => onGestures(session, listener)),
     onViewing: (listener) => slot.when((session) => viewingOf(session, listener)),
@@ -30,6 +31,24 @@ export function windowPresencePort(slot: TabSlot): PresencePort {
       return () => cancelAnimationFrame(handle)
     }
   }
+}
+
+/**
+ * Who's signed in: their first name for the room, and how their account avatar looks, for their face in their own
+ * window. A development copy named for the room by `VITE_PARITY_ROOM_NAME` stands in for someone else, so it keeps the
+ * room's look.
+ */
+function self(): Self {
+  const stand = import.meta.env.VITE_PARITY_ROOM_NAME
+
+  if (stand) {
+    return { name: stand }
+  }
+
+  const person = signedInPerson()
+  const name = firstName() ?? "Guest"
+
+  return person ? { name, own: lookOf(person) } : { name }
 }
 
 /** What this person views in the tab, each time it changes. */

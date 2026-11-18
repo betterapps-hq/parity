@@ -1,6 +1,6 @@
 import { useBox, useCamera } from "@parity-app/canvas-layer"
 import type { NodeRef } from "@parity-app/extension"
-import type { Camera, Rect } from "@parity-app/extension/internal"
+import type { Camera, Rect, Self } from "@parity-app/extension/internal"
 import {
   FaceStack,
   FollowLayer,
@@ -12,7 +12,7 @@ import {
 } from "@parity-app/presence-ui"
 import { type ReactNode, useSyncExternalStore } from "react"
 import type { Follow } from "./follow.ts"
-import { caretMark, marqueeRect, type People, type RoomPerson, selectionsByNode } from "./people.ts"
+import { caretMark, marqueeRect, type People, type RoomPerson, selectionsByNode, yourMember } from "./people.ts"
 
 /*
  * What the room draws on the canvas (docs/proposals/extensions-in-the-window.md, "The multiplayer extension"), from
@@ -240,7 +240,10 @@ function MarqueeOf({
   )
 }
 
-/** Who's here, top-right of the canvas, with each person's card, Follow and Go to. */
+/**
+ * Who's here, top-right of the canvas, with each person's card, Follow and Go to. Your own face is drawn as your account
+ * avatar shows you (`yourMember`); everyone else's in their palette.
+ */
 export function Faces({
   people,
   you,
@@ -248,13 +251,14 @@ export function Faces({
   camera
 }: {
   people: People
-  you: { peer: string; name: string }
+  /** Your peer, and who's signed in, read each time the stack draws. */
+  you: { peer: string; self: () => Self }
   follow: Follow
   camera: Camera
 }) {
   const everyone = usePeople(people)
   const shown = useSyncExternalStore(follow.subscribe, follow.get)
-  const self = memberOf(people, you)
+  const self = yourMember(you.peer, you.self(), people.paletteOf(you.peer))
   const presences: Presence[] = everyone.map((person) => ({ member: memberOf(people, person) }))
   const following = shown?.state === "following" ? presences.find((each) => each.member.id === shown.leader) : undefined
 

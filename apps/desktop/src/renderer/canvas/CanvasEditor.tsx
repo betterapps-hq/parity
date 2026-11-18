@@ -37,6 +37,7 @@ import { holdWhileZooming } from "../replay.ts"
 import { useResolvedTheme } from "../theme.ts"
 import { WindowLayers } from "../window-canvas.tsx"
 import { holds } from "./board-holds.ts"
+import { isComponentBoard } from "./component-boards.ts"
 import { ContainerUtil, designDrag } from "./ContainerUtil.tsx"
 import { useProject } from "./context.ts"
 import { isFarZoom } from "./frame-bitmaps.ts"
@@ -82,10 +83,10 @@ export function canvasIdFor(key: string): CanvasId {
 }
 
 /**
- * What a canvas draws: the app's pages, drawn from its routes, with the lines of its page tree; the project's story files;
- * or the rest, the designs, boards, notes and references (lens-layout.md).
+ * What a canvas draws: the app's pages, drawn from its routes, with the lines of its page tree; the project's components
+ * on their boards; its story files; or the rest, the designs, notes and references (lens-layout.md).
  */
-export type CanvasDraws = "pages" | "stories" | "designs"
+export type CanvasDraws = "pages" | "components" | "stories" | "designs"
 
 /** Where each canvas's camera was as it went, by project and what it draws, so it comes back there. */
 const keptCameras = new Map<string, { x: number; y: number; z: number }>()
@@ -108,12 +109,16 @@ export function drawsDesign(draws: CanvasDraws, key: string): boolean {
 }
 
 /**
- * Which canvas draws a design, note or reference, by its key: Pages' the app's pages, Stories' its story files, and
- * Screens' the rest.
+ * Which canvas draws a design, note or reference, by its key: Pages' the app's pages, Components' the boards, Stories'
+ * its story files, and Screens' the rest.
  */
 export function canvasOf(key: string): CanvasDraws {
   if (isRoutePage(key)) {
     return "pages"
+  }
+
+  if (isComponentBoard(key)) {
+    return "components"
   }
 
   return isStoryScreen(key) ? "stories" : "designs"
@@ -407,7 +412,7 @@ export function CanvasEditor({
   shown = true
 }: {
   onEditor: (editor: Editor | undefined) => void
-  /** What it draws: the app's pages, its story files, or the designs. */
+  /** What it draws: the app's pages, its components' boards, its story files, or the designs. */
   draws?: CanvasDraws
   /** The canvas's tab is the one showing. Hidden a while, its frames sleep; shown again, those near the view wake. */
   shown?: boolean

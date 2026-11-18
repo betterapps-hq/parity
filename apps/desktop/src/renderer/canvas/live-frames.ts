@@ -208,7 +208,7 @@ function anyWindowFocused(): boolean {
 }
 
 /** A URL's route, as the pool keeps it: its path and query. */
-function routeOf(url: string): string {
+export function routeOf(url: string): string {
   const { pathname, search } = new URL(url)
 
   return pathname + search
@@ -816,6 +816,24 @@ export class Pool {
     void withDeadline(frame.channel.request("preview.set", { css: this.preview }), pageDeadlines["preview.set"]).catch(
       () => undefined
     )
+  }
+
+  /**
+   * Each route a spare is on, "ready" when one waits there and "warming" while one loads or moves there, for the tier
+   * dot (`TierDot`).
+   */
+  spareRoutes(): ReadonlyMap<string, "warming" | "ready"> {
+    const routes = new Map<string, "warming" | "ready">()
+
+    for (const frame of [...this.spares.values(), ...this.pendingFrames.values()]) {
+      const warming = frame.busy || frame.state === "loading"
+
+      if (routes.get(frame.route) !== "ready") {
+        routes.set(frame.route, warming ? "warming" : "ready")
+      }
+    }
+
+    return routes
   }
 
   /** The pool's frames: the live one, the spares, and those on their way to going live. */

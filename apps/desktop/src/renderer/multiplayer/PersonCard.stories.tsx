@@ -8,7 +8,7 @@ import { CanvasPane } from "../stories/CanvasPane.tsx"
 import { DashboardDesign } from "../stories/DashboardDesign.tsx"
 import { Themes } from "../stories/Themes.tsx"
 import { useResolvedTheme } from "../theme.ts"
-import { members, presences, TopRight } from "./story-kit.tsx"
+import { members, presences, signedIn, TopRight } from "./story-kit.tsx"
 
 /**
  * Someone's card, opened from their face in the avatar stack: their name over a wash of their color, and buttons to
@@ -54,10 +54,19 @@ const cards = (
     <Card>
       <YouCard you={members.you} others={4} />
     </Card>
+    <Card>
+      <YouCard you={signedIn.picture} others={4} />
+    </Card>
+    <Card>
+      <YouCard you={signedIn.initials} others={4} />
+    </Card>
   </>
 )
 
-/** Someone here, someone you're following, someone away (who can't be followed), an agent at work, and you. */
+/**
+ * Someone here, someone you're following, someone away (who can't be followed), an agent at work, and you: signed out
+ * in your palette, then signed in as your account avatar shows you, with a picture and with initials.
+ */
 export const Cards: Story = {
   render: () => (
     <Themes width={640} height={440}>

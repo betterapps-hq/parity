@@ -23,6 +23,11 @@ export interface Member {
   runBy?: Member
   /** A picture of them, from their account. Without one, their initials. */
   photo?: string
+  /**
+   * How your account avatar shows you, for your own face in your own window: your initials on your own color in place
+   * of your palette's, so your face matches your account's. Everyone else still sees you in your palette.
+   */
+  own?: { initials: string; color: string }
 }
 
 /**
