@@ -29,6 +29,7 @@ import { type LiveState, poolFor, useLiveBoard } from "./live-frames.ts"
 import { usePagePicture } from "./page-bitmaps.ts"
 import { showTokenPreview, tokenPreviewSheet, useTokenPreview } from "./page-changes.ts"
 import { routePagesFile, setCopyLayers, setPageLanding } from "./route-pages.ts"
+import { TierDot } from "./TierDot.tsx"
 
 /**
  * A route board's frame (docs/proposals/route-frames.md, PAR-1262, PAR-1200), drawn as a picture when it's small on
@@ -269,6 +270,8 @@ export function RouteBoard({
       </div>
       {shown && <img className="page-picture" data-picture="" src={shown} alt="" draggable={false} />}
       {!frozen && !shown && <div className="frame-placeholder" data-placeholder aria-hidden />}
+      {/* Temporary (PAR-1301). */}
+      <TierDot project={project} url={url} warmed={ready || !!live} />
     </div>
   )
 }

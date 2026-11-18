@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Show a temporary dot on each route board for its route frame's tier",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}
