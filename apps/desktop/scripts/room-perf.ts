@@ -28,7 +28,7 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { print } from "../../../scripts/output.ts"
-import { editsToScreen, joinAgain, remoteDrag, withDocs } from "./room-edits.ts"
+import { editsToScreen, joinAgain, type ProfileSummary, profiled, remoteDrag, withDocs } from "./room-edits.ts"
 
 const appDir = resolve(import.meta.dirname, "..")
 const repoDir = resolve(appDir, "../..")
@@ -102,6 +102,9 @@ interface Result {
   edits?: { edit: string; toScreen: Spread; arrivedToScreen: Spread }[]
   /** The watcher's frames and long tasks while the mover dragged a board. */
   drag?: { frames: Spread; longTasks: number; longTaskMs: number; longestTaskMs: number; changes: number }
+  /** Where the watcher's main thread spent its time while the edits came in, and during the drag. */
+  editsProfile?: ProfileSummary
+  dragProfile?: ProfileSummary
   /** The guest opening the project again on the host's snapshot. */
   join?: { ms: number; snapshotBytes: number }
 }
@@ -140,7 +143,12 @@ try {
   // The guest edits and the host watches.
   if (runs.has("edits")) {
     print(`\n${guest.name} edits, ${host.name} watches`)
-    const edits = await editsToScreen(guest.page!, host.page!)
+
+    const { result: edits, profile } = await profiled(host.page!, join(outDir, `${label}.edits.cpuprofile`), () =>
+      editsToScreen(guest.page!, host.page!)
+    )
+
+    result.editsProfile = profile
     result.edits = edits.map((each) => ({
       edit: each.edit,
       toScreen: spread(each.toScreen),
@@ -150,7 +158,12 @@ try {
 
   if (runs.has("drag")) {
     print(`\n${guest.name} drags a board, ${host.name} watches`)
-    const drag = await remoteDrag(guest.page!, host.page!, seconds)
+
+    const { result: drag, profile } = await profiled(host.page!, join(outDir, `${label}.drag.cpuprofile`), () =>
+      remoteDrag(guest.page!, host.page!, seconds)
+    )
+
+    result.dragProfile = profile
     result.drag = {
       frames: spread(drag.frames),
       longTasks: drag.longTasks.length,
@@ -545,6 +558,19 @@ function report(result: Result, previous: Result | undefined): void {
     const { frames, longTasks, longTaskMs, longestTaskMs, changes } = result.drag
     print(`\nRemote drag, ${changes} changes drawn: frames ${ms(frames)}`)
     print(`  ${longTasks} long tasks, ${longTaskMs} ms in all, the longest ${longestTaskMs} ms`)
+  }
+
+  for (const [name, profile] of [
+    ["edits", result.editsProfile],
+    ["drag", result.dragProfile]
+  ] as const) {
+    if (profile) {
+      print(`
+The watcher's JavaScript during the ${name}, ${profile.sampledMs} ms sampled; the most with what it called:`)
+      profile.total.slice(0, 20).forEach((each) => print(`  ${String(each.ms).padStart(8)} ms  ${each.name}`))
+      print("  The most by itself:")
+      profile.self.slice(0, 15).forEach((each) => print(`  ${String(each.ms).padStart(8)} ms  ${each.name}`))
+    }
   }
 
   if (result.join) {

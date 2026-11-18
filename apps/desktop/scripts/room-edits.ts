@@ -1,3 +1,4 @@
+import { writeFile } from "node:fs/promises"
 // What room-perf.ts measures of the document in a live room (PAR-1325): edit to screen, the watching copy's frames while
 // the other drags a board, and joining again. Each page's document is reached through the app's own workspace module,
 // as Vite serves it, and the watching copy's room measures each change it takes in, from arriving to its frame, as
@@ -313,4 +314,92 @@ async function nextShown(page: Page, seen: number): Promise<{ arrived: number; s
     .catch(() => undefined)
 
   return handle ? ((await handle.jsonValue()) ?? undefined) : undefined
+}
+
+interface ProfileNode {
+  id: number
+  callFrame: { functionName: string; url: string; lineNumber: number }
+  children?: number[]
+}
+
+interface CpuProfile {
+  nodes: ProfileNode[]
+  samples?: number[]
+  timeDeltas?: number[]
+}
+
+/** Where the page's main thread spent its time while `run` ran: by function, its own time and with what it called. */
+export interface ProfileSummary {
+  sampledMs: number
+  /** The functions that took the most time themselves, in milliseconds. */
+  self: { name: string; ms: number }[]
+  /** The functions that took the most time with everything they called, in milliseconds. */
+  total: { name: string; ms: number }[]
+}
+
+/** Runs `run` while sampling `page`'s JavaScript, saving the profile to `file` and summing it by function. */
+export async function profiled<T>(
+  page: Page,
+  file: string,
+  run: () => Promise<T>
+): Promise<{ result: T; profile: ProfileSummary }> {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send("Profiler.enable")
+  await cdp.send("Profiler.setSamplingInterval", { interval: 200 })
+  await cdp.send("Profiler.start")
+  const result = await run()
+  const { profile } = await cdp.send("Profiler.stop")
+  await cdp.detach()
+  await writeFile(file, JSON.stringify(profile))
+
+  return { result, profile: summarize(profile) }
+}
+
+function summarize(profile: CpuProfile): ProfileSummary {
+  const byId = new Map(profile.nodes.map((node) => [node.id, node]))
+  const parent = new Map<number, number>()
+
+  for (const node of profile.nodes) {
+    for (const child of node.children ?? []) {
+      parent.set(child, node.id)
+    }
+  }
+
+  const nameOf = (node: ProfileNode) => {
+    const { functionName, url, lineNumber } = node.callFrame
+    const where = url.split("/").pop()?.split("?")[0] ?? ""
+
+    return where ? `${functionName || "(anonymous)"} ${where}:${lineNumber + 1}` : functionName
+  }
+
+  const self = new Map<string, number>()
+  const total = new Map<string, number>()
+  let sampledMs = 0
+
+  const deltas = profile.timeDeltas ?? []
+
+  profile.samples?.forEach((id, index) => {
+    const ms = (deltas[index + 1] ?? 0) / 1000
+    sampledMs += ms
+    const leaf = byId.get(id)!
+    self.set(nameOf(leaf), (self.get(nameOf(leaf)) ?? 0) + ms)
+    const seen = new Set<string>()
+
+    for (let at: number | undefined = id; at !== undefined; at = parent.get(at)) {
+      const name = nameOf(byId.get(at)!)
+
+      if (!seen.has(name)) {
+        seen.add(name)
+        total.set(name, (total.get(name) ?? 0) + ms)
+      }
+    }
+  })
+
+  const top = (map: Map<string, number>) =>
+    [...map]
+      .toSorted((a, b) => b[1] - a[1])
+      .slice(0, 30)
+      .map(([name, ms]) => ({ name, ms: Math.round(ms * 10) / 10 }))
+
+  return { sampledMs: Math.round(sampledMs), self: top(self), total: top(total) }
 }

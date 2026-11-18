@@ -83,6 +83,10 @@ const camera: Camera = {
   follow: () => ({ update: () => undefined, onEnd: () => ({ dispose: () => undefined }), dispose: () => undefined })
 }
 
+/** You, signed in, the same object each time it's read, as `parity.presence.self` is until it changes. */
+const me = { name: "Me" }
+const you = { peer: "me", self: () => me, onSelfChange: () => () => undefined }
+
 const layerNames = ["selections", "marquees", "pointers", "faces", "following"] as const
 
 type LayerName = (typeof layerNames)[number]
@@ -147,10 +151,7 @@ function mountRoom() {
         counted("selections", createElement(Selections, { people })),
         counted("marquees", createElement(Marquees, { people })),
         counted("pointers", createElement(Pointers, { people })),
-        counted(
-          "faces",
-          createElement(Faces, { people, you: { peer: "me", self: () => ({ name: "Me" }) }, follow, camera })
-        ),
+        counted("faces", createElement(Faces, { people, you, follow, camera })),
         counted("following", createElement(Following, { people, follow }))
       )
     )
