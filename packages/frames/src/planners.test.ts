@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 import { type CopyKey, copyId, groupLeaders, sharedMarkup, staleCopies, traceHolds, withMarkup } from "./keys.ts"
-import { planPool, type PoolView } from "./pool.ts"
+import { planPool, type PoolView, spareLimit } from "./pool.ts"
 import { type BoardView, boardTier } from "./tiers.ts"
 
 describe("boardTier", () => {
@@ -109,6 +109,25 @@ describe("planPool", () => {
       open: [{ route: "/a" }, { route: "/b" }],
       close: ["f1"]
     })
+  })
+})
+
+describe("spareLimit", () => {
+  it("keeps what the setting asks for, from none to four", () => {
+    expect(spareLimit(0, 16)).toBe(0)
+    expect(spareLimit(3, 16)).toBe(3)
+    expect(spareLimit(9, 16)).toBe(4)
+    expect(spareLimit(-1, 16)).toBe(0)
+  })
+
+  it("keeps one at most on a machine with less than 8 GB", () => {
+    expect(spareLimit(2, 4)).toBe(1)
+    expect(spareLimit(0, 4)).toBe(0)
+    expect(spareLimit(4, 8)).toBe(4)
+  })
+
+  it("puts no cap on it when the machine's memory isn't known", () => {
+    expect(spareLimit(2)).toBe(2)
   })
 })
 

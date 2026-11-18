@@ -131,7 +131,8 @@ the copy until the freezer's replaces it. A menu left open or a typed value neve
 
 - **Two spare frames per project and window**, loaded at the app's root path. A frame is the app's page in an iframe on
   the builder's origin, with the page runtime in it. A window that isn't focused closes its spares; the setting
-  `routeFrames.spares` changes the count, and 0 turns spares off.
+  `routeFrameSpares` (Settings › Diagnostics › Spare route frames) changes the count from 0 to 4, and 0 turns spares
+  off. On a machine with less than 8 GB of memory a window keeps one at most, whatever the setting asks for.
 - **Spares wait on the routes in view,** nearest the middle first. A spare already on one of those routes stays.
 - **A parked spare stays drawn:** at its mode's full size, inside the window's view, scaled to 1%
   (`transform: scale(0.01)`) with `pointer-events: none`. Chromium stops rendering a cross-origin frame that's
@@ -692,7 +693,8 @@ on builders' loopback ports. Input went through Chromium's input router (`Input.
 
 - **Each frame is a whole copy of the app,** about 80 MB in dev. Per project and window, the live frame, two spares and
   the freezer come to about 320 MB. With three projects open that's about 1 GB, which is why unfocused windows close
-  their spares and the count is a setting. Render windows build copies, not pages, so they add no copies of the app.
+  their spares, the count is a setting, and a machine with less than 8 GB keeps one spare per project and window. Render
+  windows build copies, not pages, so they add no copies of the app.
 - **Spares run the app's code for real:** polling, websockets, analytics and the route's loaders, including any that
   write to a backend. `window.parityFrame` lets an app hold back what it doesn't want run on Parity's behalf, except in
   `<head>` scripts under Next.
@@ -750,15 +752,15 @@ Each is an issue, in this order.
 5. **Live frames from the pool** (PAR-1263), done: spares, hover, parking, Interact, engaging and disengaging, the zoom
    wheel and keys passed back, the live window, fixed elements hidden in the copy, frames stopped leaving the builder's
    origin, and when live ends. With the Interact tool a board goes live instead of loading its page in an iframe. Built:
-   spares wait only while the Interact tool is on, two of them, with no `routeFrames.spares` setting yet. The runtime
-   takes `role.set`, so a spare that goes live says so in `window.parityFrame`. `page.key` passes back Ctrl or Cmd keys
-   except the ones that edit or move through text, which stay the page's. The live frame is placed over its board from
-   the board's box each animation frame while it's live, in a layer in tldraw's page space, and `page.zoom` reaches the
-   canvas as tldraw's own wheel event. A navigation off the builder's origin is stopped on `will-frame-navigate` and
-   `will-redirect`, and the board says "Tried to open" with the host. When live ends the board's frozen copy stays: the
-   live page's snapshot doesn't stand in for it yet, since nothing makes copies stale before step 7. The freezer waits 2
-   s after each `page.used` and 1.5 s after a board goes live or spares open or move. The events are `routeFrame.live`
-   and `routeFrame.miss`.
+   spares wait only while the Interact tool is on, two of them by default; `routeFrameSpares` (PAR-1303) sets the count,
+   as "The pool" says. The runtime takes `role.set`, so a spare that goes live says so in `window.parityFrame`.
+   `page.key` passes back Ctrl or Cmd keys except the ones that edit or move through text, which stay the page's. The
+   live frame is placed over its board from the board's box each animation frame while it's live, in a layer in tldraw's
+   page space, and `page.zoom` reaches the canvas as tldraw's own wheel event. A navigation off the builder's origin is
+   stopped on `will-frame-navigate` and `will-redirect`, and the board says "Tried to open" with the host. When live
+   ends the board's frozen copy stays: the live page's snapshot doesn't stand in for it yet, since nothing makes copies
+   stale before step 7. The freezer waits 2 s after each `page.used` and 1.5 s after a board goes live or spares open or
+   move. The events are `routeFrame.live` and `routeFrame.miss`.
 6. **Pictures** (PAR-1200), done: page jobs in the render pool built from copies, `RenderJob` as a union, page bitmap
    names, traces by builder, and tiers by size on screen. Built: the page job is
    `{ kind: "page", projectId, route, path, state, mode, scale }`, with `route` the route's id for its trace and `path`
@@ -816,6 +818,5 @@ rows for routes.
   guest.
 - **Selecting inside the live page.** It's on another origin, so its elements aren't in Parity's document. Selection and
   layers show the copy beneath it, which is the page as it was when live began.
-- **The pool's size** on a machine short of memory, beyond closing spares in unfocused windows.
 - **The Pages lens** (PAR-1244). It owns the route boards once it exists; nothing here depends on which canvas draws
   them.

@@ -261,6 +261,27 @@ export const settings: Setting[] = [
     default: false
   },
   {
+    id: "routeFrameSpares",
+    page: "diagnostics",
+    label: "Spare route frames",
+    detail:
+      "Pages kept loaded in each project so they go live faster, about 80 MB of memory each. At most 1 with less than 8 GB.",
+    keywords: ["live", "pool", "memory", "interact"],
+    group: "Performance",
+    scope: "app",
+    control: {
+      kind: "select",
+      options: [
+        { value: "0", label: "Off" },
+        { value: "1", label: "1" },
+        { value: "2", label: "2" },
+        { value: "3", label: "3" },
+        { value: "4", label: "4" }
+      ]
+    },
+    default: "2"
+  },
+  {
     id: "betaUpdates",
     page: "updates",
     label: "Get beta updates",
