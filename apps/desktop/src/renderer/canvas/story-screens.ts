@@ -9,6 +9,11 @@ import { componentBoardsTop } from "./component-boards.ts"
  */
 export const storyScreensFile = "(stories)"
 
+/** Whether a design is one of the project's story files, by its key. */
+export function isStoryScreen(key: string): boolean {
+  return key.startsWith(`${storyScreensFile}#`)
+}
+
 /** The layer of a story file's design that draws one of its stories, by the story's export, as its provider names it. */
 export function storyLayer(story: string): string {
   return `story:${story}`

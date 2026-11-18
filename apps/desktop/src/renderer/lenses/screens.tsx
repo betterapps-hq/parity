@@ -6,9 +6,9 @@ import { ProjectCanvas, useOpenProject } from "./project-canvas.tsx"
 import type { LensView } from "./registry.ts"
 
 /**
- * Today's canvas, Layers with its asset tabs, and the inspector with Modes, as one lens: the project's designs, its
- * stories and its component boards, until Stories and Components have lenses of their own (lens-layout.md). The app's
- * pages are Pages'.
+ * Today's canvas, Layers with its asset tabs, and the inspector with Modes, as one lens: the project's designs and its
+ * component boards, until Components has a lens of its own (lens-layout.md). The app's pages are Pages', and its stories
+ * Stories'.
  */
 export const screensLens: LensView<"screens"> = {
   id: "screens",

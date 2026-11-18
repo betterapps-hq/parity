@@ -149,10 +149,10 @@ operations the package returns, and tells the shell when a tab is let go outside
 package's data, an icon and its three views. The title bar's View menu and a lens's own views, such as the inspector's
 links, act through `useLensWorkspace`. The exploration's story renders `LensWorkspace` with its test lenses, and a saved
 layout's windows open in the main window until PAR-1248 restores them. The app renders it with `appLenses`, the lenses
-that are built: Screens, today's canvas, Layers and inspector in `lenses/screens.tsx`, and Pages in `lenses/pages.tsx`.
-Each lens's canvas is a tldraw editor of its own (`lenses/project-canvas.tsx`), and the project holds the one in focus,
-which the panels, menus and shortcuts act on. It passes no `popoutUrl`, so lenses stay in the main window until lens
-windows come to the desktop app (PAR-1247).
+that are built: Screens, today's canvas, Layers and inspector in `lenses/screens.tsx`, Pages in `lenses/pages.tsx`, and
+Stories in `lenses/stories.tsx`. Each lens's canvas is a tldraw editor of its own (`lenses/project-canvas.tsx`), and the
+project holds the one in focus, which the panels, menus and shortcuts act on. It passes no `popoutUrl`, so lenses stay
+in the main window until lens windows come to the desktop app (PAR-1247).
 
 **The lens registry is where the two meet.** A lens is its data from the package and three components: a canvas, a left
 panel and an inspector. The exploration's lenses become test lenses for the same `LensWorkspace` the app renders, so its
@@ -167,7 +167,7 @@ The steps go in this order, each after the one before:
 | The shell in the app, behind a Dockview adapter and the registry (built) | PAR-1240 |
 | The open project in the shell, with today's canvas as one lens (built)   | PAR-1243 |
 | Pages as a lens of its own (built)                                       | PAR-1244 |
-| Stories as a lens of its own                                             | PAR-1246 |
+| Stories as a lens of its own (built)                                     | PAR-1246 |
 | Screens holding only designs                                             | PAR-1251 |
 | Components as a lens of its own                                          | PAR-1245 |
 

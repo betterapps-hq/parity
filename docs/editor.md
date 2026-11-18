@@ -8463,10 +8463,10 @@ The open project shows in the lens shell, as [lens-layout.md](proposals/lens-lay
 lens bar down the window's left edge, each open lens a tab over its canvas, and the left panel and inspector of the lens
 in focus beside them, over the status bar. The title bar stays above, as on Home.
 
-- **Pages and Screens are the lenses so far,** and the lens bar lists only lenses that are built. Screens is today's
-  canvas, Layers with its asset tabs, and the inspector with Modes: it draws the designs, stories and component boards
-  until Stories and Components have lenses of their own. Pages has a canvas of its own (see Pages, a lens of its own).
-  Opening a project shows Screens.
+- **Pages, Screens and Stories are the lenses so far,** and the lens bar lists only lenses that are built. Screens is
+  today's canvas, Layers with its asset tabs, and the inspector with Modes: it draws the designs and component boards
+  until Components has a lens of its own. Pages and Stories have canvases of their own (see Pages, a lens of its own,
+  and Stories, a lens of its own). Opening a project shows Screens.
 - **Each lens has a canvas of its own,** a tldraw editor drawing its part of the project. The project holds the editor
   of the lens in focus, which Layers, the inspector, the menus and the shortcuts act on; N and Shift+N step through the
   designs on it. What draws over a canvas, its outlines, the zoom bar, the drawing toolbar, extensions' layers and the
@@ -8474,8 +8474,8 @@ in focus beside them, over the status bar. The title bar stays above, as on Home
   and go.
 - **The lens bar works as links do in a browser.** A click shows a lens in the tab in focus, and Ctrl+click or a middle
   click opens it in a new tab; one that's open is revealed where it is. Clicking the lens in front hides or shows the
-  left panel. Ctrl and a lens's number shows it, Ctrl+1 for Pages and Ctrl+2 for Screens. The arrow keys, Home and End
-  move between lenses. Right-clicking one offers Show, Open in new tab, Split right and Close.
+  left panel. Ctrl and a lens's number shows it: Ctrl+1 for Pages, Ctrl+2 for Screens and Ctrl+4 for Stories. The arrow
+  keys, Home and End move between lenses. Right-clicking one offers Show, Open in new tab, Split right and Close.
 - **Tabs** drag onto another group's tabs to join them, or onto a canvas's side to split. A tab's close button, or a
   middle click, closes it, the last one too.
 - **Every tab closed empties the window:** the left panel and the inspector go, and the canvas's place says No lens
@@ -8550,6 +8550,33 @@ Pages showed it in Screens' tab with its 8 pages, the page tree's lines and the 
 Pricing there showed its route in the inspector; Ctrl+2 and Ctrl+1 brought Pages back at the camera it had; N there went
 to the next page; Ctrl+click on Screens opened it in a second tab and Split right put it beside Pages; the page didn't
 scroll.
+
+### Stories, a lens of its own (PAR-1246)
+
+The project's story files have a lens of their own, Stories, as
+[lens-layout.md](proposals/lens-layout.md#lenses-down-the-left) has it. Screens no longer draws them.
+
+- **Its canvas** draws each story file as a board, a row for each of its stories, as Screens drew them before. It's
+  drawn the first time Stories shows, so opening a project on Screens loads no story. Shown again after another lens
+  took its place, it's where its camera was, with what was selected still selected. A story is drawn from its file, so
+  the canvas has no drawing toolbar.
+- **Its Layers** lists the story files in folders by their titles, a group for each tool they're read from, as Layers'
+  story groups did; Screens' Layers no longer has them. A project without stories says No stories yet. As on Pages,
+  asking for another panel tab there, such as Show Components, shows Screens in its place with that tab open.
+- **Selecting stays on its canvas,** as on Pages: Select all and its kin select only story files, and a story selected
+  while another lens shows, from Search, shows Stories in that lens's place with the story in view.
+- **The inspector** shows the selected story as before: its header, the args it's drawn with as props, and Export.
+
+Code: `lenses/stories.tsx` (`storiesLens`); `StoryLayerTree` in `chrome/LayerTree.tsx`, which lists `part` `stories`;
+`drawsDesign` in `canvas/CanvasEditor.tsx`, with `isStoryScreen` in `canvas/story-screens.ts`.
+
+Tests: `e2e/window.e2e.ts` (Screens drawing none of the story files, Ctrl+4 showing Stories in Screens' tab with every
+story file and nothing else, Layers there without Screens' groups, and its camera kept through Ctrl+2 and back);
+`e2e/keyboard.e2e.ts` (N going round Screens' designs, without the stories). Tried in `pnpm dev` on 2026-11-17 on the
+example: the lens bar listed Pages, Screens and Stories; Screens drew no story file and its Layers had no story groups;
+Ctrl+4 showed Stories in Screens' tab with Badge, Button, Card and Plan card and the Stories group alone in Layers;
+selecting Badge there showed its story, its Variant prop and Export in the inspector; Ctrl+2 and Ctrl+4 brought it back
+at the zoom it had, Badge still selected.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 
