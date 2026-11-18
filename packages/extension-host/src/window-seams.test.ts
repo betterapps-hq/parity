@@ -82,6 +82,31 @@ describe("parity.presence", () => {
     expect(person.listening()).toBe(false)
   })
 
+  it("tells who's signed in only when that changes, keeping one object until it does", async () => {
+    const { person, parity, stop } = await tab()
+    const presence = parity().presence
+    const heard: string[] = []
+    const before = presence.self
+
+    const listening = presence.onSelfChange((self) =>
+      heard.push(self.own ? `${self.name} ${self.own.initials}` : self.name)
+    )
+
+    // The window says it may have changed, though nobody signed in or out.
+    person.signIn({ name: "Mia" })
+    expect(presence.self).toBe(before)
+
+    person.signIn({ name: "Grace", own: { initials: "GH", color: "#3b82f6" } })
+    person.signIn({ name: "Grace", own: { initials: "GH", color: "#3b82f6" } })
+    person.signIn({ name: "Guest" })
+    listening.dispose()
+    person.signIn({ name: "Mia" })
+
+    expect(heard).toEqual(["Grace GH", "Guest"])
+    expect(presence.self).toEqual({ name: "Mia" })
+    await stop()
+  })
+
   it("counts a listener that throws as the module's failure", async () => {
     const { person, parity, named } = await tab()
     parity().presence.onGesture(() => {

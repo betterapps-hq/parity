@@ -7,6 +7,7 @@ import {
   type AgentStep,
   type Gesture,
   type Palette,
+  type Self,
   type WindowModule,
   type Viewing,
   type WindowParity
@@ -272,6 +273,8 @@ export function personStandIn() {
   const pointers = new Set<(pointer: Pointer) => void>()
   const gestures = new Set<(gesture: Gesture) => void>()
   const viewings = new Set<(viewing: Viewing) => void>()
+  const selves = new Set<() => void>()
+  let self: Self = { name: "Mia" }
   const frames = new Set<() => void>()
   const flushed: string[] = []
 
@@ -284,7 +287,8 @@ export function personStandIn() {
     }
 
   const surface = windowPresence({
-    self: () => ({ name: "Mia" }),
+    self: () => ({ ...self }),
+    onSelfChange: listening(selves),
     onPointer: listening(pointers),
     onGesture: listening(gestures),
     onViewing: listening(viewings),
@@ -304,6 +308,11 @@ export function personStandIn() {
     point: (pointer: Pointer) => pointers.forEach((listener) => listener(pointer)),
     gesture: (gesture: Gesture) => gestures.forEach((listener) => listener(gesture)),
     view: (viewing: Viewing) => viewings.forEach((listener) => listener(viewing)),
+    /** Signs in, out or switches accounts: who's signed in becomes `next`, and the window says it may have changed. */
+    signIn: (next: Self) => {
+      self = next
+      selves.forEach((listener) => listener())
+    },
     frame: () => {
       const now = [...frames]
       frames.clear()

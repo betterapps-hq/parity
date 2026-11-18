@@ -382,6 +382,11 @@ export interface Presence {
   /** The person signed in, as others should see them, and as their account avatar shows them to themselves. */
   readonly self: Self
   /**
+   * Told `self` each time it changes, as when this person signs in, signs out or switches accounts, so what draws them
+   * can draw them again. `self` stays the same object until it changes.
+   */
+  onSelfChange(listener: (self: Self) => void): Disposable
+  /**
    * Told where the pointer is on the page, at most once a frame with the latest. Its leaving the canvas (`over: false`)
    * is never dropped. `t` is when it was there, on the window's clock (`performance.now()`), taken from the input event,
    * so it holds even when the window was too busy to tell it at once.

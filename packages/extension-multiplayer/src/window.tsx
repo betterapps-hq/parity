@@ -425,6 +425,8 @@ export default defineWindowModule({
         tellMine()
       }),
       parity.presence.onGesture((gesture) => room.send({ kind: "gesture", gesture: copyOf(gesture) })),
+      // Signing in or out changes the name others see.
+      parity.presence.onSelfChange(() => tellMine()),
       parity.presence.onViewing((viewing) => {
         mine.viewing = viewing
         tellMine()
@@ -460,7 +462,15 @@ export default defineWindowModule({
         { id: "multiplayer.people", space: "screen", order: "edge", placement: "topRight" },
         <Faces
           people={people}
-          you={{ peer, self: () => parity.presence.self }}
+          you={{
+            peer,
+            self: () => parity.presence.self,
+            onSelfChange: (listener) => {
+              const listening = parity.presence.onSelfChange(listener)
+
+              return () => listening.dispose()
+            }
+          }}
           follow={follow}
           camera={parity.camera}
         />

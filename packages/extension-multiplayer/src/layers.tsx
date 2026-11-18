@@ -302,14 +302,15 @@ export function Faces({
   camera
 }: {
   people: People
-  /** Your peer, and who's signed in, read each time the stack draws. */
-  you: { peer: string; self: () => Self }
+  /** Your peer, and who's signed in, drawn again each time that changes (`parity.presence.onSelfChange`). */
+  you: { peer: string; self: () => Self; onSelfChange: (listener: () => void) => () => void }
   follow: Follow
   camera: Camera
 }) {
   const everyone = usePeople(people)
   const shown = useSyncExternalStore(follow.subscribe, follow.get)
-  const self = yourMember(you.peer, you.self(), people.paletteOf(you.peer))
+  const signedIn = useSyncExternalStore(you.onSelfChange, you.self)
+  const self = yourMember(you.peer, signedIn, people.paletteOf(you.peer))
   const presences: Presence[] = everyone.map((person) => ({ member: memberOf(people, person) }))
   const following = shown?.state === "following" ? presences.find((each) => each.member.id === shown.leader) : undefined
 

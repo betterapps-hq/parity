@@ -549,6 +549,7 @@ export {
   projectHost,
   pageName,
   type PageNode,
+  type PageSize,
   pageTree,
   type PlacedPage,
   placePages,

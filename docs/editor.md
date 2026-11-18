@@ -6463,8 +6463,9 @@ the signed-in person's first name.
   behind the positions sent and moved between them on every frame, so it doesn't stop and jump when one is late
   (PAR-1307). Their marquee and drag are drawn from the same positions, so they move with it. It stays where it was,
   faded, when they leave the canvas. What they've selected, and the text they're typing in, is outlined in their color
-  with their name, with their caret where they're typing (PAR-1275). Their marquee shows as they drag it. A drag shows
-  through `parity.canvas.preview`, with the lift, carry and settle of a local drag (PAR-1199), and settles on its write.
+  with their name, with their caret where they're typing (PAR-1275). Their marquee shows as they drag it, whether it
+  starts on a frame's background or on the empty canvas (PAR-1311). A drag shows through `parity.canvas.preview`, with
+  the lift, carry and settle of a local drag (PAR-1199), and settles on its write.
 - **Coming back.** A copy whose connection to the relay comes back drops everyone who left meanwhile as if it had heard
   them leave: their pointer, a drag they were showing, following them, and their color (PAR-1282).
 - **Who's here.** The avatar stack sits on the zoom controls' row, just left of them and as tall, with everyone in one
@@ -6475,7 +6476,8 @@ the signed-in person's first name.
 - **Your own face.** Signed in, your face in the stack and your card look like your account avatar in the window's top
   right: your provider's picture, or your initials on your email's color (PAR-1309). Only your window draws you so; the
   room is told only your first name, and everyone else sees you in the palette the host assigned you, as do your
-  pointer, outlines and drags. Signed out, your face keeps your palette.
+  pointer, outlines and drags. Signed out, your face keeps your palette. Signing in, out or switching accounts redraws
+  your face at once, and the room hears your new first name (PAR-1310).
 - **Agents.** This copy's agents' steps go to the room, and steps from the room go to `parity.agents.receive`, so agent
   presence, where it's on, draws every copy's agents. The host numbers agents' colors as it does people's, by copy and
   agent, so an agent is the same color in every copy (PAR-1277). Each copy assigns the numbers under the keys agent
@@ -6556,6 +6558,10 @@ Tests:
   avatar shows you while signed in, without a picture when there's none, and in your palette signed out; each person's
   latest presence, gesture and color; their pointer positions kept in a trail drawn a little behind, and forgotten when
   they leave; dragged nodes placed from the pointer; selections grouped by node; a caret's mark.
+- `apps/desktop/src/renderer/canvas/presence-gestures.test.ts`, "tellBrushing" (PAR-1311): a box on the empty canvas
+  told as a marquee from where the press started, ended when let go, and called off on Escape or as the canvas goes.
+- `packages/extension-host/src/window-seams.test.ts`, "tells who's signed in only when that changes" (PAR-1310):
+  `parity.presence.onSelfChange` told only on a real change, with `self` the same object until then.
 - `apps/desktop/src/renderer/account/look.test.ts`: initials from a name, an email or neither; an account's look, with
   and without a picture. `packages/presence-colors/src/account.test.ts`: the email's color, unchanged from before, and
   its hue.
@@ -8987,6 +8993,18 @@ A screen is named for the component its route draws, else its path.
   `keepCodeDesigns` in `apps/desktop/src/renderer/canvas/code-designs.ts`. Tests:
   `packages/editor/src/tried-size.test.ts`, "what's set on a design drawn from code". Gaps: a story's kept modes and
   tried sizes weren't tried in the app, and `code-designs.ts` has no unit test.
+- **Room for a page's modes (PAR-1317).** A page takes the room its board does with the modes it shows, as Screens lays
+  out a design's modes side by side. Turning more of a page's modes on, from its Modes menu or through `updateView`,
+  lays the pages out again: the pages beside it move aside, a level under a taller page moves down, and turning them off
+  brings them back. Changing the project's modes lays them out again too, with the modes as they are now, so a mode
+  added in the Modes panel and shown beside a page takes its room. A page opens with the room of the modes it was left
+  showing. Only a page the new layout puts somewhere else moves, so one the person moved stays put unless it has to make
+  room, and the move is neither a step to undo nor saved. Before, every page was laid out 1280 wide, so Login showing
+  Desktop Dark, Tablet Light and Mobile Light, 3193 wide, ran over the pages beside it. Code: `size` on `PageLayout` in
+  `packages/editor/src/route-boards.ts`; `pageRoom` and `followPageViews` in
+  `apps/desktop/src/renderer/canvas/route-pages.ts`. Tests: `packages/editor/src/route-boards.test.ts`, "moves the pages
+  beside a wider page aside, and the level under a taller page down", and
+  `apps/desktop/src/renderer/canvas/route-pages.test.ts`, "followPageViews".
 - **Never saved.** Page screens are laid out from the routes each time the project opens, in a design file of their own
   that's never written. They can be selected and moved, but a move isn't kept. A copy takes no pointer, so the canvas
   pans and selects over it. With the Interact tool, a press makes the board live (below), and clicking Pricing in App's
