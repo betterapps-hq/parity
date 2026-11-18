@@ -284,6 +284,10 @@ class Freezer {
   private changes = 0
   /** The count of changes when each stale copy last went stale, by its key. */
   private readonly stale = new Map<string, number>()
+  /** How many live pages' snapshots have been asked for, so one that comes late never replaces a newer one's copy. */
+  private liveTurns = 0
+  /** The turn of the live page's snapshot each copy was kept from, by its key. */
+  private readonly keptTurns = new Map<string, number>()
   /** Each route's modes, as drawn, with the markup each drew at its last snapshot. */
   private groups: MarkupGroups = new Map()
   private running = false
@@ -338,7 +342,7 @@ class Freezer {
     }
 
     try {
-      await this.snapshot(page.channel, page.url, unit, page, this.changes, [], "live")
+      await this.snapshot(page.channel, page.url, unit, page, this.changes, [], ++this.liveTurns)
     } catch {
       // A live page that's stuck or gone when live ends leaves its board the copy it has.
     }
@@ -633,8 +637,8 @@ class Freezer {
   /**
    * Takes one mode's snapshot, checks and sanitizes it, gets the sheets it lists, and keeps its copy for every board
    * that draws the mode, and as a stand-in for the `group`'s other modes, which keep their own heights until they're
-   * checked. A `"live"` page's snapshot holds what was done in it, so it leaves the markup groups be, and one that's
-   * refused leaves the freezer free to freeze its route.
+   * checked. A live page's snapshot (`liveTurn`) holds what was done in it, so it leaves the markup groups be, one
+   * that's refused leaves the freezer free to freeze its route, and one that comes after a newer one's leaves its copy.
    */
   private async snapshot(
     channel: Channel<ParityMethods, PageMethods>,
@@ -643,8 +647,10 @@ class Freezer {
     page: Pick<FrozenCopy, "origin" | "loadedAt">,
     changes: number,
     group: readonly FreezeUnit[],
-    from: "freezer" | "live" = "freezer"
+    /** A live page's snapshot, by its turn (`liveTurns`), rather than the freezer's. */
+    liveTurn?: number
   ): Promise<void> {
+    const from = liveTurn === undefined ? "freezer" : "live"
     const refuse = (reason: Refusal, refused?: FreezeUnit) => this.refuse(reason, from === "live" ? undefined : refused)
     const { origin, loadedAt } = page
     let taken: unknown
@@ -728,13 +734,22 @@ class Freezer {
     }
 
     const next = new Map(copies.get())
+
     // A copy kept from the live page since this freeze began, queued or under way, holds what was done in the page; a
-    // newer live page's snapshot replaces it.
-    const replaced = (need: CopyNeed) => from === "live" || !freezeKeeps(next.get(need.key), changes)
+    // live page's snapshot replaces it only when it was asked for after the one it was kept from.
+    const replaced = (need: CopyNeed) =>
+      liveTurn === undefined
+        ? !freezeKeeps(next.get(need.key), changes)
+        : (this.keptTurns.get(need.key) ?? 0) < liveTurn
+
     const needs = unit.needs.filter(replaced)
 
     for (const need of needs) {
       next.set(need.key, copy)
+
+      if (liveTurn !== undefined) {
+        this.keptTurns.set(need.key, liveTurn)
+      }
     }
 
     for (const other of group) {

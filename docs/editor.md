@@ -8971,11 +8971,12 @@ A screen is named for the component its route draws, else its path.
   (`keepLiveCopy`, PAR-1304), so a menu opened or a value typed stays on the board until a code change makes the copy
   stale. Its frame stays where it was over the board, taking nothing, until then, so the old copy never shows between. A
   page a link moved to another route, or that redirected, before or while it went quiet, leaves its board the copy it
-  had, and a freeze queued or under way when the copy was kept leaves it be (`freezeKeeps`) unless code changed since.
-  Such a copy is `used`: its board's picture is captured from it again even when the one on disk is current, and kept
-  without a trace, so it never stands for the page's fresh load when the project opens again. The freezer waits while
-  the live page is in use, 2 s after each `page.used`, and while the pool refills, 1.5 s after a board goes live, since
-  a project's frames share one process. A window that isn't focused keeps no spares. `routeFrame.live` says how a board
+  had. A freeze queued or under way when the copy was kept leaves it be (`freezeKeeps`) unless code changed since, and
+  of two live pages' snapshots of one route and mode, the one asked for last is kept, whichever comes first. Such a copy
+  is `used`: its board's picture is captured from it again even when the one on disk is current, and kept without a
+  trace, so it never stands for the page's fresh load when the project opens again. The freezer waits while the live
+  page is in use, 2 s after each `page.used`, and while the pool refills, 1.5 s after a board goes live, since a
+  project's frames share one process. A window that isn't focused keeps no spares. `routeFrame.live` says how a board
   went live and how long it took, and `routeFrame.miss` that no spare was there.
 - **Route frame tiers (PAR-1301).** With Settings › Diagnostics › Route frame tiers on, or Help › Developer › Route
   frame tiers, each route board has a dot just right of its top-right corner, where the live page can't cover it
