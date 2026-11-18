@@ -78,6 +78,11 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
   warnings. `pnpm dev:prod` runs the window on React's production build instead, as `pnpm perf`'s copy does, which makes
   selecting, editing and undo 3 to 10 times faster (PAR-519), but leaves those out: a change to a component reloads the
   page. It takes a project root, as `pnpm dev` does. The end-to-end suite runs the development build.
+- **Measure speed on a heavy app too,** not only a light one: a canvas of near-empty pages is close to a best case.
+  `node scripts/heavy-app.ts <folder>` in `apps/desktop` makes one from `examples/shadcn-vite`, with 40 routes that are
+  each a full screen of tables, a chart, a form and a feed, and 60 stories of those sections (PAR-1321). It shares the
+  example's `node_modules`, so it needs no install of its own. Open it with `pnpm dev:prod <folder>` or measure it with
+  `pnpm perf --project <folder>`.
 
 ## Interface text
 
