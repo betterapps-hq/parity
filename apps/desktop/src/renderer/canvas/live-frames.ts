@@ -879,6 +879,14 @@ export class Pool {
   private filesChanged(): void {
     const live = this.live?.frame
 
+    // A page that takes the builder's hot updates draws the change without loading again, so what it draws is dated from
+    // now, and a copy kept from it when live ends isn't stale for the change it already shows.
+    for (const frame of this.frames()) {
+      if (updatesItself(frame.router)) {
+        frame.loadedAt = Date.now()
+      }
+    }
+
     if (live && !updatesItself(live.router)) {
       this.reload(live)
     }
