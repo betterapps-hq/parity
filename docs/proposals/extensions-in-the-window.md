@@ -1,10 +1,11 @@
 # Extensions in the window
 
 Status: built, 2026-11-17 (PAR-1233). Every phase under [Tasks](#tasks) has landed: multiplayer and agent presence are
-internal extensions, and how they work now is in [extensions.md](../extensions.md#internal-extensions-and-window-modules)
-and [editor.md](../editor.md). External extensions' part, canvas overlays and web views (PAR-1099) and installing them
-(PAR-1098), is still backlogged. It followed PAR-1179 (the live room in development), and changes
-[developer-api.md](developer-api.md)'s "Drawing UI" for Parity's own extensions.
+internal extensions, and how they work now is in
+[extensions.md](../extensions.md#internal-extensions-and-window-modules) and [editor.md](../editor.md). External
+extensions' part, canvas overlays and web views (PAR-1099) and installing them (PAR-1098), is still backlogged. It
+followed PAR-1179 (the live room in development), and changes [developer-api.md](developer-api.md)'s "Drawing UI" for
+Parity's own extensions.
 
 Multiplayer should be an extension, `@parity-app/extension-multiplayer`, rather than code in the app. So should agents'
 pointers on the canvas, `@parity-app/extension-agent-presence`. Today's API can't carry either:
