@@ -149,7 +149,11 @@ function Toggle({
   children: ReactNode
 }) {
   return (
-    <MenubarCheckboxItem checked={checked} onCheckedChange={onChange} className="ps-1.5 [&>span:first-child]:hidden">
+    <MenubarCheckboxItem
+      checked={checked}
+      onCheckedChange={onChange}
+      className="pl-1.5 [&>span:first-child]:hidden [&_svg:not([class*='size-'])]:size-4"
+    >
       <Icon /> {children}
       <MenubarShortcut className="flex items-center gap-1.5">
         {checked && <Check className="text-foreground" />}
