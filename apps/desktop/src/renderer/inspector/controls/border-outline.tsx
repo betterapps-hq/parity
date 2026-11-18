@@ -47,10 +47,19 @@ function useNewColor() {
  * Border: a title with + until it's set, which adds the project's usual border, `border border-border`, and − takes it
  * off. Then its width, one field or each side's, its style and its color, in the order CSS's `border` shorthand takes.
  */
-export function BorderSection({ value, set }: { value: BorderValue; set: (next: BorderValue) => void }) {
+export function BorderSection({
+  value,
+  set,
+  mixedWidths = false
+}: {
+  value: BorderValue
+  set: (next: BorderValue) => void
+  /** The selected layers' widths differ, so Width says Mixed. */
+  mixedWidths?: boolean
+}) {
   const newColor = useNewColor()
   const usedColors = useUsedColors()
-  const bordered = value.color !== undefined || value.widths !== undefined
+  const bordered = value.color !== undefined || value.widths !== undefined || mixedWidths
 
   const action = (
     <SectionButton
@@ -69,6 +78,7 @@ export function BorderSection({ value, set }: { value: BorderValue; set: (next: 
             rules={sideRules.border}
             together="one"
             sides={value.widths ?? oneEverySide}
+            mixed={mixedWidths ? [true, true, true, true] : []}
             onChange={(widths) => set({ ...value, widths })}
           />
           <Field label="Style">
@@ -94,10 +104,21 @@ export function BorderSection({ value, set }: { value: BorderValue; set: (next: 
  * Then its width, style and color, as `outline` takes them, and its offset: 0 draws it against the edge, outside; a positive offset leaves a gap, and a
  * negative one draws it inside the layer.
  */
-export function OutlineSection({ value, set }: { value: OutlineValue; set: (next: OutlineValue) => void }) {
+export function OutlineSection({
+  value,
+  set,
+  mixedWidth = false
+}: {
+  value: OutlineValue
+  set: (next: OutlineValue) => void
+  /** The selected layers' widths differ, so Width says Mixed. */
+  mixedWidth?: boolean
+}) {
   const newColor = useNewColor()
   const usedColors = useUsedColors()
-  const outlined = value.color !== undefined || value.width !== undefined || value.widthToken !== undefined
+
+  const outlined =
+    value.color !== undefined || value.width !== undefined || value.widthToken !== undefined || mixedWidth
 
   const action = (
     <SectionButton adds={!outlined} what="outline" onClick={() => set(outlined ? {} : { color: newColor, width: 2 })} />
@@ -115,6 +136,7 @@ export function OutlineSection({ value, set }: { value: OutlineValue; set: (next
               min={0}
               unit="px"
               value={value.width}
+              mixed={mixedWidth}
               placeholder={value.widthToken ?? "1"}
               onChange={(width) => set({ ...value, width })}
             />

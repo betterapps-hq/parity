@@ -9,7 +9,7 @@ import {
 import { sameValue } from "../controls/css-values.ts"
 import type { Sides } from "../controls/sides-writes.ts"
 import { borderSidesShown, borderWidthsOf, lineWidthOf, lineWidthShown } from "../style-values.ts"
-import type { SectionProps } from "./section-edits.ts"
+import { mixedOf, type SectionProps } from "./section-edits.ts"
 
 /** A stored color as the Color field holds it, with its alpha. */
 function colorShown(color: Color | undefined): Pick<BorderValue, "color" | "alpha"> {
@@ -93,12 +93,15 @@ function offsetShown(offset: OutlineOffset | undefined): number | undefined {
  */
 export function BorderSection({ editor, edit }: SectionProps) {
   const { style } = editor.selection
-  const bordered = style.borderColor !== undefined || style.borderWidth !== undefined
+  const mixed = mixedOf(editor)
+  // Widths that differ across the selected layers show as Mixed, so any width typed is an edit, 1px included.
+  const mixedWidths = mixed("borderWidth")
+  const bordered = style.borderColor !== undefined || style.borderWidth !== undefined || mixedWidths
 
   const value: BorderValue = bordered
     ? {
         ...colorShown(style.borderColor),
-        widths: borderSidesShown(style.borderWidth ?? { step: 1 }),
+        widths: mixedWidths ? noSides : borderSidesShown(style.borderWidth ?? { step: 1 }),
         ...(style.borderStyle && { style: style.borderStyle })
       }
     : {}
@@ -133,7 +136,7 @@ export function BorderSection({ editor, edit }: SectionProps) {
     }
   }
 
-  return <BorderFields value={value} set={set} />
+  return <BorderFields value={value} set={set} mixedWidths={mixedWidths} />
 }
 
 /**
@@ -143,8 +146,10 @@ export function BorderSection({ editor, edit }: SectionProps) {
  */
 export function OutlineSection({ editor, edit }: SectionProps) {
   const { style } = editor.selection
-  const outlined = style.outlineColor !== undefined || style.outlineWidth !== undefined
-  const width = lineWidthShown(style.outlineWidth ?? { step: 1 })
+  const mixedWidth = mixedOf(editor)("outlineWidth")
+  const outlined = style.outlineColor !== undefined || style.outlineWidth !== undefined || mixedWidth
+  // A width that differs across the selected layers shows as Mixed, so any width typed is an edit.
+  const width = mixedWidth ? undefined : lineWidthShown(style.outlineWidth ?? { step: 1 })
   const offset = offsetShown(style.outlineOffset)
 
   const value: OutlineValue = outlined
@@ -188,5 +193,5 @@ export function OutlineSection({ editor, edit }: SectionProps) {
     }
   }
 
-  return <OutlineFields value={value} set={set} />
+  return <OutlineFields value={value} set={set} mixedWidth={mixedWidth} />
 }
