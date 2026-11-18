@@ -1,10 +1,12 @@
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises"
+import { createServer as createHttpServer, type ServerResponse } from "node:http"
+import type { AddressInfo } from "node:net"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import type { PageModules } from "@parity-app/core"
 import { createServer, normalizePath } from "vite"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
-import { appPageWraps, pageFolders, wrappedImport } from "./app-page.ts"
+import { appPageWraps, pageEntryPlace, pageFolders, serverPageEntry, wrappedImport } from "./app-page.ts"
 
 const wrapper = "/parity/page/react-router--react-router.mjs"
 
@@ -103,4 +105,112 @@ describe("appPageWraps", () => {
       await server.close()
     }
   }, 30_000)
+})
+
+const entry = '<script type="module" src="/@id/__x00__virtual:parity/page"></script>'
+
+describe("pageEntryPlace", () => {
+  it("puts the page entry just inside <head>, with or without attributes", () => {
+    const plain = "<!DOCTYPE html><html><head><title>A</title>"
+    const marked = '<html lang="en"><HEAD data-x="1"><meta>'
+
+    expect(pageEntryPlace(plain)).toBe(plain.indexOf("<title>"))
+    expect(pageEntryPlace(marked)).toBe(marked.indexOf("<meta>"))
+  })
+
+  it("waits while no <head> has come, and leaves a page that has the entry already", () => {
+    expect(pageEntryPlace("<!DOCTYPE html><html><he")).toBe("later")
+    expect(pageEntryPlace("<html><header>")).toBe("later")
+    expect(pageEntryPlace(`<html><head>${entry}`)).toBe("none")
+  })
+})
+
+describe("serverPageEntry", () => {
+  /** What a server answering with `respond`, behind `serverPageEntry`, sends a page asking for HTML. */
+  async function served(respond: (res: ServerResponse) => void, accept = "text/html"): Promise<string> {
+    const server = createHttpServer((req, res) => serverPageEntry(req, res, () => respond(res)))
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
+
+    try {
+      // SAFETY: a server listening on a TCP port has an AddressInfo for its address.
+      const { port } = server.address() as AddressInfo
+      const response = await fetch(`http://127.0.0.1:${port}/pricing`, { headers: { accept } })
+
+      return await response.text()
+    } finally {
+      server.close()
+    }
+  }
+
+  it("puts the entry in a server-rendered page streamed in pieces, as TanStack Start's on Cloudflare's is (PAR-1302)", async () => {
+    const text = await served((res) => {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
+      res.write("<!DOCTYPE html><html><he")
+      res.write("ad><title>Ünïcode</title></head>")
+      res.end("<body>Pricing</body></html>")
+    })
+
+    expect(text).toBe(`<!DOCTYPE html><html><head>${entry}<title>Ünïcode</title></head><body>Pricing</body></html>`)
+  })
+
+  it("drops a stated length the entry would make wrong", async () => {
+    const page = "<html><head></head><body>Login</body></html>"
+
+    const text = await served((res) => {
+      res.writeHead(200, { "content-type": "text/html", "content-length": String(page.length) })
+      res.end(page)
+    })
+
+    expect(text).toBe(`<html><head>${entry}</head><body>Login</body></html>`)
+  })
+
+  it("reads headers given to writeHead with no prototype, or as an array, as Node takes them", async () => {
+    const page = "<html><head></head><body>Signup</body></html>"
+    const expected = `<html><head>${entry}</head><body>Signup</body></html>`
+
+    const bare = await served((res) => {
+      const headers = Object.assign(Object.create(null), { "Content-Type": "text/html", "Content-Length": page.length })
+      res.writeHead(200, headers)
+      res.end(page)
+    })
+
+    const flat = await served((res) => {
+      res.writeHead(200, ["Content-Type", "text/html", "Content-Length", String(page.length)])
+      res.end(page)
+    })
+
+    const pairs = await served((res) => {
+      res.writeHead(200, [
+        ["content-type", "text/html"],
+        ["content-length", String(page.length)]
+      ])
+      res.end(page)
+    })
+
+    expect([bare, flat, pairs]).toEqual([expected, expected, expected])
+  })
+
+  it("leaves what isn't HTML and a page with the entry already as they are", async () => {
+    const json = await served((res) => {
+      res.setHeader("content-type", "application/json")
+      res.end('{"head":"<head>"}')
+    })
+
+    const marked = await served((res) => {
+      res.setHeader("content-type", "text/html")
+      res.end(`<html><head>${entry}</head></html>`)
+    })
+
+    expect(json).toBe('{"head":"<head>"}')
+    expect(marked).toBe(`<html><head>${entry}</head></html>`)
+  })
+
+  it("leaves requests that don't ask for HTML alone", async () => {
+    const text = await served((res) => {
+      res.setHeader("content-type", "text/html")
+      res.end("<html><head></head></html>")
+    }, "*/*")
+
+    expect(text).toBe("<html><head></head></html>")
+  })
 })

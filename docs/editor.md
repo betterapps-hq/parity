@@ -8824,9 +8824,12 @@ A screen is named for the component its route draws, else its path.
 - **The page runtime (PAR-1260).** The builder serves the page runtime first in the app's page
   (`@parity-app/page-runtime`, as [proposals/route-frames.md](proposals/route-frames.md) sets out): Vite as a module
   script at the top of `<head>`, the webpack-compatible builders as the first module of each of the app's entries, and
-  Next from its `instrumentation-client`, which every client entry runs before React. With it come the extensions' page
-  modules: the router's, which moves the app with its own router (TanStack Router's reads `window.__TSR_ROUTER__`, React
-  Router's `window.__reactRouterDataRouter` or the router library mode made, and Next's `window.next.router`), and the
+  Next from its `instrumentation-client`, which every client entry runs before React. A page Vite's server renders, as
+  TanStack Start's, never goes through `index.html`, so a middleware holds its HTML until `<head>` has come and puts the
+  script there (PAR-1302; `serverPageEntry` in `packages/extension-vite/src/app-page.ts`, tested in `app-page.test.ts`).
+  Before it, copacker's boards got no copies and its spares were never ready. With it come the extensions' page modules:
+  the router's, which moves the app with its own router (TanStack Router's reads `window.__TSR_ROUTER__`, React Router's
+  `window.__reactRouterDataRouter` or the router library mode made, and Next's `window.next.router`), and the
   renderer's, which says when the app has hydrated (React's installs a minimal `__REACT_DEVTOOLS_GLOBAL_HOOK__` and
   waits for the first commit to the app's root, never to Next's development overlay). The frame's name is `parity:` and
   JSON with the protocol's version, the frame's id, Parity's origin, and the mode and window it opens in. The runtime
