@@ -485,6 +485,9 @@ export const ReferenceToAnotherToken: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
     const dialog = await edit(canvasElement, "primary")
+    // Each field is named for the token and its theme (PAR-1291).
+    await expect(within(dialog).getByRole("textbox", { name: "primary in Light" })).toHaveFocus()
+    await expect(within(dialog).getByRole("textbox", { name: "primary in Dark" })).toBeVisible()
     await retype(dialog, "default", "var(--chart-1)")
     await userEvent.click(within(dialog).getByRole("button", { name: "Apply" }))
     await within(dialog).findByText("Applied. Saving writes it to src/index.css.")

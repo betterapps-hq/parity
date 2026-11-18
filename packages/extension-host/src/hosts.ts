@@ -117,7 +117,7 @@ export interface ExtensionStatus {
  */
 export type InstalledStatus = Pick<
   ExtensionStatus,
-  "id" | "displayName" | "prefix" | "icon" | "contributes" | "permissions" | "activates"
+  "id" | "displayName" | "prefix" | "icon" | "contributes" | "permissions" | "activates" | "internal"
 >
 
 /** An installed extension's package as Settings lists it, from its manifest. */
@@ -131,7 +131,8 @@ export function installedStatus(found: ExtensionPackage): InstalledStatus {
     icon: manifest.icon,
     contributes: manifest.contributes,
     permissions: manifest.permissions ?? {},
-    activates: manifest.activates
+    activates: manifest.activates,
+    internal: manifest.internal === true
   }
 }
 

@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Live room polish: a person's card closes on Follow or Go to, internal extensions say they come with Parity, token value fields are named, and others' carets are easier to see",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

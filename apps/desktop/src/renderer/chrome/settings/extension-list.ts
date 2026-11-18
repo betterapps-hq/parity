@@ -8,6 +8,7 @@ import { extensionMark } from "./marks.tsx"
 /*
  * The extensions Settings lists (PAR-1129): every installed one, from its manifest, so a new extension shows there with
  * no change to Parity. In an open project, each says what detection found of its tool and what its host says of it.
+ * Parity's internal extensions, such as Multiplayer, aren't found in a project: each says it comes with Parity.
  */
 
 /** What the open project says of its extensions: what detection found, its extensions' hosts, and what each adds. */
@@ -37,7 +38,7 @@ export function extensionList(
       permissions: extension.permissions,
       running: false,
       adds: [],
-      found: project ? `No ${name} in this project` : `Runs in projects that use ${name}`
+      found: notFound(extension, project)
     }
 
     const tool = project?.tools.find((each) => each.id === extension.prefix)
@@ -48,7 +49,7 @@ export function extensionList(
     }
 
     entry.running = true
-    entry.found = tool?.summary ?? "Found in this project"
+    entry.found = extension.internal ? "Comes with Parity" : (tool?.summary ?? "Found in this project")
     entry.adds = project.addsOf?.(extension.prefix) ?? []
 
     if (!status) {
@@ -73,6 +74,15 @@ export function extensionList(
 
     return entry
   })
+}
+
+/** What an extension says when nothing in the project runs it: an internal one comes with Parity in every project. */
+function notFound(extension: InstalledStatus, project: ListedProject | undefined): string {
+  if (extension.internal) {
+    return "Comes with Parity"
+  }
+
+  return project ? `No ${extension.displayName} in this project` : `Runs in projects that use ${extension.displayName}`
 }
 
 /** The extensions as Settings lists them, from what the window sent: each with its logo and its manifest's settings. */

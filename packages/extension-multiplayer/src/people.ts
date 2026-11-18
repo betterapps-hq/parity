@@ -181,8 +181,8 @@ export class People {
 /** How much of the letters' box a caret leaves out, at the top and at the bottom, so it's as tall as a text field's. */
 const caretTrim = 0.1
 
-/** How wide a caret is on screen, in pixels. */
-const caretWidth = 1.5
+/** How wide a caret is on screen, in pixels: wider than a text field's own, so someone else's is easy to see. */
+const caretWidth = 2
 
 /** Where a caret's line is drawn on the page, as CSS places it. */
 export interface CaretMark {

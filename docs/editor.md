@@ -5688,9 +5688,9 @@ as it's typed, and layers after it move with it (docs/proposals/extensions-in-th
 - **Where someone's typing shows.** Each copy sends where its person is typing with their cursor: the layer, the state
   it's written to, and the selection in the text (the proposal's `text` gesture). The others outline that text in the
   person's color with their name on its corner, as Multiplayer's Selections stories draw a selection (PAR-1188), and
-  draw their caret before the character it's at, in every frame drawing the text: a 1.5px line in that color, a little
-  shorter than the letters, blinking once it rests, as a text field's caret does (steady with reduced motion). It goes
-  when they close the editor or leave. The person's own caret stays in the text's color, as a text field's does.
+  draw their caret before the character it's at, in every frame drawing the text: a steady 2px line in that color,
+  deepened toward its ink so it reads on a white board, a little shorter than the letters (PAR-1291). It goes when they
+  close the editor or leave. The person's own caret stays in the text's color, as a text field's does.
 - **One outline while editing.** The editor has no outline of its own: the text's selection outline is the one shown. It
   used to draw a thick 2px outline over it.
 - **Letters aren't cut off.** The editor's box is the text's, but it draws letters up to 0.3em past it
@@ -6579,8 +6579,9 @@ them from the package.
   screen reader.
 - **The avatar stack** beside the canvas's zoom: one stack, your own face first, then faces in the order people joined,
   each agent after whoever runs it, whoever you follow next and anyone away last; past the most it shows, a count that
-  opens everyone. A face opens its card, with Follow and Go to; your own opens yours, with Present to everyone and
-  whether others' pointers show. Each action is a callback for the extension to answer.
+  opens everyone. A face opens its card, with Follow and Go to, which closes once either starts (PAR-1291); your own
+  opens yours, with Present to everyone and whether others' pointers show. Each action is a callback for the extension
+  to answer.
 - **Following.** The canvas framed in the leader's color and a banner with Stop, which names Esc. When following ends
   the banner says why: "Stopped following Mia", or "Mia left, so following stopped". Presenting, an invitation to follow
   and a dropped connection share the banner.
@@ -9954,11 +9955,12 @@ and makes each change Settings sends back an undo step. Escape or the close butt
   Save, which Ctrl+S also does, unless the project saves itself. On the person's pages, a setting the project sets shows
   the project's value beside it, which goes to the project's page.
 - **Extensions** lists every installed extension, those running in the open project first, each with what detection
-  found (PAR-1129). Its name, logo and settings come from its manifest, which the service reads as it starts and gives
-  the window, so a new extension shows there with no change outside its package. There's no switch: each runs when its
-  tool is found. An extension's page shows what it found, why its code stopped when it did, its settings from its
-  manifest (the person's for every project always, the project's while it runs there, each value that doesn't fit named
-  under them), what it adds (PAR-1100), its permissions, and how long its code took to activate and the memory it holds
+  found (PAR-1129), or, for Parity's internal ones such as Agent presence and Multiplayer, that it comes with Parity
+  (PAR-1291). Its name, logo and settings come from its manifest, which the service reads as it starts and gives the
+  window, so a new extension shows there with no change outside its package. There's no switch: each runs when its tool
+  is found. An extension's page shows what it found, why its code stopped when it did, its settings from its manifest
+  (the person's for every project always, the project's while it runs there, each value that doesn't fit named under
+  them), what it adds (PAR-1100), its permissions, and how long its code took to activate and the memory it holds
   (PAR-1090). What it adds is built from what its adapter and extension tell the window: a phrase for its adapter's role
   (renderer, builder, styles, router, screens), with how many pages or screens it read; its actions by name; its
   extension's commands; and a status bar item when it shows one. With no project open, an extension adds nothing.
