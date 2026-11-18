@@ -191,6 +191,33 @@ describe("the window", () => {
     }
   })
 
+  // docs/editor.md, Screens, holding only designs (PAR-1251).
+  it("holds none of Screens' frames while Pages shows in its place, and draws them again with Screens", async () => {
+    const { page } = app
+    const screens = await drawn()
+
+    const framesOf = (keys: string[]) =>
+      page.evaluate(
+        (wanted) =>
+          [...document.querySelectorAll<HTMLElement>(".container-view[data-design]")]
+            .filter((board) => wanted.includes(board.dataset.design!))
+            .reduce((count, board) => count + board.querySelectorAll("[data-frame]").length, 0),
+        keys
+      )
+
+    expect(screens.some((key) => key.startsWith("(pages)#") || key.startsWith("(stories)#"))).toBe(false)
+    await expect.poll(() => framesOf(screens)).toBeGreaterThan(0)
+
+    try {
+      await page.keyboard.press("Control+1")
+      await expect.poll(() => framesOf(screens)).toBe(0)
+    } finally {
+      await showScreens()
+    }
+
+    await expect.poll(() => framesOf(screens)).toBeGreaterThan(0)
+  })
+
   // docs/editor.md, Pages, a lens of its own (PAR-1244).
   it("shows Pages in Screens' place for a page selected elsewhere, and Ctrl+A there selects only the pages", async () => {
     const { page } = app

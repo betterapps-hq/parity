@@ -3190,7 +3190,7 @@ mode, with one state, and isn't written to code.
   what goes (states after the first, previews beside the main one, params, and each design's instances, which become
   plain layers), with Cancel and Convert to frame. Each is one undo step, and converting a component detaches its
   instances in the same step.
-- **Layers lists Frames** after Routes and Screens once there are any; its + picks the frame tool.
+- **Screens' Layers lists Frames** after Screens and Components once there are any; its + picks the frame tool.
 
 Code: the rules are `packages/editor/src/frames.ts` (`drawnFrame`, `nextFrameName`, `snapToEdges`, `draggedBox`,
 `framePresets`, `frameOfText`, `textFrameRenamed`, `hugsContent`, `fittedFrame`, `withFrameSize`, `frameRootShown` and
@@ -8578,6 +8578,30 @@ Ctrl+4 showed Stories in Screens' tab with Badge, Button, Card and Plan card and
 selecting Badge there showed its story, its Variant prop and Export in the inspector; Ctrl+2 and Ctrl+4 brought it back
 at the zoom it had, Badge still selected.
 
+### Screens, holding only designs (PAR-1251)
+
+With Pages and Stories out, Screens holds the project's own designs, as
+[lens-layout.md](proposals/lens-layout.md#lenses-down-the-left) has it.
+
+- **Its Layers** lists Screens, then the component boards under Components, then Frames, and the text on the canvas,
+  with the asset tabs, Components, Icons, Media and Tokens, beside it. The routes, API routes and story files are listed
+  in Pages' and Stories' Layers instead. The boards stay on Screens until Components has a lens of its own (PAR-1245).
+- **Its inspector** is today's, with Modes beside it.
+- **Its canvas** draws the screens, frames, component boards, notes and references. It's drawn the first time its tab is
+  in front, like every lens's: a lens open behind another tab loads nothing until it's shown, so a project opened on
+  another lens draws none of Screens' frames. Shown again after another lens took its place, it's where its camera was,
+  with what was selected still selected. Closing its tab, or another lens taking its place, lets its frames go.
+
+Code: `ProjectCanvas` in `lenses/project-canvas.tsx` (`shownOnce`); `LayerList` in `chrome/LayerTree.tsx`, which lists
+API routes only for `part` `pages`.
+
+Tests: `e2e/window.e2e.ts` (Screens' boards holding frames, none once Ctrl+1 shows Pages in its place, and frames again
+with Screens back); Parity/Left panel/API routes and Parity/Canvas/Page tree, which show Pages first (`showLens` in
+`stories/fixtures.tsx`). Tried in `pnpm dev` on 2026-11-17 on the example: Screens drew 64 boards holding 122 frames,
+its Layers headed Screens and Components; Ctrl+1 showed Pages with its 8 pages and none of Screens' boards or frames,
+Layers headed Routes alone; Ctrl+2 drew Screens' 64 boards and 122 frames again. In Storybook, Under the pages, Marked
+and Page selected passed, the API routes listed in Pages' Layers under Routes.
+
 ### A project with no Parity file opens on a Home screen (PAR-561)
 
 Opening a folder or project that has no `.par` file yet opens on a screen named Home, for the app's `/` route. It draws
@@ -8652,16 +8676,16 @@ A screen is named for the component its route draws, else its path.
   row in Layers shows an amber warning too, whose tooltip says where. The example's Dashboard is behind a sign-in check
   in its `beforeLoad`, so it lands on `/login` until someone logs in.
 
-- **Layers.** Layers lists the app's pages under Routes, before Screens and Frames, in their tree: each page under the
-  page above it, App, then Pricing, Projects, Project detail and Settings a level in. A layout group is a folder with
-  the layout icon and, at its right, where its index redirects, holding its pages: Settings holds Billing and Profile.
-  It's open until it's closed with its arrow, or Left and Right; clicking it selects its layout route, by `NodeRef`
-  (PAR-1092), which selects its group on the canvas and brings the group into view. Each icon at the end of a row has a
-  tooltip saying what it means: where a layout redirects, where a page lands, that a component fails to draw, that a
-  layer changes in the state shown or at some screen sizes, and what it's locked with. A search lists the pages flat.
-  Component designs are listed in the Components panel. A page shows the route icon, in Layers and on its title, and its
-  title shows its route's path under its name; selecting it shows its route's path, params, file and component, and
-  whether it loads data or can redirect, read-only. Its layers are what each route that draws it draws, the root's
+- **Layers.** Pages' Layers lists the app's pages under Routes, with the API routes after them, in their tree: each page
+  under the page above it, App, then Pricing, Projects, Project detail and Settings a level in. A layout group is a
+  folder with the layout icon and, at its right, where its index redirects, holding its pages: Settings holds Billing
+  and Profile. It's open until it's closed with its arrow, or Left and Right; clicking it selects its layout route, by
+  `NodeRef` (PAR-1092), which selects its group on the canvas and brings the group into view. Each icon at the end of a
+  row has a tooltip saying what it means: where a layout redirects, where a page lands, that a component fails to draw,
+  that a layer changes in the state shown or at some screen sizes, and what it's locked with. A search lists the pages
+  flat. Component designs are listed in the Components panel. A page shows the route icon, in Layers and on its title,
+  and its title shows its route's path under its name; selecting it shows its route's path, params, file and component,
+  and whether it loads data or can redirect, read-only. Its layers are what each route that draws it draws, the root's
   outermost, each inside the one before as it draws at that route's outlet, as children passed to it: Billing's are
   RootLayout, SettingsLayout, Billing. Each shows as the component its route draws, with the component's icon and color,
   and its panel shows its route too; a route that names no component, as a redirecting index, shows as a route, named
@@ -9106,7 +9130,7 @@ group in the panel: the UI kit's by file, as Card with CardHeader and CardTitle,
   in the same color, though it's a frame.
 - **Only the project's own.** A component from a library, or from a dependency in `node_modules`, gets no board; it's
   still listed in the Components panel.
-- **Listed in Layers and the Components panel.** Layers lists the boards under Components, after Routes and Screens.
+- **Listed in Layers and the Components panel.** Screens' Layers lists the boards under Components, after Screens.
   Pressing one of the project's components in the Components panel selects and shows its board. Dragging it still
   inserts it, and pressing a library's component still adds it where the selection is.
 - **Every layer inside.** A board is the component, so its row in Layers opens straight to what the component draws,

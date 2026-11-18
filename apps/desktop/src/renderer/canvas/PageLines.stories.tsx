@@ -3,13 +3,13 @@ import { refsSelection, routeScreenId } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Box } from "tldraw"
 import { AppWindow } from "../App.tsx"
-import { example, openProject } from "../stories/fixtures.tsx"
+import { example, openProject, showLens } from "../stories/fixtures.tsx"
 import { answerNext } from "../stories/host.ts"
 import { canvasIdFor } from "./CanvasEditor.tsx"
 import { routePagesFile, routeRef } from "./route-pages.ts"
 
 /**
- * The lines of the app's page tree (PAR-1076), on the example opened with its own routes, as the TanStack Router
+ * The lines of the app's page tree (PAR-1076), on Pages' canvas, on the example opened with its own routes, as the TanStack Router
  * adapter reads them: App holds Pricing, Projects, Project detail and Settings. Settings' index only redirects to
  * Profile, so Settings has no page of its own: it's a group around Billing and Profile, with where it redirects in its
  * header. At rest the lines are faint, their dashes flowing down the tree; selecting or hovering a page brings forward
@@ -79,6 +79,7 @@ function pageTree({ zoom, selected, group }: { zoom?: number; selected?: string;
       }
     ],
     play: async () => {
+      await showLens("Pages")
       const session = example()
 
       for (let tries = 0; tries < 100 && !session.editor?.getShapePageBounds(canvasIdFor(page("/"))); tries++) {
