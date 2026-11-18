@@ -1,8 +1,27 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Wed, 18 Nov 2026 12:01:02 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 18 Nov 2026 13:03:57 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.86.0
+
+Wed, 18 Nov 2026 13:03:57 GMT
+
+### Minor changes
+
+- Settings › Diagnostics › Spare route frames sets how many spare route frames each project keeps per focused window,
+  from Off to 4; a machine with less than 8 GB keeps 1 at most (ajcraswell@gmail.com)
+
+## 0.85.4
+
+Wed, 18 Nov 2026 12:34:43 GMT
+
+### Patches
+
+- Other people's pointers in a live room move smoothly: presence goes 30 times a second, stamped with when each position
+  was taken, and each pointer is drawn a little behind and moved every frame. room.latency adds how far apart presence
+  arrives and late positions. (ajcraswell@gmail.com)
 
 ## 0.85.3
 

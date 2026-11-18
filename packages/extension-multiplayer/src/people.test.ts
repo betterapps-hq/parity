@@ -55,6 +55,26 @@ describe("yourMember", () => {
 })
 
 describe("People", () => {
+  it("keeps each person's pointer positions in a trail, drawn a little behind, and forgets it when they leave", () => {
+    let clock = 1000
+    const people = new People(palette.bind(undefined, 0), () => clock)
+
+    const moved = (x: number, t: number) =>
+      people.presence("a", { name: "Ana", selection: [], viewing: {}, pointer: { at: { x, y: 0 }, over: true, t } })
+
+    moved(0, 0)
+
+    clock = 1033
+    moved(10, 33)
+
+    expect(people.person("a")?.pointer).toEqual({ at: { x: 10, y: 0 }, over: true })
+    expect(people.pointerAt("a", 1033)).toEqual({ x: 0, y: 0 })
+    expect(people.pointerAt("a", 1150)?.x).toBeGreaterThan(0)
+
+    people.remove("a")
+    expect(people.trail("a")).toBeUndefined()
+  })
+
   it("keeps each person's latest presence, their pointer where it left the canvas, and their color", () => {
     const people = new People(palette.bind(undefined, 0))
     let told = 0

@@ -1,12 +1,13 @@
 import type { NodeRef } from "@parity-app/extension"
 import type { CaretAt, Gesture, Palette, Point, Rect, Self, Viewing } from "@parity-app/extension/internal"
-import type { Member } from "@parity-app/presence-ui"
+import { type Member, PointerTrail } from "@parity-app/presence-ui"
 import type { PersonPresence } from "./protocol.ts"
 
 /*
  * Who else is in the room and what each is doing, as the window module hears it: their presence, their gesture, and
  * their palette's number. A store layers read with `useSyncExternalStore`, and pure functions over it, so what's drawn
- * can be tested without a canvas.
+ * can be tested without a canvas. Each person's pointer positions also go into a trail as they arrive, which their
+ * pointer, marquee and drag are drawn from on every frame, a little behind, so all three move together and smoothly.
  */
 
 /** Someone else in the room, as far as this copy knows. */
@@ -78,11 +79,14 @@ export class People {
   /** Someone's palette now: their assigned one, held for them while they're here. */
   readonly paletteOf: (peer: string) => Palette
   #people = new Map<string, RoomPerson>()
+  #trails = new Map<string, PointerTrail>()
   #list: readonly RoomPerson[] = []
   readonly #listeners = new Set<() => void>()
+  readonly #now: () => number
 
-  constructor(paletteOf: (peer: string) => Palette) {
+  constructor(paletteOf: (peer: string) => Palette, now: () => number = () => performance.now()) {
     this.paletteOf = paletteOf
+    this.#now = now
   }
 
   get = (): readonly RoomPerson[] => this.#list
@@ -95,6 +99,27 @@ export class People {
 
   person(peer: string): RoomPerson | undefined {
     return this.#people.get(peer)
+  }
+
+  /** Someone's pointer positions as they arrived, to draw from, once they've sent one. */
+  trail(peer: string): PointerTrail | undefined {
+    return this.#trails.get(peer)
+  }
+
+  /** Where someone's pointer is drawn at `now`: from their trail, or where it was last sent. */
+  pointerAt(peer: string, now: number): Point | undefined {
+    return this.#trails.get(peer)?.at(now) ?? this.#people.get(peer)?.pointer?.at
+  }
+
+  /** How many positions, from everyone, arrived too late to be drawn on time since the last call. */
+  takeLate(): number {
+    let late = 0
+
+    for (const trail of this.#trails.values()) {
+      late += trail.takeLate()
+    }
+
+    return late
   }
 
   /** Someone's latest presence. */
@@ -117,7 +142,13 @@ export class People {
     }
 
     if (presence.pointer) {
-      person.pointer = presence.pointer
+      const { at, over, t } = presence.pointer
+      person.pointer = { at, over }
+      const arrived = this.#now()
+      const trail = this.#trails.get(peer) ?? new PointerTrail()
+      this.#trails.set(peer, trail)
+      // An older copy sends no time, so the position counts as taken as it arrived.
+      trail.push({ t: t ?? arrived, at }, arrived)
     } else if (before?.pointer) {
       // Off the canvas, the pointer stays where it was.
       person.pointer = { ...before.pointer, over: false }
@@ -163,6 +194,8 @@ export class People {
 
   /** Someone left. */
   remove(peer: string): void {
+    this.#trails.delete(peer)
+
     if (this.#people.delete(peer)) {
       this.#changed()
     }
@@ -175,6 +208,7 @@ export class People {
     for (const peer of this.#people.keys()) {
       if (!here.includes(peer)) {
         this.#people.delete(peer)
+        this.#trails.delete(peer)
         changed = true
       }
     }

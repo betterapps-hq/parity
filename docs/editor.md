@@ -6445,11 +6445,12 @@ the signed-in person's first name.
   so a value the host saved and changed back shows as the room has it (PAR-1254).
 - **Everyone sees the same state and mode** (PAR-1231): which state and mode a design shows is an edit like any other.
 - **People.** Each person is drawn in the palette the host assigned them, so they're the same color in every copy, and
-  colors never run out (`parity.colors.assign`). Their pointer glides between the positions sent, with a badge of their
-  first name, and stays where it was, faded, when they leave the canvas. What they've selected, and the text they're
-  typing in, is outlined in their color with their name, with their caret where they're typing (PAR-1275). Their marquee
-  shows as they drag it. A drag shows through `parity.canvas.preview`, with the lift, carry and settle of a local drag
-  (PAR-1199), and settles on its write.
+  colors never run out (`parity.colors.assign`). Their pointer, with a badge of their first name, is drawn about 100 ms
+  behind the positions sent and moved between them on every frame, so it doesn't stop and jump when one is late
+  (PAR-1307). Their marquee and drag are drawn from the same positions, so they move with it. It stays where it was,
+  faded, when they leave the canvas. What they've selected, and the text they're typing in, is outlined in their color
+  with their name, with their caret where they're typing (PAR-1275). Their marquee shows as they drag it. A drag shows
+  through `parity.canvas.preview`, with the lift, carry and settle of a local drag (PAR-1199), and settles on its write.
 - **Coming back.** A copy whose connection to the relay comes back drops everyone who left meanwhile as if it had heard
   them leave: their pointer, a drag they were showing, following them, and their color (PAR-1282).
 - **Who's here.** The avatar stack sits on the zoom controls' row, just left of them and as tall, with everyone in one
@@ -6467,10 +6468,30 @@ the signed-in person's first name.
   presence claims colors with (`parity.colors.agents.assign`): the agent's id for its own agents, `copy:agentId` for
   another copy's.
 - **In order, coalesced.** Changes, gestures, agents' steps and the host's colors go in order, one batch on its way at a
-  time; presence goes with them, only the latest kept meanwhile. A move's write arrives before its end, so the preview
-  settles on it, in the same batch or an earlier one.
+  time; presence goes with them, only the latest kept meanwhile. Presence on its own goes at most 30 times a second, 33
+  ms after the last, with each pointer position stamped with when it was there, from the input event, so a window that
+  was too busy to tell it at once still says when it moved (PAR-1307). It used to go as soon as each batch's round trip
+  ended, so positions left a few milliseconds apart, then hundreds. A move's write arrives before its end, so the
+  preview settles on it, in the same batch or an earlier one.
 - **Telemetry.** `room.relayStarted`, `room.joined`, `room.left`, `room.hostChanged`, `room.reconnected` and
-  `room.latency`, recorded through `parity.telemetry`, beside core's `sync.*`.
+  `room.latency`, recorded through `parity.telemetry`, beside core's `sync.*`. `room.latency` also has how far apart
+  others' presence arrived and how many of their pointer positions came too late to be drawn on time (PAR-1307).
+- **Measuring smoothness** (PAR-1307). `node apps/desktop/scripts/room-perf.ts` starts two copies in a room side by
+  side, has one person move their pointer in a circle while the other watches, both ways, and records how far apart
+  positions are sent and arrive, the watcher's frames, and how often the pointer stood still on screen while positions
+  kept coming. `--busy 120` holds the moving copy's main thread for 120 ms every 250 ms, as a long render does. On
+  2026-11-18, before and after this change, with the guest moving and the host watching, then the other way:
+
+  | Run          | Positions a second | Gap p95 (ms) | Frames standing still | Longest stall (ms) |
+  | ------------ | ------------------ | ------------ | --------------------- | ------------------ |
+  | Idle, before | 57, 57             | 26, 24       | 2%, 3%                | 50, 33             |
+  | Idle, after  | 27, 27             | 52, 49       | 0%, 1%                | 0, 50              |
+  | Busy, before | 30, 31             | 138, 131     | 34%, 38%              | 150, 150           |
+  | Busy, after  | 15, 16             | 160, 150     | 0%, 0%                | 0, 17              |
+
+  Which copy moves made no difference: the joining person's pointer was no worse than the host's. The stutter follows
+  whichever copy's main thread is busy, which holds back its positions, and a window that's minimized or covered, which
+  draws a frame a second.
 
 Code: `packages/extension-multiplayer` (`window.tsx` wires the room, `room.ts` talks to the relay, `relay.ts` is the
 relay, `people.ts` and `follow.ts` keep who's here and following, `agents.ts` the agents the host numbers, `hosting.ts`
@@ -6484,12 +6505,15 @@ through `parity.sync`, on Loro, and saying so in `ProjectStatus.tsx`); `openDocS
 Tests:
 
 - `packages/extension-multiplayer/src/room.test.ts`: who hosts and who's here, from the relay; one batch at a time, in
-  order, with only the latest presence; the first snapshot opened on; another copy's events, presence and missing
-  changes told, and a dropped connection and a reconnect noticed; who left while the connection was down told before
-  who's here; asking the host for what's missing, and asking another copy in turn when asked to.
+  order, with only the latest presence; presence alone sent 33 ms apart, the latest each time, and taken along at once
+  by an event; how far apart each copy's presence arrives, pauses left out; the first snapshot opened on; another copy's
+  events, presence and missing changes told, and a dropped connection and a reconnect noticed; who left while the
+  connection was down told before who's here; asking the host for what's missing, and asking another copy in turn when
+  asked to.
 - `packages/extension-multiplayer/src/people.test.ts`: colors kept and given out lowest first; you drawn as your account
   avatar shows you while signed in, without a picture when there's none, and in your palette signed out; each person's
-  latest presence, gesture and color; dragged nodes placed from the pointer; selections grouped by node; a caret's mark.
+  latest presence, gesture and color; their pointer positions kept in a trail drawn a little behind, and forgotten when
+  they leave; dragged nodes placed from the pointer; selections grouped by node; a caret's mark.
 - `apps/desktop/src/renderer/account/look.test.ts`: initials from a name, an email or neither; an account's look, with
   and without a picture. `packages/presence-colors/src/account.test.ts`: the email's color, unchanged from before, and
   its hue.
@@ -6583,8 +6607,16 @@ them from the package.
 - **Pointers.** A person's arrow with their first name, and a short note only when the room knows it for certain
   ("Typing…"); an agent's glows, and its badge has the icon for its step and what it says it's doing. Off the canvas a
   pointer stays where it was left, faded with only the name, and glides back from there when they return: for longer the
-  further it is, from 280ms to 720ms, with positions arriving during the glide finishing it rather than restarting it.
-  With reduced motion it jumps back, and an idle agent doesn't breathe.
+  further it is, from 280ms to 720ms, following them as they move during the glide. With reduced motion it jumps back,
+  and an idle agent doesn't breathe.
+- **Smooth pointers** (PAR-1307). Someone's positions reach this copy unevenly, a few milliseconds apart and then 150 ms
+  when a main thread is busy, so a pointer is drawn a little behind them (`PointerTrail`), placed on every frame between
+  the two positions either side of that time, by when each was taken. How far behind follows the longest gaps between
+  arrivals lately: at least 100 ms, more after longer gaps, up to 250 ms, and back to 100 ms as they're forgotten, 50 ms
+  a second. A gap shorter than that is filled in without the pointer stopping. A longer one slows it down rather than
+  stopping it short, and it then goes up to twice as fast to catch up, so its path never skips; after 400 ms behind, as
+  when they keep still and move again, it goes to where it should be. Without a trail, as in the stories, each new
+  position is moved to as if it had just arrived.
 - **Selections.** An outline in each person's color, several people on one layer a ring each with their name tags in a
   row, and a marquee in the color of whoever drags it. Layers rows show who else has a layer selected, and say so to a
   screen reader.
@@ -6598,17 +6630,21 @@ them from the package.
   the banner says why: "Stopped following Mia", or "Mia left, so following stopped". Presenting, an invitation to follow
   and a dropped connection share the banner.
 
-Code: `packages/presence-ui/src/`, with the glide in `glide.ts` and names, order and counts in `member.ts`. Agent
-presence (`packages/extension-agent-presence`), the Multiplayer extension's layers
+Code: `packages/presence-ui/src/`, with the glide in `glide.ts`, smooth pointers in `trail.ts`, and names, order and
+counts in `member.ts`. Agent presence (`packages/extension-agent-presence`), the Multiplayer extension's layers
 (`packages/extension-multiplayer/src/layers.tsx`) and carried pictures (`canvas/CarriedPicture.tsx`) draw with it
 already. `useFollow`, which drives the Follow mode stories, stays with them; core's following is the camera's
 (PAR-1236).
 
 Tests:
 
-- `packages/presence-ui/src/glide.test.ts` (7): the glide's length by distance; the first position placed at once; steps
-  in a straight line; staying put and fading off the canvas; gliding back for longer the further it is; positions during
-  a glide finishing it; jumping back with reduced motion.
+- `packages/presence-ui/src/glide.test.ts` (6): the glide's length by distance and its easing; drawn where its positions
+  say; staying put off the canvas; gliding back for longer the further it is, following them meanwhile; jumping back
+  with reduced motion.
+- `packages/presence-ui/src/trail.test.ts` (6): positions arriving up to 90 ms late, unevenly, never stop the pointer or
+  make it jump; a main thread busy for 250 ms slows it for a few frames at most, and it catches up without skipping;
+  drawn about its delay behind; after keeping still, picking up near where they are; drawn further behind after long
+  gaps, up to 250 ms, and closer again once they're over; positions no newer ignored and late ones counted.
 - `packages/presence-ui/src/member.test.ts` (11): first names and agents' whole names; whose an agent is; names in a
   sentence; initials by face size; ids telling namesakes apart; the line under a name; a palette's gradient; the stack's
   order, with whoever you follow first and an agent whose runner isn't here; how many faces show.
@@ -8980,30 +9016,30 @@ A screen is named for the component its route draws, else its path.
   never saved (`StylePreview`, `previewRules` with `changedOnly` and `important`). Its fields start from the copy's
   drawn style (`withCopyStyles`), and the preview wins over the page's inline styles. Its other fields stay read-only.
 - **Live boards (PAR-1263).** With the Interact tool, a route board can be the app's own page, as
-  [proposals/route-frames.md](proposals/route-frames.md) sets out. Each project keeps two spare frames per window while
-  Interact is on: the app's page in an iframe on its builder's origin, in a layer in the canvas's page space above the
-  boards (`LiveLayer`), parked in the view at its mode's full size, drawn at 1% and taking no pointer, where Chromium
-  still lays it out. They load at the app's root and move with the app's own router to the routes of the boards in view,
-  nearest the middle first (`planPool`), and park again 250 ms after the view stops moving. With no page router they're
-  loaded at the route they're for. Resting the pointer on a board for 80 ms sends a spare to its route and mode. A press
-  on a board takes the quickest frame (`pickLive`): the one warming on it, a spare on its route, any spare sent there,
-  one still loading, or a new frame at the route. The page is put over the board, one mode window tall, scaled with the
-  board, and engaged: it takes the pointer, the wheel scrolls it and keys go to it. That press only does that; the next
-  one lands on the page. The runtime passes back what's Parity's when the page didn't take it: Ctrl or Cmd with the
-  wheel, or a pinch, zooms the canvas at that point (`page.zoom`), and Escape and Ctrl or Cmd shortcuts, except the ones
-  that edit or move through text, reach Parity's document (`page.key`). Escape the page didn't handle, a press anywhere
-  outside the page and leaving Interact disengage it: the frame takes no pointer again, stays live, and focus comes back
-  to Parity's document, since a page with focus keeps getting keys. Hovering a live board never takes the wheel.
-  Disengaged, the live window sits over the part of its board in view, with the page scrolled to match (`page.scroll`,
-  `liveWindowTop`); engaged, the page's own scrolling moves it down its board (`page.scrolled`). While a board is live
-  its copy hides its fixed and sticky elements, so a fixed header shows once. A link to another of the app's routes
-  moves the live page, and the board says where it went, as a redirect does. A navigation off the builder's origin is
-  stopped in main (`pageFrameGuard`, on `will-frame-navigate` and `will-redirect`), and the board says "Tried to open"
-  with the host. Live ends when another board goes live or the board has been out of view for 10 s, and its frame is
-  closed, never reused. The freezer waits while the live page is in use, 2 s after each `page.used`, and while the pool
-  refills, 1.5 s after a board goes live, since a project's frames share one process. A window that isn't focused keeps
-  no spares. `routeFrame.live` says how a board went live and how long it took, and `routeFrame.miss` that no spare was
-  there.
+  [proposals/route-frames.md](proposals/route-frames.md) sets out. Each project keeps spare frames per window while
+  Interact is on, two unless Spare route frames says otherwise (below): the app's page in an iframe on its builder's
+  origin, in a layer in the canvas's page space above the boards (`LiveLayer`), parked in the view at its mode's full
+  size, drawn at 1% and taking no pointer, where Chromium still lays it out. They load at the app's root and move with
+  the app's own router to the routes of the boards in view, nearest the middle first (`planPool`), and park again 250 ms
+  after the view stops moving. With no page router they're loaded at the route they're for. Resting the pointer on a
+  board for 80 ms sends a spare to its route and mode. A press on a board takes the quickest frame (`pickLive`): the one
+  warming on it, a spare on its route, any spare sent there, one still loading, or a new frame at the route. The page is
+  put over the board, one mode window tall, scaled with the board, and engaged: it takes the pointer, the wheel scrolls
+  it and keys go to it. That press only does that; the next one lands on the page. The runtime passes back what's
+  Parity's when the page didn't take it: Ctrl or Cmd with the wheel, or a pinch, zooms the canvas at that point
+  (`page.zoom`), and Escape and Ctrl or Cmd shortcuts, except the ones that edit or move through text, reach Parity's
+  document (`page.key`). Escape the page didn't handle, a press anywhere outside the page and leaving Interact disengage
+  it: the frame takes no pointer again, stays live, and focus comes back to Parity's document, since a page with focus
+  keeps getting keys. Hovering a live board never takes the wheel. Disengaged, the live window sits over the part of its
+  board in view, with the page scrolled to match (`page.scroll`, `liveWindowTop`); engaged, the page's own scrolling
+  moves it down its board (`page.scrolled`). While a board is live its copy hides its fixed and sticky elements, so a
+  fixed header shows once. A link to another of the app's routes moves the live page, and the board says where it went,
+  as a redirect does. A navigation off the builder's origin is stopped in main (`pageFrameGuard`, on
+  `will-frame-navigate` and `will-redirect`), and the board says "Tried to open" with the host. Live ends when another
+  board goes live or the board has been out of view for 10 s, and its frame is closed, never reused. The freezer waits
+  while the live page is in use, 2 s after each `page.used`, and while the pool refills, 1.5 s after a board goes live,
+  since a project's frames share one process. A window that isn't focused keeps no spares. `routeFrame.live` says how a
+  board went live and how long it took, and `routeFrame.miss` that no spare was there.
 - **Route frame tiers (PAR-1301).** With Settings › Diagnostics › Route frame tiers on, or Help › Developer › Route
   frame tiers, each route board has a dot just right of its top-right corner, where the live page can't cover it
   (`TierDot`): grey while it shows its frozen copy or picture, orange while a spare loads at or moves to its route, and
@@ -9012,6 +9048,15 @@ A screen is named for the component its route draws, else its path.
   watching the pool work. Tried in a development build on the example project. Tests: `canvas/tier-dot.test.ts` (3:
   frozen, warming and warmed, and live or ready winning over a warming spare) and `AppMenu.help.stories.tsx`'s
   `RouteFrameTiers` (the Help › Developer toggle).
+- **Spare route frames (PAR-1303).** Settings › Diagnostics › Spare route frames sets how many spares each project keeps
+  per focused window: Off, or 1 to 4, and 2 by default (`routeFrameSpares` in `settings.json`). Each is a whole copy of
+  the app, about 80 MB in dev. On a machine with less than 8 GB of memory, as Chromium's `navigator.deviceMemory` says,
+  a window keeps 1 at most whatever the setting asks for (`spareLimit`). A change takes effect at once: spares past the
+  new count close, and new ones open to make it up. A window that isn't focused still keeps none. Tried in a development
+  build on the example project with Route frame tiers on: 2 spares by default, then 4, none with Off, and 1. Tests:
+  `packages/frames/src/planners.test.ts`'s `spareLimit` (3: the setting's range, the cap under 8 GB, and no cap when the
+  memory isn't known) and `planPool` (closing spares past the count, and every spare with spares off or the window
+  unfocused).
 - **When the page process fails.** A project's pages share one renderer process. When main sees it go, it closes the
   freezer's channel, or a request misses its deadline, it's one failure: the live frame, spares and freezer close at
   once, and open again after 1 s, then 5 s, then 30 s. After three failures in two minutes Parity stops opening them for

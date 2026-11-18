@@ -1,16 +1,17 @@
 import { useBox, useCamera } from "@parity-app/canvas-layer"
 import type { NodeRef } from "@parity-app/extension"
-import type { Camera, Rect, Self } from "@parity-app/extension/internal"
+import type { Camera, Point, Rect, Self } from "@parity-app/extension/internal"
 import {
   FaceStack,
   FollowLayer,
   Marquee,
   type Member,
   Outlined,
+  type PointerTrail,
   type Presence,
   RemotePointer
 } from "@parity-app/presence-ui"
-import { type ReactNode, useSyncExternalStore } from "react"
+import { type ReactNode, useEffect, useState, useSyncExternalStore } from "react"
 import type { Follow } from "./follow.ts"
 import { caretMark, marqueeRect, type People, type RoomPerson, selectionsByNode, yourMember } from "./people.ts"
 
@@ -49,7 +50,36 @@ function AtScreenSize({ rect, zoom, children }: { rect: Rect; zoom: number; chil
   )
 }
 
-/** Everyone's pointers, gliding between the positions sent, in the `overSelection` layer. */
+/**
+ * Where someone's pointer is drawn now, from their trail, drawing again on every frame while it's on its way, so what
+ * follows their pointer moves with it.
+ */
+function useDrawnPointer(trail: PointerTrail | undefined, sent: Point): Point {
+  const [drawn, setDrawn] = useState<Point | undefined>(undefined)
+
+  // Each position sent starts it again, until it's caught up.
+  useEffect(() => {
+    if (!trail) {
+      return
+    }
+
+    const draw = (now: number) => {
+      setDrawn(trail.at(now))
+
+      if (trail.moving) {
+        frame = requestAnimationFrame(draw)
+      }
+    }
+
+    let frame = requestAnimationFrame(draw)
+
+    return () => cancelAnimationFrame(frame)
+  }, [trail, sent])
+
+  return drawn ?? sent
+}
+
+/** Everyone's pointers, moving between the positions sent on every frame, in the `overSelection` layer. */
 export function Pointers({ people }: { people: People }) {
   const everyone = usePeople(people)
   const { zoom } = useCamera()
@@ -58,27 +88,44 @@ export function Pointers({ people }: { people: People }) {
     <div className="absolute top-0 left-0 origin-top-left" style={{ transform: `scale(${1 / zoom})` }}>
       {everyone.map((person) =>
         person.pointer ? (
-          <PersonPointerAt key={person.peer} member={memberOf(people, person)} person={person} zoom={zoom} />
+          <PersonPointerAt
+            key={person.peer}
+            member={memberOf(people, person)}
+            person={person}
+            trail={people.trail(person.peer)}
+            zoom={zoom}
+          />
         ) : null
       )}
     </div>
   )
 }
 
-function PersonPointerAt({ member, person, zoom }: { member: Member; person: RoomPerson; zoom: number }) {
+function PersonPointerAt({
+  member,
+  person,
+  trail,
+  zoom
+}: {
+  member: Member
+  person: RoomPerson
+  trail: PointerTrail | undefined
+  zoom: number
+}) {
   const pointer = person.pointer!
   const gesture = person.gesture
 
   return (
     <RemotePointer
       member={member}
-      at={{ x: pointer.at.x * zoom, y: pointer.at.y * zoom }}
+      at={pointer.at}
+      trail={trail}
+      scale={zoom}
       offCanvas={!pointer.over}
       detail={gesture?.kind === "text" ? "Typing…" : undefined}
       pressed={gesture !== undefined && gesture.kind !== "text"}
       // While they drag, what they move carries their name.
       badge={gesture?.kind !== "move"}
-      stepMs={40}
     />
   )
 }
@@ -213,6 +260,7 @@ export function Marquees({ people }: { people: People }) {
         key={person.peer}
         member={memberOf(people, person)}
         person={person}
+        trail={people.trail(person.peer)}
         zoom={zoom}
         from={person.gesture.from}
       />
@@ -223,15 +271,18 @@ export function Marquees({ people }: { people: People }) {
 function MarqueeOf({
   member,
   person,
+  trail,
   zoom,
   from
 }: {
   member: Member
   person: RoomPerson
+  trail: PointerTrail | undefined
   zoom: number
   from: { x: number; y: number }
 }) {
-  const rect = marqueeRect(from, person.pointer!.at)
+  // Its corner moves with their pointer, as it's drawn.
+  const rect = marqueeRect(from, useDrawnPointer(trail, person.pointer!.at))
 
   return (
     <AtScreenSize rect={{ x: rect.x, y: rect.y, width: rect.w, height: rect.h }} zoom={zoom}>

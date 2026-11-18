@@ -2,6 +2,50 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Wed, 18 Nov 2026 13:03:28 GMT",
+      "version": "0.114.0",
+      "tag": "@parity-app/desktop_v0.114.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b3de691f6b1a8ff258c0169b6e228425f51b762d",
+            "comment": "Settings › Diagnostics › Spare route frames sets how many spare route frames each project keeps per focused window, from Off to 4; a machine with less than 8 GB keeps 1 at most"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "bdeeb14c751c9c6676f62a23f4522ecb2dbb8c99",
+            "comment": "Other people's pointers in a live room move smoothly: presence goes 30 times a second, stamped with when each position was taken, and each pointer is drawn a little behind and moved every frame. room.latency adds how far apart presence arrives and late positions."
+          }
+        ]
+      }
+    },
+    {
+      "date": "Wed, 18 Nov 2026 12:14:58 GMT",
+      "version": "0.113.0",
+      "tag": "@parity-app/desktop_v0.113.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f472b91fdfa1a7c92e60d0362fd101d0fc97607e",
+            "comment": "Components has a lens of its own: the project's component boards on a canvas of their own, with Used in links from each component to the pages, screens and stories that place it. The Screens canvas no longer draws them."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f472b91fdfa1a7c92e60d0362fd101d0fc97607e",
+            "comment": "Stories has a lens of its own: the project's story files on a canvas of their own, listed by file in its panel, with the selected story in the inspector. The Screens canvas no longer draws stories."
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 18 Nov 2026 12:00:18 GMT",
       "version": "0.112.1",
       "tag": "@parity-app/desktop_v0.112.1",

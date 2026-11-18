@@ -10,8 +10,16 @@ import {
 /*
  * This copy in a project's room, through the relay (relay.ts). It keeps who's here in the order they joined, which copy
  * hosts, and sends what this copy does: ordered events on one channel, one batch on its way at a time, with only the
- * latest presence kept meanwhile. It knows nothing of the document or the canvas; window.tsx wires those.
+ * latest presence kept meanwhile. Events go at once; presence goes at a steady rate, `presenceMs` apart, unless an event
+ * takes it sooner, so others' copies get positions evenly rather than as fast as each round trip ends (PAR-1307). It
+ * knows nothing of the document or the canvas; window.tsx wires those.
  */
+
+/** How far apart presence is sent at most: 30 times a second, as other people's pointers are drawn from (PAR-1307). */
+export const presenceMs = 33
+
+/** A gap between someone's presence longer than this means they kept still, so it isn't counted as how far apart. */
+const idleMs = 1000
 
 /** How the room reaches the relay: a stream of what it's sent, and a way to send. */
 export interface Transport {
@@ -79,16 +87,18 @@ export interface Room {
    * what it's missing, so changes made on both sides while the relay was down reach both.
    */
   askMissing(version: string, options?: { of?: string; back?: boolean }): void
-  /** Sets what this person is doing; sent with the next batch. */
+  /** Sets what this person is doing; sent with the next event, or `presenceMs` after the last presence sent. */
   presence(presence: PersonPresence): void
   on(listeners: Partial<RoomListeners>): () => void
-  /** For `room.latency`: round trips since the last call, and the most waiting at once. */
+  /** For `room.latency`: round trips and presence gaps since the last call, and the most waiting at once. */
   takeStats(): RoomStats
   leave(): void
 }
 
 export interface RoomStats {
   rtts: number[]
+  /** How far apart others' presence arrived, by sender, leaving out gaps of a second or more, when they kept still. */
+  presenceGaps: number[]
   presenceSent: number
   presenceReceived: number
   queueMax: number
@@ -96,7 +106,17 @@ export interface RoomStats {
 }
 
 /** Joins the project's room as `peer` through `transport`. */
-export function joinRoom(transport: Transport, peer: string, now: () => number = () => performance.now()): Room {
+export function joinRoom(
+  transport: Transport,
+  peer: string,
+  now: () => number = () => performance.now(),
+  /** Runs `run` after `ms`, returning what calls it off. */
+  later: (run: () => void, ms: number) => () => void = (run, ms) => {
+    const timer = setTimeout(run, ms)
+
+    return () => clearTimeout(timer)
+  }
+): Room {
   let host = ""
   let peers: string[] = []
   let welcomed = false
@@ -117,9 +137,24 @@ export function joinRoom(transport: Transport, peer: string, now: () => number =
   // One batch on its way at a time, so they arrive in order, holding what comes meanwhile for the next.
   let outbox: Batch = { events: [] }
   let sending = false
+  let presenceAt = -Infinity
+  let presenceTimer: (() => void) | undefined
+  const heardAt = new Map<string, number>()
 
   const flush = () => {
     if (sending || (outbox.events.length === 0 && !outbox.presence)) {
+      return
+    }
+
+    // Presence alone waits for its turn, `presenceMs` after the last; an event goes at once and takes it along.
+    const wait = presenceAt + presenceMs - now()
+
+    if (outbox.events.length === 0 && wait > 0) {
+      presenceTimer ??= later(() => {
+        presenceTimer = undefined
+        flush()
+      }, wait)
+
       return
     }
 
@@ -130,6 +165,9 @@ export function joinRoom(transport: Transport, peer: string, now: () => number =
 
     if (batch.presence) {
       stats.presenceSent += 1
+      presenceAt = now()
+      presenceTimer?.()
+      presenceTimer = undefined
     }
 
     const began = now()
@@ -194,6 +232,7 @@ export function joinRoom(transport: Transport, peer: string, now: () => number =
       case "left":
         peers = peers.filter((each) => each !== message.from)
         host = message.host ?? peer
+        heardAt.delete(message.from)
         tell("left", message.from)
         tell("members")
         break
@@ -216,6 +255,14 @@ export function joinRoom(transport: Transport, peer: string, now: () => number =
         }
 
         if (message.data.presence) {
+          const at = now()
+          const gap = at - (heardAt.get(message.from) ?? Infinity)
+          heardAt.set(message.from, at)
+
+          if (gap >= 0 && gap < idleMs) {
+            stats.presenceGaps.push(gap)
+          }
+
           stats.presenceReceived += 1
           tell("presence", message.data.presence, message.from)
         }
@@ -300,6 +347,7 @@ export function joinRoom(transport: Transport, peer: string, now: () => number =
     },
     leave() {
       stop()
+      presenceTimer?.()
       listeners.clear()
       welcomes.clear()
       snapshots.clear()
@@ -308,5 +356,5 @@ export function joinRoom(transport: Transport, peer: string, now: () => number =
 }
 
 function blankStats(): RoomStats {
-  return { rtts: [], presenceSent: 0, presenceReceived: 0, queueMax: 0, batchesInFlightMax: 0 }
+  return { rtts: [], presenceGaps: [], presenceSent: 0, presenceReceived: 0, queueMax: 0, batchesInFlightMax: 0 }
 }

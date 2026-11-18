@@ -31,6 +31,11 @@ export const settingValues = {
    * once one is ready there or the board is live (PAR-1301).
    */
   routeFrameTiers: z.boolean(),
+  /**
+   * How many spare route frames each project keeps per focused window, so a route board goes live quickly; 0 turns
+   * them off (PAR-1303).
+   */
+  routeFrameSpares: z.number().int().min(0).max(4),
   /** The editor View code opens a component's file in: one, the first installed, or the system's default app. */
   codeEditor: z.enum(["vscode", "cursor", "windsurf", "zed", "auto", "system"])
 } as const
@@ -49,6 +54,7 @@ export const defaultSettings: AppSettings = {
   autosave: false,
   performanceStats: false,
   routeFrameTiers: false,
+  routeFrameSpares: 2,
   codeEditor: "auto"
 }
 

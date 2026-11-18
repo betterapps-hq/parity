@@ -1,3 +1,20 @@
+/** The most spares a window keeps per project, which is as many as the setting offers. */
+export const maxSpares = 4
+
+/** Below this much memory, in GB, a window keeps one spare per project at most, whatever the setting asks for. */
+export const lowMemory = 8
+
+/**
+ * How many spares a window keeps per project: what the setting (`routeFrameSpares`) asks for, from 0 to `maxSpares`,
+ * and one at most on a machine with less than `lowMemory` GB. Each spare is a whole copy of the app, about 80 MB in
+ * dev. Memory that isn't known puts no cap on it.
+ */
+export function spareLimit(setting: number, memory?: number): number {
+  const asked = Number.isFinite(setting) ? Math.min(maxSpares, Math.max(0, Math.floor(setting))) : 0
+
+  return memory !== undefined && memory < lowMemory ? Math.min(asked, 1) : asked
+}
+
 /** A spare frame in a project's pool, as the window last heard from it. */
 export interface PoolFrame {
   id: string
@@ -9,7 +26,7 @@ export interface PoolFrame {
 
 /** What the pool's plan is made from. */
 export interface PoolView {
-  /** How many spares the setting asks for (`routeFrames.spares`); 0 turns them off. */
+  /** How many spares to keep (`spareLimit`); 0 turns them off. */
   spares: number
   /** Whether the window is focused; one that isn't keeps no spares. */
   focused: boolean
