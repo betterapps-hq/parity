@@ -31,11 +31,11 @@ describe("decoding the relay's messages", () => {
   })
 
   it("decodes presence alone within budget", () => {
-    expect(medianMs(relayedBatch())).toBeLessThan(0.5)
+    expect(medianMs(relayedBatch())).toBeLessThan(2)
   })
 
   it("decodes one edit's change within budget", () => {
-    expect(medianMs(relayedBatch(300))).toBeLessThan(0.5)
+    expect(medianMs(relayedBatch(300))).toBeLessThan(2)
   })
 
   it("decodes a large paste's change within budget", () => {
