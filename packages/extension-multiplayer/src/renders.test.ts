@@ -114,11 +114,11 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function presenceOf(name: string, index: number, step: number): PersonPresence {
+function presenceOf(name: string, index: number, step: number, selected = index + 1): PersonPresence {
   return {
     name,
     pointer: { at: { x: 200 + index * 300 + step, y: 300 + step }, over: true, t: step * 33 },
-    selection: [{ owner: "design", type: "layer", key: `app.par#screen-${index}/n${index + 1}` }],
+    selection: [{ owner: "design", type: "layer", key: `app.par#screen-${index}/n${selected}` }],
     viewing: { design: `app.par#screen-${index}` }
   }
 }
@@ -172,6 +172,11 @@ function mountRoom() {
       clock += 33
       act(() => people.presence("peer-0", presenceOf(names[0]!, 0, step)))
     },
+    /** One presence message from the first person, with another layer selected. */
+    select(step: number) {
+      clock += 33
+      act(() => people.presence("peer-0", presenceOf(names[0]!, 0, step, 100 + step)))
+    },
     pan: (dx: number) => act(() => fake.pan(dx)),
     zoomTo: (zoom: number) => act(() => fake.zoomTo(zoom))
   }
@@ -196,28 +201,35 @@ function overBudget(times: number, run: (step: number) => void, budgets: Record<
 }
 
 /*
- * On 2026-11-18: a presence message rendered every layer that reads who's here once, a pointer move included, and the
- * avatar stack once more in one message of 30; a frame of a pan or a zoom rendered each page layer once, though they
- * read the camera only for its zoom.
+ * On 2026-11-18, before PAR-1327, a presence message rendered every layer that reads who's here, a pointer move
+ * included, and a frame of a pan rendered each page layer. Since, a pointer move draws once a frame without rendering,
+ * and a pan renders nothing; a zoom still renders each page layer, which draws at screen size.
  */
 describe("the room's canvas layers", () => {
-  it("render within budget for each presence message", () => {
+  it("render none of them for a presence message that only moves a pointer", () => {
     const room = mountRoom()
-    const budgets = { selections: 1, marquees: 1, pointers: 1, faces: 1.1, following: 1 }
+    const budgets = { selections: 0, marquees: 0, pointers: 0, faces: 0, following: 0 }
 
     expect(overBudget(30, (step) => room.presence(step), budgets)).toEqual([])
-    // The pointer that moved was drawn again each time, so the profilers count.
-    expect(renders.get("pointers")).toBe(30)
   })
 
-  it("render within budget for each frame of a pan", () => {
+  it("render the page layers once for a presence message that changes a selection", () => {
     const room = mountRoom()
     const budgets = { selections: 1, marquees: 1, pointers: 1, faces: 0, following: 0 }
+
+    expect(overBudget(10, (step) => room.select(step), budgets)).toEqual([])
+    // The profilers count: the selection drew again each time.
+    expect(renders.get("selections")).toBe(10)
+  })
+
+  it("render none of them for a frame of a pan", () => {
+    const room = mountRoom()
+    const budgets = { selections: 0, marquees: 0, pointers: 0, faces: 0, following: 0 }
 
     expect(overBudget(30, () => room.pan(5), budgets)).toEqual([])
   })
 
-  it("render within budget for each step of a zoom", () => {
+  it("render each page layer once for a step of a zoom", () => {
     const room = mountRoom()
     const budgets = { selections: 1, marquees: 1, pointers: 1, faces: 0, following: 0 }
 
