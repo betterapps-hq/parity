@@ -9083,6 +9083,10 @@ A screen is named for the component its route draws, else its path.
   its own styles, and a canvas comes as a picture at the size it was drawn. A copy is as tall as its page in the mode's
   window, unless the board has a height of its own, and it's inert, so nothing in it takes focus or follows a link.
   Until its copy or picture comes, a placeholder stands in at the window's height.
+- **A copy's paint is kept while zooming (PAR-1323).** The frame a copy is built in has `contain: paint`, so as the zoom
+  changes the browser rasters what it recorded of the page again, sharp at the new scale, rather than recording every
+  element again on every frame. On the heavy benchmark (`scripts/heavy-app.ts`) at 60%, with two dense copies in view,
+  painting took 5–6 ms a frame instead of 16–20, and prepainting 0.6 ms instead of 6.5–7.
 - **Pictures (PAR-1200).** A board small on screen or away from the view shows a picture of its copy instead of the copy
   itself, as [proposals/route-frames.md](proposals/route-frames.md) sets out. It turns into its copy once it's near the
   view and wider than 440 screen pixels, and back into its picture once it's narrower than 360 or leaves the view
