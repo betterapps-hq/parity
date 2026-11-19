@@ -8955,6 +8955,12 @@ A screen is named for the component its route draws, else its path.
   Billing's line and Settings' group's, and selecting Settings' group brings forward its line up to App. A line into a
   group curves straight down to the group's top, since a group's header isn't a title it passes behind. The lines are
   drawn from where the boards are now, so they follow a page that's moved, and they sit behind every board.
+- **Lines are drawn in pieces (PAR-1322).** Each line is cut into pieces 2,400 screen pixels long, a whole number of
+  dashes, so every piece starts on a dash; the browser skips pieces off screen, and only pieces within a screen of the
+  view flow, all keeping time with the page so neighbors line up. Drawn whole, with every line flowing, a tree of 48
+  pages under one parent had lines over 100,000 screen pixels long whose every dash was worked out each frame: on the
+  heavy benchmark (`scripts/heavy-app.ts`, 192 boards), zooming at 60% went from 4 to 11 fps, at 45% from 5 to 14–16 and
+  at 20% from 14 to 17–26, and resting zoomed to fit took 218 ms of style every 4 s instead of 472.
 - **The app draws it.** A page's frames show a frozen copy of the app's own page at the page's URL (below), which ran in
   a document of its own, so the app's router, layouts, loaders and redirects ran as they do in a browser: `/settings`
   shows Profile, where its index redirects. With the Interact tool, a board goes live: the page itself, over its copy
@@ -9245,21 +9251,22 @@ theme to Dark in the Modes panel turned every page dark without loading it again
 answering dark, and back. Setting its viewport to Mobile made App's frame 390 wide and 893 tall, measured in the 390 ×
 844 window, and back to 849. A page that reloaded by itself connected again and took both changes.
 
-Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pageLinkLine`, `pageLinksLit`,
-`landedElsewhere`, `pageMode` and `pageFrameUrl` in `packages/editor/src/route-boards.ts`, with `titleTop` in
-`canvas-labels.ts`; `routeOptions` in `packages/extension-tanstack-router/src/routes.ts`; `providedRoutes` in
-`apps/desktop/src/utility/extensions.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`, with
-`PageGroupView`; `PageFrame`, `LandedElsewhere` and the title's backdrop in `ContainerView.tsx`, and `usePageChannel` in
-`page-channel.ts`; frozen copies: `RouteBoard` and `withCopyStyle` in `RouteBoard.tsx`, the freezer, `useFrozenCopy` and
-`copySheets` in `freezer.ts`, `copyLayers`, `withCopyEntries` and `shownEntry` in `route-pages.ts`, `takeSnapshot` in
-`packages/page-runtime/src/snapshot.ts`, `freezeOrder` and `restartAfter` in `packages/frames/src/freezer.ts`,
-`frozenSnapshots` in `packages/editor/src/element-layers.ts`, `withCopyLayers` in `route-boards.ts`, `fetchPageSheet` in
-`apps/desktop/src/main/page-sheets.ts`, live boards: the pool and `useLiveBoard` in `live-frames.ts`, `LiveLayer` in
-`LiveLayer.tsx`, `pickLive` and `liveWindowTop` in `packages/frames/src/live.ts`, `passesBack` and the runtime's
-`page.scrolled`, `page.zoom` and `page.key` in `packages/page-runtime/src/`, `holdFreezer` in `freezer.ts`, and
-`pageFrameGuard` in `apps/desktop/src/main/page-frames.ts`; the page process's failure: `PageProcesses` and
-`processFailed` in `packages/frames/src/process.ts`, `watchPageProcesses` in `apps/desktop/src/main/page-processes.ts`
-and `page-process.ts` in the canvas; code changes and previews: `pageSourceChange` in
+Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pageLinkLine`, `pageLinkPieces`,
+`pageLinksLit`, `landedElsewhere`, `pageMode` and `pageFrameUrl` in `packages/editor/src/route-boards.ts`, with
+`titleTop` in `canvas-labels.ts`; `routeOptions` in `packages/extension-tanstack-router/src/routes.ts`; `providedRoutes`
+in `apps/desktop/src/utility/extensions.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`,
+with `PageGroupView` and `FlowingDashes`; `PageFrame`, `LandedElsewhere` and the title's backdrop in
+`ContainerView.tsx`, and `usePageChannel` in `page-channel.ts`; frozen copies: `RouteBoard` and `withCopyStyle` in
+`RouteBoard.tsx`, the freezer, `useFrozenCopy` and `copySheets` in `freezer.ts`, `copyLayers`, `withCopyEntries` and
+`shownEntry` in `route-pages.ts`, `takeSnapshot` in `packages/page-runtime/src/snapshot.ts`, `freezeOrder` and
+`restartAfter` in `packages/frames/src/freezer.ts`, `frozenSnapshots` in `packages/editor/src/element-layers.ts`,
+`withCopyLayers` in `route-boards.ts`, `fetchPageSheet` in `apps/desktop/src/main/page-sheets.ts`, live boards: the pool
+and `useLiveBoard` in `live-frames.ts`, `LiveLayer` in `LiveLayer.tsx`, `pickLive` and `liveWindowTop` in
+`packages/frames/src/live.ts`, `passesBack` and the runtime's `page.scrolled`, `page.zoom` and `page.key` in
+`packages/page-runtime/src/`, `holdFreezer` in `freezer.ts`, and `pageFrameGuard` in
+`apps/desktop/src/main/page-frames.ts`; the page process's failure: `PageProcesses` and `processFailed` in
+`packages/frames/src/process.ts`, `watchPageProcesses` in `apps/desktop/src/main/page-processes.ts` and
+`page-process.ts` in the canvas; code changes and previews: `pageSourceChange` in
 `packages/project/src/open-project.ts`, the watcher's `filesChanged` in `apps/desktop/src/utility/projects.ts`,
 `page-changes.ts` (`pageFilesChanged`, `previewTokens`), the pool's `filesChanged` in `live-frames.ts`, `staleCopies`,
 `traceHolds`, `groupLeaders`, `sharedMarkup` and `withMarkup` in `packages/frames/src/keys.ts`, `tokenPreviewCss` and
@@ -9285,7 +9292,7 @@ with library mode's wrapped `react-router` and `react-router-dom` in `src/page-w
 resolver, and by `pageWrapRules` in `guest-config.ts`; and `pageEntries` and `pageExternals` in
 `apps/desktop/src/shared/built-in-extensions.ts`, which `apps/desktop/scripts/build.ts` bundles for a packaged app.
 
-Tests: `packages/editor/src/route-boards.test.ts` (35: each layout's pages hung from its index, the root's index at the
+Tests: `packages/editor/src/route-boards.test.ts` (41: each layout's pages hung from its index, the root's index at the
 top, and an index of a deeper path as a page; a layout a group around its pages when its index only redirects, an index
 that redirects but draws staying a page, and a layout without an index a group; a forest without a root index, and
 nothing without routes; each page centered over the pages under it, a level below; a group's pages side by side inside
@@ -9297,25 +9304,27 @@ size of their own; a mode's classes, attributes and scheme as the page draws in 
 own `.localhost` name, and each project a name of its own; the landed path given when it isn't the page's own, and
 nothing for its own with or without a trailing slash; a group's box round its pages' titles; a line curving across above
 the lower page's title and dropping to its board, turning down higher zoomed out, and curving all the way down once the
-title reaches the page above; the lines a page brings forward, up to the top of the tree and down to the pages right
-under it, for several pages at once, and none for no page or a page outside the tree; a line into a group curving
-straight to its top), `canvas-labels.test.ts` (`titleTop`, up close and zoomed out),
-`packages/extension-tanstack-router/src/routes.test.ts` (the example's `/settings` index redirecting to Profile, and a
-route that always redirects told from one that sometimes does), and the page runtime's (PAR-1260):
-`packages/page-runtime/src/runtime.test.ts` (16: nothing in a window Parity didn't name, nor in a frame named in another
-version; the hello to Parity's origin alone; a port taken only from Parity's origin; the scrollbar hidden; the mode the
-frame opens in, changed without a reload, with `prefers-color-scheme` answered and its query told; a `mode.set` it can't
-read refused; the height told in the mode's window, rounded up, and not once the frame has grown; ready once a page
-without a hydration module has gone quiet, or once a hydration module says the app committed; a router that isn't the
-app's passed over; `route.go` moving the app and saying where it ended, a redirect included, without a `page.moved`;
-`route.go` refused without a router; where the page moved told, by its router or its address; `page.used` at most once a
-second), `packages/page-runtime/src/snapshot.test.ts` (17, PAR-1262: the body's tree as plain data without scripts or
-styles; an open shadow root's content and styles, not a closed one's; a canvas as a picture at its drawn size; every URL
-made absolute; svg's namespace and case; a form's state as attributes, never a password; `<html>` without the mode or
-the runtime's style, its `url()`s absolute; sheets by content hash for `sheets.get`, one it can't read by address with
-its media, an unreadable import where it stands inside every condition around it, and an anonymous imported layer kept
-one named layer inside its `supports()`; the same markup hash for the same tree; `url()`s and `image-set()`'s strings
-made absolute; a snapshot and its sheets over the channel; a wait or too many ids refused; the snapshot's deadline),
+title reaches the page above; a short line drawn as one piece, a long one cut into pieces 2,400 screen pixels long at 1,
+60% and 20%, each starting where the last ends, each piece's box round it, and the pieces within half a screen pixel of
+the curve; the lines a page brings forward, up to the top of the tree and down to the pages right under it, for several
+pages at once, and none for no page or a page outside the tree; a line into a group curving straight to its top),
+`canvas-labels.test.ts` (`titleTop`, up close and zoomed out), `packages/extension-tanstack-router/src/routes.test.ts`
+(the example's `/settings` index redirecting to Profile, and a route that always redirects told from one that sometimes
+does), and the page runtime's (PAR-1260): `packages/page-runtime/src/runtime.test.ts` (16: nothing in a window Parity
+didn't name, nor in a frame named in another version; the hello to Parity's origin alone; a port taken only from
+Parity's origin; the scrollbar hidden; the mode the frame opens in, changed without a reload, with
+`prefers-color-scheme` answered and its query told; a `mode.set` it can't read refused; the height told in the mode's
+window, rounded up, and not once the frame has grown; ready once a page without a hydration module has gone quiet, or
+once a hydration module says the app committed; a router that isn't the app's passed over; `route.go` moving the app and
+saying where it ended, a redirect included, without a `page.moved`; `route.go` refused without a router; where the page
+moved told, by its router or its address; `page.used` at most once a second),
+`packages/page-runtime/src/snapshot.test.ts` (17, PAR-1262: the body's tree as plain data without scripts or styles; an
+open shadow root's content and styles, not a closed one's; a canvas as a picture at its drawn size; every URL made
+absolute; svg's namespace and case; a form's state as attributes, never a password; `<html>` without the mode or the
+runtime's style, its `url()`s absolute; sheets by content hash for `sheets.get`, one it can't read by address with its
+media, an unreadable import where it stands inside every condition around it, and an anonymous imported layer kept one
+named layer inside its `supports()`; the same markup hash for the same tree; `url()`s and `image-set()`'s strings made
+absolute; a snapshot and its sheets over the channel; a wait or too many ids refused; the snapshot's deadline),
 `packages/frames/src/freezer.test.ts` (5: nearest route first, each once; nothing with no boards; restarting after 1 s
 and 5 s, stopping after three failures in two minutes, and forgetting older ones), and for code changes and previews
 (PAR-1264, PAR-1298): `packages/frames/src/planners.test.ts` (`staleCopies`: the copies whose traces hold a changed

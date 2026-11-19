@@ -1,7 +1,25 @@
-import { type BoardBox, labelLook, pageGroupBox, pageLinkLine, pageLinksLit, refsSelection } from "@parity-app/editor"
+import {
+  type BoardBox,
+  labelLook,
+  pageGroupBox,
+  pageLinkDash,
+  pageLinkLine,
+  pageLinkPieces,
+  pageLinksLit,
+  refsSelection
+} from "@parity-app/editor"
 import { CornerDownRight, LayoutTemplate } from "lucide-react"
-import { useContext, useState } from "react"
-import { HTMLContainer, Rectangle2d, type RecordProps, stopEventPropagation, T, useEditor, useValue } from "tldraw"
+import { useContext, useLayoutEffect, useRef, useState } from "react"
+import {
+  HTMLContainer,
+  Rectangle2d,
+  react,
+  type RecordProps,
+  stopEventPropagation,
+  T,
+  useEditor,
+  useValue
+} from "tldraw"
 import { Hint } from "../chrome/Hint.tsx"
 import { type SelectionStore, useHover, useSelection } from "../selection.ts"
 import { ProjectContext } from "./context.ts"
@@ -89,7 +107,19 @@ function PageLines({ project }: { project: string }) {
         const group = boxes.get(to)
         const below = group ?? editor.getShapePageBounds(createCanvasId(encodeURIComponent(to)))
 
-        return above && below ? [{ key: to, path: pageLinkLine(above, below, zoom, group !== undefined) }] : []
+        if (!above || !below) {
+          return []
+        }
+
+        const untitled = group !== undefined
+
+        return [
+          {
+            key: to,
+            path: pageLinkLine(above, below, zoom, untitled),
+            pieces: pageLinkPieces(above, below, zoom, untitled)
+          }
+        ]
       }),
     [editor, project, zoom, boxes]
   )
@@ -106,7 +136,9 @@ function PageLines({ project }: { project: string }) {
   }
 
   // Every line is a screen pixel and a half wide, in dashes of six that flow down the tree, from each page to the pages
-  // under it, at any zoom. At rest it's faint; brought forward, it's in the page color, drawn over the rest.
+  // under it, at any zoom. At rest it's faint; brought forward, it's in the page color, drawn over the rest. Lines are
+  // drawn in pieces that each start on a dash (see `pageLinkPieces`), so the browser skips those off screen, and only
+  // those near the view flow (see `FlowingDashes`), PAR-1322.
   const px = (value: number) => value / zoom
   const color = designColor("screen")
   const ordered = [...lines.filter(({ key }) => !lit.has(key)), ...lines.filter(({ key }) => lit.has(key))]
@@ -133,25 +165,15 @@ function PageLines({ project }: { project: string }) {
         )
       })}
       <svg className="absolute top-0 left-0 overflow-visible" width={1} height={1} aria-hidden>
-        {ordered.map(({ key, path }) => {
-          const forward = lit.has(key)
+        <FlowingDashes
+          period={px(2 * pageLinkDash)}
+          width={px(1.5)}
+          pieces={ordered.flatMap(({ key, pieces }) => {
+            const stroke = lit.has(key) ? color : `color-mix(in oklch, ${color} 45%, transparent)`
 
-          return (
-            <path
-              key={key}
-              d={path}
-              fill="none"
-              stroke={forward ? color : `color-mix(in oklch, ${color} 45%, transparent)`}
-              strokeWidth={px(1.5)}
-              strokeDasharray={`${px(6)} ${px(6)}`}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ transition: "stroke 150ms" }}
-            >
-              <animate attributeName="stroke-dashoffset" from={0} to={-px(12)} dur="1.5s" repeatCount="indefinite" />
-            </path>
-          )
-        })}
+            return pieces.map(({ path, box }, index) => ({ key: `${key} ${index}`, path, box, stroke }))
+          })}
+        />
         {/* What takes the pointer: each line, a few screen pixels either side, over every line drawn. */}
         {lines.map(({ key, path }) => (
           <path
@@ -173,6 +195,107 @@ function PageLines({ project }: { project: string }) {
       </svg>
     </>
   )
+}
+
+/** How long dashes take to flow one dash and gap along a line, in milliseconds. */
+const flowMs = 1500
+
+/** A piece of a line in the page tree, as `FlowingDashes` draws it. */
+interface DashedPiece {
+  key: string
+  path: string
+  box: BoardBox
+  stroke: string
+}
+
+/**
+ * Draws the page tree's pieces of line, dashed a dash and gap `period` long, and flows the dashes of those near the
+ * view: within a screen of it, from the camera (PAR-1322). One flow set on every piece restyled hundreds of them on
+ * every frame, most of them off screen. Every flow keeps time with the page, so a piece starting to flow lines up with
+ * those beside it, which start on a dash too (see `pageLinkPieces`).
+ */
+function FlowingDashes({ period, width, pieces }: { period: number; width: number; pieces: readonly DashedPiece[] }) {
+  const editor = useEditor()
+  const group = useRef<SVGGElement>(null)
+  const flows = useRef(new Map<Element, Animation>())
+
+  useLayoutEffect(() => {
+    const paths = group.current?.children
+    const running = flows.current
+
+    if (!paths) {
+      return undefined
+    }
+
+    // Pieces change with the zoom, so flows start over from what's drawn now, each at the same point of its loop.
+    for (const flow of running.values()) {
+      flow.cancel()
+    }
+
+    running.clear()
+
+    const stop = react("flowing dashes", () => {
+      const view = editor.getViewportPageBounds()
+      const near = { x: view.x - view.w, y: view.y - view.h, w: view.w * 3, h: view.h * 3 }
+
+      for (const [index, { box }] of pieces.entries()) {
+        const path = paths.item(index)
+
+        if (!path) {
+          continue
+        }
+
+        const flow = running.get(path)
+
+        const close =
+          box.x <= near.x + near.w && box.x + box.w >= near.x && box.y <= near.y + near.h && box.y + box.h >= near.y
+
+        if (close && !flow) {
+          running.set(path, startFlow(path, period))
+        } else if (!close && flow) {
+          flow.cancel()
+          running.delete(path)
+        }
+      }
+    })
+
+    return () => {
+      stop()
+
+      for (const flow of running.values()) {
+        flow.cancel()
+      }
+
+      running.clear()
+    }
+  }, [editor, pieces, period])
+
+  return (
+    <g
+      ref={group}
+      fill="none"
+      strokeWidth={width}
+      strokeDasharray={`${period / 2} ${period / 2}`}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {pieces.map(({ key, path, stroke }) => (
+        <path key={key} d={path} stroke={stroke} style={{ transition: "stroke 150ms" }} />
+      ))}
+    </g>
+  )
+}
+
+function startFlow(path: Element, period: number) {
+  const flow = path.animate([{ strokeDashoffset: "0px" }, { strokeDashoffset: `${-period}px` }], {
+    duration: flowMs,
+    iterations: Infinity
+  })
+
+  // Started at the page's first moment, every flow is at the same point of its loop as every other.
+  flow.startTime = 0
+
+  return flow
 }
 
 /** Where each layout group is now, round what's inside it as it's drawn (see `pageGroupBox`), by key. */
