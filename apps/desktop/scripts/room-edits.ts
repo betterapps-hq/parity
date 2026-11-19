@@ -394,8 +394,9 @@ async function edit(page: Page, kind: string, target: Target | undefined, count:
 }
 
 /**
- * Brings `key`'s board into view in the page at 100%, with room around it for a drag, and waits until its frames draw
- * live: a board out of view or asleep draws nothing for an edit, which would time as fast as nothing.
+ * Brings `key`'s board into view in the page at 100% and waits until one of its frames draws live: a board out of view
+ * or asleep draws nothing for an edit, which would time as fast as nothing. Frames of a board wider than the window
+ * stay asleep until they come near it, so only one is waited for.
  */
 async function inView(page: Page, key: string): Promise<void> {
   await page.evaluate(async (key) => {
@@ -414,11 +415,8 @@ async function inView(page: Page, key: string): Promise<void> {
       const board = document.querySelector(`.container-view[data-design="${CSS.escape(key)}"]`)
       const frames = board ? [...board.querySelectorAll("[data-frame]")] : []
 
-      return (
-        frames.length > 0 &&
-        frames.every(
-          (host) => !host.closest("[data-asleep], [data-away]") && host.shadowRoot?.querySelector("[data-canvas-node]")
-        )
+      return frames.some(
+        (host) => !host.closest("[data-asleep], [data-away]") && host.shadowRoot?.querySelector("[data-canvas-node]")
       )
     }
 
@@ -426,7 +424,7 @@ async function inView(page: Page, key: string): Promise<void> {
 
     while (!live()) {
       if (performance.now() - began > 30_000) {
-        throw new Error(`${key}'s board didn't draw live within 30 s of coming into view`)
+        throw new Error(`No frame of ${key}'s board drew live within 30 s of coming into view`)
       }
 
       await new Promise((done) => setTimeout(done, 50))
@@ -541,7 +539,7 @@ function summarize(profile: CpuProfile): ProfileSummary {
   const deltas = profile.timeDeltas ?? []
 
   profile.samples?.forEach((id, index) => {
-    const ms = (deltas[index + 1] ?? 0) / 1000
+    const ms = (deltas[index] ?? 0) / 1000
     sampledMs += ms
     const leaf = byId.get(id)!
     self.set(nameOf(leaf), (self.get(nameOf(leaf)) ?? 0) + ms)
