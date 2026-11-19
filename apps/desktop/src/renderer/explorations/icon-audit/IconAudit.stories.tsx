@@ -417,7 +417,9 @@ function IconAudit({ size, filled, appOnly, toVerifyOnly }: IconAuditProps) {
         </header>
         <AuditTable
           title="Confident"
-          rows={rows.filter(({ icon }) => !reusedPicks.has(icon.fluent.name) && !lessConfident.has(icon.lucide))}
+          rows={rows.filter(({ icon }) =>
+            reusedPicks.has(icon.fluent.name) ? !reuseInDoubt(icon) : !lessConfident.has(icon.lucide)
+          )}
           size={size}
           filled={filled}
         />
@@ -426,15 +428,6 @@ function IconAudit({ size, filled, appOnly, toVerifyOnly }: IconAuditProps) {
           rows={rows.filter(({ icon }) => !reusedPicks.has(icon.fluent.name) && lessConfident.has(icon.lucide))}
           size={size}
           filled={filled}
-        />
-        <AuditTable
-          title="Reused icons, confident"
-          rows={rows
-            .filter(({ icon }) => reusedPicks.has(icon.fluent.name) && !reuseInDoubt(icon))
-            .toSorted(byReusedIcon)}
-          size={size}
-          filled={filled}
-          grouped
         />
         <AuditTable
           title="Reused icons, less confident"
