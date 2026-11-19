@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "A box drawn on the empty canvas now shows in the other copies of a live room, and your face in the room redraws as soon as you sign in, out or switch accounts",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
