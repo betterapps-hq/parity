@@ -222,7 +222,6 @@ const toVerify = new Set([
   "SaveAll",
   "SeparatorHorizontal",
   "Server",
-  "SquareArrowOutUpRight",
   "Squircle",
   "StretchHorizontal",
   "SunMoon",
@@ -279,6 +278,12 @@ const doubtfulReuse = new Set([
   "Rename",
   "Table"
 ])
+
+/** Rows, by Lucide name, whose share of an icon is in doubt even though the icon's other rows are approved. */
+const doubtfulReuseRows = new Set(["ExternalLink", "Grid2x2", "Link", "Replace"])
+
+/** Whether a row's share of its recommended icon is in doubt. */
+const reuseInDoubt = (icon: AuditedIcon) => doubtfulReuse.has(icon.fluent.name) || doubtfulReuseRows.has(icon.lucide)
 
 /** Rows that share a recommended icon, each icon's rows together. */
 const byReusedIcon = (a: (typeof numbered)[number], b: (typeof numbered)[number]) =>
@@ -425,7 +430,7 @@ function IconAudit({ size, filled, appOnly, toVerifyOnly }: IconAuditProps) {
         <AuditTable
           title="Reused icons, confident"
           rows={rows
-            .filter(({ icon }) => reusedPicks.has(icon.fluent.name) && !doubtfulReuse.has(icon.fluent.name))
+            .filter(({ icon }) => reusedPicks.has(icon.fluent.name) && !reuseInDoubt(icon))
             .toSorted(byReusedIcon)}
           size={size}
           filled={filled}
@@ -433,7 +438,9 @@ function IconAudit({ size, filled, appOnly, toVerifyOnly }: IconAuditProps) {
         />
         <AuditTable
           title="Reused icons, less confident"
-          rows={rows.filter(({ icon }) => doubtfulReuse.has(icon.fluent.name)).toSorted(byReusedIcon)}
+          rows={rows
+            .filter(({ icon }) => reusedPicks.has(icon.fluent.name) && reuseInDoubt(icon))
+            .toSorted(byReusedIcon)}
           size={size}
           filled={filled}
           grouped
