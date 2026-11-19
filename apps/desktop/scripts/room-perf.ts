@@ -6,19 +6,42 @@
 //   - arrived: how far apart those pointers reach the watching copy, from its stream of server-sent events
 //   - drawn: in the watching copy, every frame's length and how far the mover's pointer moved on screen in it, so frames
 //     where it stood still while positions kept coming ("stalls") and its biggest single-frame jump show
+// Then, with the guest editing and the host watching (PAR-1325):
+//   - edits: edit to screen, from the guest's edit to the first frame the host draws with it, for a board drag, a style
+//     change, typing and a token change, each made 20 times through the guest's document, and the host's share of it,
+//     from the change arriving to that frame, and to the last change it caused in the board's frames ("settled")
+//   - drag: the host's frames and long tasks while the guest drags a board for --seconds, a write every frame in one
+//     gesture, as a drag writes it
+//   - join: how long the guest takes to open the project again on the host's snapshot, to its first board drawn, and
+//     the snapshot's size
+// The host's JavaScript is profiled during each kind of edit and the drag, saved as <label>.*.cpuprofile and summed by
+// function, with and without what each called.
 // Both copies close afterwards. Results go to .inspect/room-perf/<label>.json, with each frame's length and step in
-// <label>.<mover>.frames.json; --compare prints another run's beside them.
+// <label>.<mover>.frames.json; --compare prints another run's beside them. Both copies open a copy of the project, so
+// the edits never reach the project given.
 // Usage: node scripts/room-perf.ts [--label name] [--compare name] [--seconds 8] [--busy 0] [--project root] [--keep]
+//                                   [--runs "pointer, edits, drag, join"]
+//   --runs  only these measurements, by name; all of them unless given
 //   --busy  keeps the moving copy's main thread busy for this many milliseconds every 250 ms, as rendering or an edit
 //           does, which holds back the positions it sends
 //   --keep  leaves both copies running afterwards, until the script is stopped
 // PARITY_ROOM_PERF_PORTS chooses the first copy's UI and DevTools ports (5330,9350); the second takes the next of each.
 import { type ChildProcess, spawn } from "node:child_process"
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
+import { existsSync } from "node:fs"
+import { cp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { print } from "../../../scripts/output.ts"
+import {
+  editKinds,
+  editsToScreen,
+  joinAgain,
+  type ProfileSummary,
+  profiled,
+  remoteDrag,
+  withDocs
+} from "./room-edits.ts"
 
 const appDir = resolve(import.meta.dirname, "..")
 const repoDir = resolve(appDir, "../..")
@@ -35,10 +58,14 @@ const label = option("label") ?? new Date().toISOString().slice(0, 16).replace(/
 const compare = option("compare")
 const seconds = Number(option("seconds") ?? 8)
 const busyMs = Number(option("busy") ?? 0)
-const project = resolve(option("project") ?? join(repoDir, "examples/shadcn-vite"))
+const given = resolve(option("project") ?? join(repoDir, "examples/shadcn-vite"))
 const keep = args.includes("--keep")
+const runs = new Set((option("runs") ?? "pointer, edits, drag, join").split(",").map((each) => each.trim()))
 const [firstUi, firstDebug] = (process.env.PARITY_ROOM_PERF_PORTS ?? "5330,9350").split(",").map(Number)
 const profileDir = join(tmpdir(), `parity-room-perf-${firstUi}`)
+
+/** What both copies open: a copy of the project, since the edits change it and its host may save them. */
+const project = join(profileDir, "project")
 const windowSize = { width: 940, height: 880 }
 
 interface Copy {
@@ -87,13 +114,31 @@ interface Result {
   seconds: number
   busyMs: number
   directions: Direction[]
+  /** Edit to screen, by edit, and the watcher's own share, from the change arriving to its frame. */
+  edits?: { edit: string; toScreen: Spread; arrivedToScreen: Spread; toFrame: Spread; unsettled: number }[]
+  /** The watcher's frames and long tasks while the mover dragged a board. */
+  drag?: { frames: Spread; longTasks: number; longTaskMs: number; longestTaskMs: number; changes: number }
+  /** Where the watcher's main thread spent its time while the edits came in, and during the drag. */
+  editsProfiles?: Record<string, ProfileSummary>
+  dragProfile?: ProfileSummary
+  /** The guest opening the project again on the host's snapshot. */
+  join?: { ms: number; snapshotBytes: number }
 }
 
 await mkdir(outDir, { recursive: true })
 
+// The link to the project's node_modules goes first, on its own, so clearing the folder never reaches through it.
+await rm(join(project, "node_modules"), { force: true })
+
 await rm(profileDir, { recursive: true, force: true })
 
 await mkdir(profileDir, { recursive: true })
+
+await cp(given, project, { recursive: true, filter: (from) => !/[\\/](node_modules|dist|\.git)$/.test(from) })
+
+if (existsSync(join(given, "node_modules"))) {
+  await symlink(join(given, "node_modules"), join(project, "node_modules"), "junction")
+}
 
 await writeFile(
   join(profileDir, "settings.json"),
@@ -113,8 +158,67 @@ try {
   // Each sees the other's pointer once it's moved over the canvas.
   await guest.page!.waitForTimeout(3000)
 
-  const directions = [await measured(guest, host, 1), await measured(host, guest, 0)]
+  const directions = runs.has("pointer") ? [await measured(guest, host, 1), await measured(host, guest, 0)] : []
   const result: Result = { label, date: new Date().toISOString(), seconds, busyMs, directions }
+
+  if (runs.has("edits") || runs.has("drag") || runs.has("join")) {
+    await withDocs([host.page!, guest.page!])
+  }
+
+  // The guest edits and the host watches.
+  if (runs.has("edits")) {
+    print(`\n${guest.name} edits, ${host.name} watches`)
+
+    result.edits = []
+    result.editsProfiles = {}
+
+    // Each kind of edit profiled on its own, so where each one's time goes shows apart.
+    for (const kind of editKinds) {
+      await inView(guest, host)
+      const file = join(outDir, `${label}.edits.${kind.replace(" ", "-")}.cpuprofile`)
+
+      const { result: edits, profile } = await profiled(host.page!, file, () =>
+        editsToScreen(guest.page!, host.page!, [kind])
+      )
+
+      result.editsProfiles[kind] = profile
+
+      for (const each of edits) {
+        result.edits.push({
+          edit: each.edit,
+          toScreen: spread(each.toScreen),
+          arrivedToScreen: spread(each.arrivedToScreen),
+          toFrame: spread(each.toFrame),
+          unsettled: each.unsettled
+        })
+      }
+    }
+  }
+
+  if (runs.has("drag")) {
+    print(`\n${guest.name} drags a board, ${host.name} watches`)
+    await inView(guest, host)
+
+    const { result: drag, profile } = await profiled(host.page!, join(outDir, `${label}.drag.cpuprofile`), () =>
+      remoteDrag(guest.page!, host.page!, seconds)
+    )
+
+    result.dragProfile = profile
+    result.drag = {
+      frames: spread(drag.frames),
+      longTasks: drag.longTasks.length,
+      longTaskMs: round(drag.longTasks.reduce((total, each) => total + each, 0)),
+      longestTaskMs: round(Math.max(0, ...drag.longTasks)),
+      changes: drag.changes
+    }
+  }
+
+  if (runs.has("join")) {
+    print(`\n${guest.name} opens the project again`)
+    const join = await joinAgain(guest.page!)
+    result.join = { ms: round(join.ms), snapshotBytes: join.snapshotBytes }
+  }
+
   await writeFile(join(outDir, `${label}.json`), JSON.stringify(result, null, 2))
   // SAFETY: the file is an earlier run's result, which this script wrote from a `Result` as it writes this one.
   const previous = compare ? (JSON.parse(await readFile(join(outDir, `${compare}.json`), "utf8")) as Result) : undefined
@@ -210,6 +314,48 @@ async function ready(copy: Copy, side: 0 | 1): Promise<void> {
 }
 
 /** Puts the window whose title has `title` on the left or right half of the main screen's working area. */
+/**
+ * Puts both windows back side by side and on top, and checks the watcher draws at the screen's rate: a covered or
+ * minimized window draws a frame a second, which would count as the room being slow.
+ */
+async function inView(mover: Copy, watcher: Copy): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (process.platform === "win32") {
+      await placeWindow(`room-perf: ${mover.name}`, 1)
+      await placeWindow(`room-perf: ${watcher.name}`, 0)
+    }
+
+    await watcher.page!.waitForTimeout(500)
+
+    const frameMs = await watcher.page!.evaluate(
+      () =>
+        new Promise<number>((done) => {
+          const times: number[] = []
+
+          const frame = (now: number) => {
+            times.push(now)
+
+            if (times.length < 11) {
+              requestAnimationFrame(frame)
+            } else {
+              done((times.at(-1)! - times[0]!) / 10)
+            }
+          }
+
+          requestAnimationFrame(frame)
+        })
+    )
+
+    if (frameMs < 40) {
+      return
+    }
+
+    print(`${watcher.name}'s window drew a frame every ${Math.round(frameMs)} ms, so it's put on top again`)
+  }
+
+  throw new Error(`${watcher.name}'s window won't draw at the screen's rate, so these numbers wouldn't count`)
+}
+
 async function placeWindow(title: string, side: 0 | 1): Promise<void> {
   const script = `
 Add-Type -AssemblyName System.Windows.Forms
@@ -484,6 +630,36 @@ function spread(values: number[]): Spread {
 }
 
 function report(result: Result, previous: Result | undefined): void {
+  const ms = (each: Spread) => `p50 ${each.p50} ms, p95 ${each.p95} ms, max ${each.max} ms`
+
+  for (const each of result.edits ?? []) {
+    print(`\n${each.edit}: edit to first frame ${ms(each.toScreen)}; arriving to it ${ms(each.arrivedToScreen)}`)
+    print(`  edit to settled in its frames ${ms(each.toFrame)}; ${each.unsettled ?? 0} still changing after 15 s`)
+  }
+
+  if (result.drag) {
+    const { frames, longTasks, longTaskMs, longestTaskMs, changes } = result.drag
+    print(`\nRemote drag, ${changes} changes drawn: frames ${ms(frames)}`)
+    print(`  ${longTasks} long tasks, ${longTaskMs} ms in all, the longest ${longestTaskMs} ms`)
+  }
+
+  for (const [name, profile] of [
+    ...Object.entries(result.editsProfiles ?? {}),
+    ["drag", result.dragProfile] as const
+  ]) {
+    if (profile) {
+      print(`
+The watcher's JavaScript during the ${name}, ${profile.sampledMs} ms sampled; the most with what it called:`)
+      profile.total.slice(0, 20).forEach((each) => print(`  ${String(each.ms).padStart(8)} ms  ${each.name}`))
+      print("  The most by itself:")
+      profile.self.slice(0, 15).forEach((each) => print(`  ${String(each.ms).padStart(8)} ms  ${each.name}`))
+    }
+  }
+
+  if (result.join) {
+    print(`\nJoining again: ${result.join.ms} ms, on a snapshot of ${Math.round(result.join.snapshotBytes / 1024)} KB`)
+  }
+
   for (const each of result.directions) {
     const before = previous?.directions.find((other) => other.mover === each.mover)
     const was = (value: number | undefined) => (value === undefined ? "" : `  (was ${value})`)

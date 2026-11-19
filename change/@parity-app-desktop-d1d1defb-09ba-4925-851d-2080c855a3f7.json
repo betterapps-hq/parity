@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "room-perf profiles the watching copy; render counts follow the avatar stack's props",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}
