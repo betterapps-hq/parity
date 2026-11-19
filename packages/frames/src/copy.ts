@@ -101,16 +101,18 @@ export function* buildingCopy(
   let made = 0
 
   for (let next = pending.pop(); next; next = pending.pop()) {
-    if (made >= elementsPerStep) {
-      made = 0
-      yield
-    }
-
-    made += next.frozen.children.length
     let index = 0
     const children: Pending[] = []
 
     for (const child of next.frozen.children) {
+      // Within a parent's children too, so a list of thousands of siblings is built over frames as a deep page is.
+      if (made >= elementsPerStep) {
+        made = 0
+        yield
+      }
+
+      made += 1
+
       if (!(child instanceof Object)) {
         next.into.append(document.createTextNode(child))
         continue

@@ -198,6 +198,23 @@ describe("buildingCopy", () => {
     expect(document.querySelectorAll("article")).toHaveLength(before)
   })
 
+  it("pauses within a parent's children, however many siblings it has", () => {
+    const wide: FrozenElement = {
+      tag: "body",
+      attributes: [],
+      children: Array.from({ length: 1000 }, () => ({ tag: "i", attributes: [], children: [] }))
+    }
+
+    const steps = buildingCopy(document, wide, registry)
+    let pauses = 0
+
+    while (!steps.next().done) {
+      pauses += 1
+    }
+
+    expect(pauses).toBeGreaterThan(20)
+  })
+
   it("builds what buildCopy builds", () => {
     const steps = buildingCopy(document, dense, registry)
     let step = steps.next()
