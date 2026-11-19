@@ -263,6 +263,27 @@ const reusedPicks = new Set(
     .filter((name, _, names) => names.indexOf(name) !== names.lastIndexOf(name))
 )
 
+/**
+ * Reused Fluent icons whose sharing is in doubt: it hides a difference the app shows, such as moderate and critical
+ * issues both drawing ErrorCircle, or one of the picks is less confident. Lucide names for nearly the same drawing,
+ * such as Link and Link2, share an icon with no doubt.
+ */
+const doubtfulReuse = new Set([
+  "Apps",
+  "ArrowUpload",
+  "Color",
+  "ErrorCircle",
+  "Games",
+  "LayoutColumnThree",
+  "MyLocation",
+  "Rename",
+  "Table"
+])
+
+/** Rows that share a recommended icon, each icon's rows together. */
+const byReusedIcon = (a: (typeof numbered)[number], b: (typeof numbered)[number]) =>
+  a.icon.fluent.name.localeCompare(b.icon.fluent.name) || a.number - b.number
+
 interface AuditTableProps {
   title: string
   rows: typeof numbered
@@ -402,10 +423,17 @@ function IconAudit({ size, filled, appOnly, toVerifyOnly }: IconAuditProps) {
           filled={filled}
         />
         <AuditTable
-          title="Reused icons"
+          title="Reused icons, confident"
           rows={rows
-            .filter(({ icon }) => reusedPicks.has(icon.fluent.name))
-            .toSorted((a, b) => a.icon.fluent.name.localeCompare(b.icon.fluent.name) || a.number - b.number)}
+            .filter(({ icon }) => reusedPicks.has(icon.fluent.name) && !doubtfulReuse.has(icon.fluent.name))
+            .toSorted(byReusedIcon)}
+          size={size}
+          filled={filled}
+          grouped
+        />
+        <AuditTable
+          title="Reused icons, less confident"
+          rows={rows.filter(({ icon }) => doubtfulReuse.has(icon.fluent.name)).toSorted(byReusedIcon)}
           size={size}
           filled={filled}
           grouped
