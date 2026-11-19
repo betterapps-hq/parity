@@ -1,8 +1,19 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 19 Nov 2026 00:16:07 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 19 Nov 2026 01:38:16 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.116.1
+
+Thu, 19 Nov 2026 01:38:16 GMT
+
+### Patches
+
+- Zooming past dense route copies is smoother: each copy's paint is kept and only rastered again at the new scale
+  (ajcraswell@gmail.com)
+- Build a route board's frozen copy over several frames while its picture shows, so zooming doesn't stall as boards turn
+  into copies (ajcraswell@gmail.com)
 
 ## 0.116.0
 
