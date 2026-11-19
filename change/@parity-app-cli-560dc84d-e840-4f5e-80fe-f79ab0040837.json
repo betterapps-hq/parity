@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "room.latency says how long others' changes take to reach the screen",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

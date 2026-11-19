@@ -2,6 +2,27 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 19 Nov 2026 01:38:53 GMT",
+      "version": "0.87.1",
+      "tag": "@parity-app/cli_v0.87.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "00714a6f799b5c236a7c54cb26c0d1567f1399a8",
+            "comment": "room.latency says how long others' changes take to reach the screen"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "2d0aafbf079629740bc3dbcc49e145775836b410",
+            "comment": "Build a route board's frozen copy over several frames while its picture shows, so zooming doesn't stall as boards turn into copies"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 19 Nov 2026 00:16:26 GMT",
       "version": "0.87.0",
       "tag": "@parity-app/cli_v0.87.0",

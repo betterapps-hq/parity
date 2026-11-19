@@ -1,8 +1,18 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 19 Nov 2026 00:16:26 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 19 Nov 2026 01:38:53 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.87.1
+
+Thu, 19 Nov 2026 01:38:53 GMT
+
+### Patches
+
+- room.latency says how long others' changes take to reach the screen (ajcraswell@gmail.com)
+- Build a route board's frozen copy over several frames while its picture shows, so zooming doesn't stall as boards turn
+  into copies (ajcraswell@gmail.com)
 
 ## 0.87.0
 
