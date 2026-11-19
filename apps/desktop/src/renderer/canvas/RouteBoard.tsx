@@ -269,7 +269,10 @@ export function RouteBoard({
             data-primary={primary}
             data-copy={frozen ? "" : undefined}
             inert
-            style={{ width: frame.width, height, zoom: scale }}
+            // Paint containment lets the browser keep what it recorded of a copy's page and only raster it again as the
+            // zoom changes, still sharp, where it recorded every element again on every frame (PAR-1323). The board
+            // clips its frame anyway, and a page's fixed elements belong to its own box.
+            style={{ width: frame.width, height, zoom: scale, contain: "paint" }}
           />
         </div>
         {shown && <img className="page-picture" data-picture="" src={shown} alt="" draggable={false} />}
