@@ -127,6 +127,10 @@ export async function editsToScreen(
   const target = await targetOf(mover)
   const results: EditTimes[] = []
 
+  if (target) {
+    await inView(watcher, target.key)
+  }
+
   for (const kind of kinds) {
     const times: EditTimes = { edit: kind, toScreen: [], arrivedToScreen: [], toFrame: [] }
 
@@ -137,7 +141,13 @@ export async function editsToScreen(
 
     for (let count = 0; count < 20; count += 1) {
       const seen = await watcher.evaluate(
-        (key) => (window.roomPerfWatch!(key), window.roomPerfShown!.length),
+        (key) => {
+          if (!window.roomPerfWatch!(key)) {
+            throw new Error(`The watching copy has no board for ${key ?? "the canvas"} to watch`)
+          }
+
+          return window.roomPerfShown!.length
+        },
         kind === "token change" ? undefined : target?.key
       )
 
@@ -171,6 +181,8 @@ export async function remoteDrag(mover: Page, watcher: Page, seconds: number): P
   if (!target) {
     throw new Error("The project has no design to drag")
   }
+
+  await inView(watcher, target.key)
 
   const before = await watcher.evaluate(() => window.roomPerfShown!.length)
 
@@ -379,6 +391,50 @@ async function edit(page: Page, kind: string, target: Target | undefined, count:
     },
     [kind, target, count] as const
   )
+}
+
+/**
+ * Brings `key`'s board into view in the page at 100%, with room around it for a drag, and waits until its frames draw
+ * live: a board out of view or asleep draws nothing for an edit, which would time as fast as nothing.
+ */
+async function inView(page: Page, key: string): Promise<void> {
+  await page.evaluate(async (key) => {
+    const editor = window.roomPerfWorkspace!.getProject()!.session!.editor!
+    const board = editor.getCurrentPageShapes().find((each) => "key" in each.props && each.props.key === key)
+    const bounds = board && editor.getShapePageBounds(board)
+
+    if (!bounds) {
+      throw new Error(`The watching copy has no board for ${key}`)
+    }
+
+    editor.setCamera({ ...editor.getCamera(), z: 1 }, { immediate: true })
+    editor.centerOnPoint(bounds.center, { animation: { duration: 0 } })
+
+    const live = () => {
+      const board = document.querySelector(`.container-view[data-design="${CSS.escape(key)}"]`)
+      const frames = board ? [...board.querySelectorAll("[data-frame]")] : []
+
+      return (
+        frames.length > 0 &&
+        frames.every(
+          (host) => !host.closest("[data-asleep], [data-away]") && host.shadowRoot?.querySelector("[data-canvas-node]")
+        )
+      )
+    }
+
+    const began = performance.now()
+
+    while (!live()) {
+      if (performance.now() - began > 30_000) {
+        throw new Error(`${key}'s board didn't draw live within 30 s of coming into view`)
+      }
+
+      await new Promise((done) => setTimeout(done, 50))
+    }
+  }, key)
+
+  // Settled, so what it draws as it wakes isn't counted as the first edit's.
+  await page.waitForTimeout(1000)
 }
 
 /** Waits until the watched board has been still for 400 ms, at most 5 s, returning when it last changed. */
