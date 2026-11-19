@@ -314,6 +314,10 @@ export default defineWindowModule({
               ({ pending }) => {
                 if (pending) {
                   askMissing()
+
+                  // It may be waiting inside Loro for changes not here yet, so the next frame needn't show it: it isn't
+                  // timed rather than timed short.
+                  return
                 }
 
                 // The first frame drawn after taking it in is where it shows (PAR-1325).

@@ -6547,7 +6547,8 @@ the signed-in person's first name.
     and 392. Of its 6.9 s of JavaScript, taking the changes in was 2.9 s: Loro reading back and diffing 1.4 s (which
     PAR-1326 removes), and `ProjectDoc` telling `CanvasEditor.sync()` and tldraw 1.5 s. React drawing it again was 2.6 s
     more.
-  - **Joining again** took 7.3 and 6.9 s, on a snapshot of 0.9 MB. On a project drawn only from code (the heavy app
+  - **Joining again** took 7.3 and 6.9 s to the first board's shape, on a snapshot of 0.9 MB; the script now times it to
+    the first board that shows what's in it, which comes later. On a project drawn only from code (the heavy app
     `scripts/heavy-app.ts` makes, 40 routes), it took 1.3 s, and a token change took 38 / 119 ms to its first frame.
 
 - **Measuring smoothness** (PAR-1307). `node apps/desktop/scripts/room-perf.ts` starts two copies in a room side by

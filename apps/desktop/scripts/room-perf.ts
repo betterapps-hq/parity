@@ -12,11 +12,13 @@
 //     from the change arriving to that frame, and to the last change it caused in the board's frames ("settled")
 //   - drag: the host's frames and long tasks while the guest drags a board for --seconds, a write every frame in one
 //     gesture, as a drag writes it
-//   - join: how long the guest takes to open the project again on the host's snapshot, and the snapshot's size
+//   - join: how long the guest takes to open the project again on the host's snapshot, to its first board drawn, and
+//     the snapshot's size
 // The host's JavaScript is profiled during each kind of edit and the drag, saved as <label>.*.cpuprofile and summed by
 // function, with and without what each called.
 // Both copies close afterwards. Results go to .inspect/room-perf/<label>.json, with each frame's length and step in
-// <label>.<mover>.frames.json; --compare prints another run's beside them.
+// <label>.<mover>.frames.json; --compare prints another run's beside them. Both copies open a copy of the project, so
+// the edits never reach the project given.
 // Usage: node scripts/room-perf.ts [--label name] [--compare name] [--seconds 8] [--busy 0] [--project root] [--keep]
 //                                   [--runs "pointer, edits, drag, join"]
 //   --runs  only these measurements, by name; all of them unless given
@@ -25,7 +27,8 @@
 //   --keep  leaves both copies running afterwards, until the script is stopped
 // PARITY_ROOM_PERF_PORTS chooses the first copy's UI and DevTools ports (5330,9350); the second takes the next of each.
 import { type ChildProcess, spawn } from "node:child_process"
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
+import { existsSync } from "node:fs"
+import { cp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { type Browser, chromium, type Page } from "playwright-core"
@@ -55,11 +58,14 @@ const label = option("label") ?? new Date().toISOString().slice(0, 16).replace(/
 const compare = option("compare")
 const seconds = Number(option("seconds") ?? 8)
 const busyMs = Number(option("busy") ?? 0)
-const project = resolve(option("project") ?? join(repoDir, "examples/shadcn-vite"))
+const given = resolve(option("project") ?? join(repoDir, "examples/shadcn-vite"))
 const keep = args.includes("--keep")
 const runs = new Set((option("runs") ?? "pointer, edits, drag, join").split(",").map((each) => each.trim()))
 const [firstUi, firstDebug] = (process.env.PARITY_ROOM_PERF_PORTS ?? "5330,9350").split(",").map(Number)
 const profileDir = join(tmpdir(), `parity-room-perf-${firstUi}`)
+
+/** What both copies open: a copy of the project, since the edits change it and its host may save them. */
+const project = join(profileDir, "project")
 const windowSize = { width: 940, height: 880 }
 
 interface Copy {
@@ -121,9 +127,18 @@ interface Result {
 
 await mkdir(outDir, { recursive: true })
 
+// The link to the project's node_modules goes first, on its own, so clearing the folder never reaches through it.
+await rm(join(project, "node_modules"), { force: true })
+
 await rm(profileDir, { recursive: true, force: true })
 
 await mkdir(profileDir, { recursive: true })
+
+await cp(given, project, { recursive: true, filter: (from) => !/[\\/](node_modules|dist|\.git)$/.test(from) })
+
+if (existsSync(join(given, "node_modules"))) {
+  await symlink(join(given, "node_modules"), join(project, "node_modules"), "junction")
+}
 
 await writeFile(
   join(profileDir, "settings.json"),

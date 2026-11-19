@@ -269,7 +269,16 @@ export async function joinAgain(page: Page): Promise<{ ms: number; snapshotBytes
     const began = performance.now()
     void workspace.open(root)
 
-    while (!document.querySelector(".tl-canvas .tl-shape")) {
+    // Until a board shows what's in it, as perf.ts counts a frame drawn: its design drawn live, or its picture shown. A
+    // board's shape comes before either.
+    const drawn = (host: Element) =>
+      Boolean(host.closest("[data-bitmap], [data-asleep]") ?? host.shadowRoot?.querySelector("[data-canvas-node]"))
+
+    while (![...document.querySelectorAll("[data-frame]")].some(drawn) && !document.querySelector("[data-bitmap]")) {
+      if (performance.now() - began > 120_000) {
+        throw new Error("No board showed what's in it within two minutes of opening again")
+      }
+
       await new Promise((done) => setTimeout(done, 10))
     }
 
