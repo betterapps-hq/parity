@@ -72,6 +72,16 @@ export const roomEvents = [
         .describe("Others' pointer positions that arrived after the time they were to be drawn at"),
       presenceSent: z.number().int().nonnegative().describe("Presence updates sent"),
       presenceReceived: z.number().int().nonnegative().describe("Presence updates received"),
+      changesReceived: z.number().int().nonnegative().describe("Others' document changes taken in"),
+      changeToScreenP50Ms: z
+        .number()
+        .nonnegative()
+        .describe("From another copy's change arriving to the first frame drawn with it, the median, in milliseconds"),
+      changeToScreenP95Ms: z
+        .number()
+        .nonnegative()
+        .describe("From a change arriving to the screen, the 95th percentile"),
+      changeToScreenMaxMs: z.number().nonnegative().describe("The slowest change from arriving to the screen"),
       queueMax: z.number().int().nonnegative().describe("The most messages waiting to be sent at once"),
       batchesInFlightMax: z.number().int().nonnegative().describe("The most batches on their way at once")
     }),

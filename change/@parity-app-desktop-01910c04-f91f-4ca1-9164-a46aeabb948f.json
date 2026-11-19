@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Zooming past dense route copies is smoother: each copy's paint is kept and only rastered again at the new scale",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -3,7 +3,6 @@ import {
   defineWindowModule,
   type Gesture,
   LineageError,
-  type Palette,
   type Preview,
   type WindowParity
 } from "@parity-app/extension/internal"
@@ -12,6 +11,7 @@ import type { RelayApi } from "./extension.ts"
 import { Follow } from "./follow.ts"
 import { fileWritesFollowHost } from "./hosting.ts"
 import { Faces, Following, Marquees, Pointers, Selections } from "./layers.tsx"
+import { HeldPalettes } from "./palettes.ts"
 import { assignColors, dragItems, People } from "./people.ts"
 import { fromBase64, type PersonPresence, toBase64 } from "./protocol.ts"
 import { joinRoom, relayTransport, type Room } from "./room.ts"
@@ -51,24 +51,10 @@ export default defineWindowModule({
     ready.catch(() => undefined)
     let leftWhy: "closed" | "lineage" = "closed"
 
-    // Each person's color is held while they're here, so the layers read it without claiming as they draw.
-    const held = new Set<string>()
-
-    const paletteOf = (key: string): Palette => {
-      if (!held.has(key)) {
-        held.add(key)
-
-        return parity.colors.claim(key)
-      }
-
-      // Read without holding it twice: the claim made as they arrived holds it.
-      const palette = parity.colors.claim(key)
-      parity.colors.release(key)
-
-      return palette
-    }
-
-    const people = new People(paletteOf)
+    // Each person's color is claimed once and held while they're here, so the layers read it without claiming as they
+    // draw.
+    const palettes = new HeldPalettes(parity.colors)
+    const people = new People(palettes.of)
     const follow = new Follow(parity.camera)
     let assigned = new Map<string, number>()
 
@@ -79,6 +65,8 @@ export default defineWindowModule({
         parity.colors.assign(key, n)
       }
 
+      // Read again before anyone's drawn in their new color.
+      palettes.reread()
       people.colors(next)
     }
 
@@ -254,10 +242,7 @@ export default defineWindowModule({
         previews.delete(gone)
         heldForWrite.delete(gone)
         people.remove(gone)
-
-        if (held.delete(gone)) {
-          parity.colors.release(gone)
-        }
+        palettes.release(gone)
       },
       hello(from) {
         // Only a copy that opened through the room has a document to give; the snapshot waits until it's open.
@@ -308,11 +293,24 @@ export default defineWindowModule({
               heldForWrite.add(from)
             }
 
+            const arrived = performance.now()
+
             void parity.sync.receive(fromBase64(event.bytes)).then(
               ({ pending }) => {
                 if (pending) {
                   askMissing()
+
+                  // It may be waiting inside Loro for changes not here yet, so the next frame needn't show it: it isn't
+                  // timed rather than timed short.
+                  return
                 }
+
+                // The first frame drawn after taking it in is where it shows (PAR-1325).
+                afterPaint(() => {
+                  const ms = performance.now() - arrived
+                  changeToScreen.push(ms)
+                  performance.measure("room.changeToScreen", { start: arrived, duration: ms })
+                })
               },
               (error) => {
                 if (error instanceof LineageError) {
@@ -355,6 +353,9 @@ export default defineWindowModule({
         }
       }
     })
+
+    /** From each of others' changes arriving to the frame that shows it, for `room.latency`. */
+    let changeToScreen: number[] = []
 
     // Someone's drag follows their pointer as it's drawn, on every frame while it's on its way, unless held for a write.
     let dragFrame: number | undefined
@@ -487,8 +488,12 @@ export default defineWindowModule({
       const presenceLate = people.takeLate()
       const sorted = stats.rtts.toSorted((a, b) => a - b)
       const gaps = stats.presenceGaps.toSorted((a, b) => a - b)
+      const shown = changeToScreen.toSorted((a, b) => a - b)
+      changeToScreen = []
+      // Kept a minute for `room-perf.ts`, whose observer has them by then, so they don't pile up.
+      performance.clearMeasures("room.changeToScreen")
 
-      if (sorted.length === 0 && stats.presenceReceived === 0) {
+      if (sorted.length === 0 && stats.presenceReceived === 0 && shown.length === 0) {
         return
       }
 
@@ -505,6 +510,10 @@ export default defineWindowModule({
         presenceLate,
         presenceSent: stats.presenceSent,
         presenceReceived: stats.presenceReceived,
+        changesReceived: shown.length,
+        changeToScreenP50Ms: at(shown, 0.5),
+        changeToScreenP95Ms: at(shown, 0.95),
+        changeToScreenMaxMs: Math.round(shown.at(-1) ?? 0),
         queueMax: stats.queueMax,
         batchesInFlightMax: stats.batchesInFlightMax
       })
@@ -588,6 +597,13 @@ function halfReady(parity: WindowParity): Promise<void> {
         resolve()
       }
     })
+  })
+}
+
+/** Runs `run` once the next frame has been drawn: a task queued from that frame's callback runs after its paint. */
+function afterPaint(run: () => void): void {
+  requestAnimationFrame(() => {
+    setTimeout(run, 0)
   })
 }
 

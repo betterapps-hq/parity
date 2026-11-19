@@ -1,6 +1,6 @@
 {
   "type": "none",
-  "comment": "Benchmarks and CI budgets for one remote change in a live room",
+  "comment": "room-perf profiles the watching copy; render counts follow the avatar stack's props",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "none"

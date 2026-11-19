@@ -64,6 +64,7 @@ export class PointerTrail {
   #rate = 1
   /** Positions that arrived after the time they should have been drawn at. */
   #late = 0
+  readonly #pushed = new Set<() => void>()
 
   constructor(minDelayMs = trailDelayMs) {
     this.#minDelayMs = minDelayMs
@@ -110,6 +111,20 @@ export class PointerTrail {
     this.#offset = Math.min(relaxed, offset)
     this.#arrived = arrived
     this.#samples.push(sample)
+
+    for (const listener of this.#pushed) {
+      listener()
+    }
+  }
+
+  /**
+   * Hears each new position taken, so what's drawn from the trail can start drawing frames again without React drawing
+   * it again. Stops hearing when the function it gives is called.
+   */
+  onPush(listener: () => void): () => void {
+    this.#pushed.add(listener)
+
+    return () => this.#pushed.delete(listener)
   }
 
   /** How many positions arrived too late to be drawn on time since the last call, and starts counting again. */

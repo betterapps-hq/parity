@@ -2,6 +2,61 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 19 Nov 2026 00:16:07 GMT",
+      "version": "0.116.0",
+      "tag": "@parity-app/desktop_v0.116.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "301cfe6fc1e42f3bfc195c8cf182099a8e12c941",
+            "comment": "Border replaces Stroke in the Design panel: a width per side, Double, and its width in Spacing's box model with Box sizing; and an Outline section with width, style, color and offset"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e63301f9c1648c39dff9fbba81e1ade901e68482",
+            "comment": "Zooming Pages with many routes is smoother: the page tree's lines are drawn in pieces and only those near the view flow"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7e3f50f0cbddf20f551eec299374791ae1bbceaa",
+            "comment": "Zooming a canvas of many boards is smoother: boards out of view catch up on their labels and gutters instead of restyling on every frame"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "cf76d684c1cb40db3e9afd00ca4a52d9f55ac619",
+            "comment": "Pages lays a route's modes out side by side and moves the routes around it to make room, instead of drawing boards on top of each other (PAR-1317)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f50a87bedcb204550df4a42625c9dab76af4f79a",
+            "comment": "Draw others' presence without re-rendering every layer on each message: a store per person, pointers and marquees moved by writing styles, colors claimed once, and a zoom-only camera hook"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e830fdc458620df3c28fddac5022cdd2253eff78",
+            "comment": "A box drawn on the empty canvas now shows in the other copies of a live room, and your face in the room redraws as soon as you sign in, out or switch accounts"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d343979af34abb6a067d75eb0b2ca04bcc39a5bb",
+            "comment": "Benchmarks and CI budgets for one remote change in a live room"
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 18 Nov 2026 21:48:13 GMT",
       "version": "0.115.0",
       "tag": "@parity-app/desktop_v0.115.0",

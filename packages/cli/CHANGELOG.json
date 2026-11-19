@@ -2,6 +2,41 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 19 Nov 2026 00:16:26 GMT",
+      "version": "0.87.0",
+      "tag": "@parity-app/cli_v0.87.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "cf76d684c1cb40db3e9afd00ca4a52d9f55ac619",
+            "comment": "Pages lays a route's modes out side by side and moves the routes around it to make room, instead of drawing boards on top of each other (PAR-1317)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e830fdc458620df3c28fddac5022cdd2253eff78",
+            "comment": "A box drawn on the empty canvas now shows in the other copies of a live room, and your face in the room redraws as soon as you sign in, out or switch accounts"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e63301f9c1648c39dff9fbba81e1ade901e68482",
+            "comment": "Zooming Pages with many routes is smoother: the page tree's lines are drawn in pieces and only those near the view flow"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "301cfe6fc1e42f3bfc195c8cf182099a8e12c941",
+            "comment": "A layer's style takes a border width per side, a Double border, an outline (color, width, style and offset) and box sizing"
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 18 Nov 2026 21:48:28 GMT",
       "version": "0.86.1",
       "tag": "@parity-app/cli_v0.86.1",

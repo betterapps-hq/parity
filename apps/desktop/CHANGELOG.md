@@ -1,8 +1,30 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Wed, 18 Nov 2026 21:48:13 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 19 Nov 2026 00:16:07 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.116.0
+
+Thu, 19 Nov 2026 00:16:07 GMT
+
+### Minor changes
+
+- Border replaces Stroke in the Design panel: a width per side, Double, and its width in Spacing's box model with Box
+  sizing; and an Outline section with width, style, color and offset (ajcraswell@gmail.com)
+
+### Patches
+
+- Zooming Pages with many routes is smoother: the page tree's lines are drawn in pieces and only those near the view
+  flow (ajcraswell@gmail.com)
+- Zooming a canvas of many boards is smoother: boards out of view catch up on their labels and gutters instead of
+  restyling on every frame (ajcraswell@gmail.com)
+- Pages lays a route's modes out side by side and moves the routes around it to make room, instead of drawing boards on
+  top of each other (PAR-1317) (ajcraswell@gmail.com)
+- Draw others' presence without re-rendering every layer on each message: a store per person, pointers and marquees
+  moved by writing styles, colors claimed once, and a zoom-only camera hook (ajcraswell@gmail.com)
+- A box drawn on the empty canvas now shows in the other copies of a live room, and your face in the room redraws as
+  soon as you sign in, out or switch accounts (ajcraswell@gmail.com)
 
 ## 0.115.0
 

@@ -1,8 +1,26 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Wed, 18 Nov 2026 21:48:28 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 19 Nov 2026 00:16:26 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.87.0
+
+Thu, 19 Nov 2026 00:16:26 GMT
+
+### Minor changes
+
+- A layer's style takes a border width per side, a Double border, an outline (color, width, style and offset) and box
+  sizing (ajcraswell@gmail.com)
+
+### Patches
+
+- Pages lays a route's modes out side by side and moves the routes around it to make room, instead of drawing boards on
+  top of each other (PAR-1317) (ajcraswell@gmail.com)
+- A box drawn on the empty canvas now shows in the other copies of a live room, and your face in the room redraws as
+  soon as you sign in, out or switch accounts (ajcraswell@gmail.com)
+- Zooming Pages with many routes is smoother: the page tree's lines are drawn in pieces and only those near the view
+  flow (ajcraswell@gmail.com)
 
 ## 0.86.1
 

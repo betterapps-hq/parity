@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Pages lays a route's modes out side by side and moves the routes around it to make room, instead of drawing boards on top of each other (PAR-1317)",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

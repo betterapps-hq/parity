@@ -6466,6 +6466,15 @@ the signed-in person's first name.
   with their name, with their caret where they're typing (PAR-1275). Their marquee shows as they drag it, whether it
   starts on a frame's background or on the empty canvas (PAR-1311). A drag shows through `parity.canvas.preview`, with
   the lift, carry and settle of a local drag (PAR-1199), and settles on its write.
+- **Drawing presence cheaply** (PAR-1327). Each person has a store of their own (`People.onPerson`), which changes only
+  when something drawn of them does: their name, color, selection, gesture, or their pointer leaving the canvas. Their
+  pointer's positions and their camera don't change it. A pointer and a marquee are moved by writing their styles on
+  every frame from the person's trail, which wakes them as each position arrives (`PointerTrail.onPush`), so a presence
+  message renders nothing in React. The avatar stack reads only who's here (`People.roster`), and the outlines only
+  everyone's selections (`People.everyone`). Page layers read the zoom alone (`useZoom` in `packages/canvas-layer`), so
+  a pan renders none of them. Each person's palette is claimed once, as they're first drawn, and read again only when
+  the host assigns numbers (`HeldPalettes`). Tests: `people.test.ts`, `palettes.test.ts`, `trail.test.ts` and
+  `renders.test.ts`, which holds the renders per message and per pan to their budgets.
 - **Coming back.** A copy whose connection to the relay comes back drops everyone who left meanwhile as if it had heard
   them leave: their pointer, a drag they were showing, following them, and their color (PAR-1282).
 - **Who's here.** The avatar stack sits on the zoom controls' row, just left of them and as tall, with everyone in one
@@ -6491,7 +6500,9 @@ the signed-in person's first name.
   preview settles on it, in the same batch or an earlier one.
 - **Telemetry.** `room.relayStarted`, `room.joined`, `room.left`, `room.hostChanged`, `room.reconnected` and
   `room.latency`, recorded through `parity.telemetry`, beside core's `sync.*`. `room.latency` also has how far apart
-  others' presence arrived and how many of their pointer positions came too late to be drawn on time (PAR-1307).
+  others' presence arrived and how many of their pointer positions came too late to be drawn on time (PAR-1307), and how
+  many of others' changes this copy took in and how long each took from arriving to the first frame drawn with it, its
+  median, 95th percentile and slowest (PAR-1325).
 - **Measuring one remote change** (PAR-1325). `remote-change.bench.ts` in `packages/multiplayer-loro` times what one of
   others' changes costs the copy that takes it in, by stage: Loro's import, reading the touched designs back and diffing
   them (`backend.ts`, reported by the backend's `timings()`), `ProjectDoc` taking the change, and reading the designs
@@ -6518,7 +6529,41 @@ the signed-in person's first name.
   style change 8.8, 20.9 and 43.6, and typing 9.4, 21.3 and 43.7: reading back was nearly all of it, and grew with the
   project. Now the lookups, which list every design again when the files change, are the largest part on the very large
   project. A layer added, moved or removed still reads its design back whole (PAR-1332). The projects are
-  `packages/multiplayer`'s generated ones, 20, 100 and 250 designs.
+  `packages/multiplayer`'s generated ones, 20, 100 and 250 designs. That's the room's own share only, without what the
+  canvas does with the change, which is most of what a person waits for: see the next item.
+
+- **Measuring through the canvas** (PAR-1325). `node apps/desktop/scripts/room-perf.ts --runs "edits, drag, join"`
+  measures in two copies side by side, the guest editing and the host watching, and profiles the host's JavaScript while
+  it watches, each kind of edit apart (`.inspect/room-perf/<label>.*.cpuprofile`). Each edit is made 20 times, a quarter
+  of a second apart, through the guest's document. _First frame_ is from the edit to the first frame the host draws
+  after taking it in, which the room measures as `room.changeToScreen`; _settled_ is to the last change it caused in the
+  board's frames, or anywhere on the canvas for a token change. The drag writes a board's position every frame for 6 s
+  in one gesture, as a drag does. Before each run both windows are put back on top, and the run stops if the host draws
+  slower than a frame every 40 ms, since a covered window draws a frame a second. It also shows the edited board at 100%
+  and waits for its frames to draw live first; the baseline was taken with the whole project in view, where the board's
+  frames still drew each edit, as their later settling shows. On 2026-11-18, on the example project, two runs, the
+  median and 95th percentile in milliseconds:
+
+  | Edit         | First frame          | Of which the host's share | Settled                          |
+  | ------------ | -------------------- | ------------------------- | -------------------------------- |
+  | Board drag   | 41 / 104, 37 / 144   | 36 / 88, 33 / 90          | as first frame                   |
+  | Style change | 38 / 128, 36 / 125   | 30 / 117, 32 / 121        | 38 / 212, 75 / 274               |
+  | Typing       | 41 / 151, 41 / 88    | 37 / 133, 37 / 82         | 41 / 230, 41 / 222               |
+  | Token change | 487 / 614, 471 / 709 | 480 / 586, 467 / 705      | 614 / over 5000, 515 / over 5000 |
+  - **The canvas, not the room, takes the time.** Taking in a change (`window-sync.ts` through `backend.ts`) is about 10
+    ms of a style change's 290 ms of the host's main thread, and 20 ms of a token change's 1.2 s. The rest is React, the
+    frames drawing again (`frame-changes.ts`, `frame-bitmaps.ts`, `render-job.ts`, `ModeView`, `ContainerView`), reading
+    layout (`getBoundingClientRect` alone is a tenth of it), the overlays, and calls to the project service.
+  - **A token change** takes half a second to show, and some were still changing the canvas after 5 s, as every frame
+    draws again. The script waited at most 5 s then; it now waits 15 s and counts edits still changing apart.
+  - **During a remote drag the host can't keep up.** Over the 6 s it was busy for all but a fraction, with 6 s of long
+    tasks, the longest 2 to 3 s, so the drag shows in jumps: frames' median 9 and 25 ms, but their 95th percentile 209
+    and 392. Of its 6.9 s of JavaScript, taking the changes in was 2.9 s: Loro reading back and diffing 1.4 s (which
+    PAR-1326 removes), and `ProjectDoc` telling `CanvasEditor.sync()` and tldraw 1.5 s. React drawing it again was 2.6 s
+    more.
+  - **Joining again** took 7.3 and 6.9 s to the first board's shape, on a snapshot of 0.9 MB; the script now times it to
+    the first board that shows what's in it, which comes later. On a project drawn only from code (the heavy app
+    `scripts/heavy-app.ts` makes, 40 routes), it took 1.3 s, and a token change took 38 / 119 ms to its first frame.
 
 - **Measuring smoothness** (PAR-1307). `node apps/desktop/scripts/room-perf.ts` starts two copies in a room side by
   side, has one person move their pointer in a circle while the other watches, both ways, and records how far apart
@@ -6603,13 +6648,10 @@ Tests:
   import (PAR-1325). `remote-change.bench.ts` times each stage on the very large project too.
 - `packages/extension-multiplayer/src/decode.test.ts` (4): a change's bytes decoded as sent, and budgets for decoding
   presence alone, one edit's change and a large paste's (PAR-1325). `decode.bench.ts` times them.
-
-### The canvas surface: colors, the camera and boxes (PAR-1236)
-
-Three core services that people's and agents' presence draws through, as docs/proposals/extensions-in-the-window.md sets
-out. Internal extensions reach them through `parity.canvas` and `parity.colors` (PAR-1257). The project's canvas starts
-its own as it mounts (`surfaceOf(editor)`).
-
+- `packages/extension-multiplayer/src/renders.test.ts` (4), in happy-dom: how many times the room's five canvas layers
+  render for a presence message that only moves a pointer (none), one that changes a selection (each page layer once), a
+  frame of a pan (none) and a step of a zoom (each page layer once), with three people in the room, held to those counts
+  (PAR-1325). Before PAR-1327, a pointer move rendered every layer that reads who's here, and a pan each page layer.
 - **Colors never run out.** People and agents get colors by key, never by color: `claim(key)` gives the lowest-numbered
   palette no other key in the project holds, a released number goes out again first, and past the hand-tuned palettes
   more are generated by number, the same in every copy. A room's numbers, given with `assign(key, n)`, win over claims,
@@ -8962,6 +9004,12 @@ A screen is named for the component its route draws, else its path.
   Billing's line and Settings' group's, and selecting Settings' group brings forward its line up to App. A line into a
   group curves straight down to the group's top, since a group's header isn't a title it passes behind. The lines are
   drawn from where the boards are now, so they follow a page that's moved, and they sit behind every board.
+- **Lines are drawn in pieces (PAR-1322).** Each line is cut into pieces 2,400 screen pixels long, a whole number of
+  dashes, so every piece starts on a dash; the browser skips pieces off screen, and only pieces within a screen of the
+  view flow, all keeping time with the page so neighbors line up. Drawn whole, with every line flowing, a tree of 48
+  pages under one parent had lines over 100,000 screen pixels long whose every dash was worked out each frame: on the
+  heavy benchmark (`scripts/heavy-app.ts`, 192 boards), zooming at 60% went from 4 to 11 fps, at 45% from 5 to 14–16 and
+  at 20% from 14 to 17–26, and resting zoomed to fit took 218 ms of style every 4 s instead of 472.
 - **The app draws it.** A page's frames show a frozen copy of the app's own page at the page's URL (below), which ran in
   a document of its own, so the app's router, layouts, loaders and redirects ran as they do in a browser: `/settings`
   shows Profile, where its index redirects. With the Interact tool, a board goes live: the page itself, over its copy
@@ -9075,6 +9123,10 @@ A screen is named for the component its route draws, else its path.
   its own styles, and a canvas comes as a picture at the size it was drawn. A copy is as tall as its page in the mode's
   window, unless the board has a height of its own, and it's inert, so nothing in it takes focus or follows a link.
   Until its copy or picture comes, a placeholder stands in at the window's height.
+- **A copy's paint is kept while zooming (PAR-1323).** The frame a copy is built in has `contain: paint`, so as the zoom
+  changes the browser rasters what it recorded of the page again, sharp at the new scale, rather than recording every
+  element again on every frame. On the heavy benchmark (`scripts/heavy-app.ts`) at 60%, with two dense copies in view,
+  painting took 5–6 ms a frame instead of 16–20, and prepainting 0.6 ms instead of 6.5–7.
 - **Pictures (PAR-1200).** A board small on screen or away from the view shows a picture of its copy instead of the copy
   itself, as [proposals/route-frames.md](proposals/route-frames.md) sets out. It turns into its copy once it's near the
   view and wider than 440 screen pixels, and back into its picture once it's narrower than 360 or leaves the view
@@ -9252,21 +9304,22 @@ theme to Dark in the Modes panel turned every page dark without loading it again
 answering dark, and back. Setting its viewport to Mobile made App's frame 390 wide and 893 tall, measured in the 390 ×
 844 window, and back to 849. A page that reloaded by itself connected again and took both changes.
 
-Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pageLinkLine`, `pageLinksLit`,
-`landedElsewhere`, `pageMode` and `pageFrameUrl` in `packages/editor/src/route-boards.ts`, with `titleTop` in
-`canvas-labels.ts`; `routeOptions` in `packages/extension-tanstack-router/src/routes.ts`; `providedRoutes` in
-`apps/desktop/src/utility/extensions.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`, with
-`PageGroupView`; `PageFrame`, `LandedElsewhere` and the title's backdrop in `ContainerView.tsx`, and `usePageChannel` in
-`page-channel.ts`; frozen copies: `RouteBoard` and `withCopyStyle` in `RouteBoard.tsx`, the freezer, `useFrozenCopy` and
-`copySheets` in `freezer.ts`, `copyLayers`, `withCopyEntries` and `shownEntry` in `route-pages.ts`, `takeSnapshot` in
-`packages/page-runtime/src/snapshot.ts`, `freezeOrder` and `restartAfter` in `packages/frames/src/freezer.ts`,
-`frozenSnapshots` in `packages/editor/src/element-layers.ts`, `withCopyLayers` in `route-boards.ts`, `fetchPageSheet` in
-`apps/desktop/src/main/page-sheets.ts`, live boards: the pool and `useLiveBoard` in `live-frames.ts`, `LiveLayer` in
-`LiveLayer.tsx`, `pickLive` and `liveWindowTop` in `packages/frames/src/live.ts`, `passesBack` and the runtime's
-`page.scrolled`, `page.zoom` and `page.key` in `packages/page-runtime/src/`, `holdFreezer` in `freezer.ts`, and
-`pageFrameGuard` in `apps/desktop/src/main/page-frames.ts`; the page process's failure: `PageProcesses` and
-`processFailed` in `packages/frames/src/process.ts`, `watchPageProcesses` in `apps/desktop/src/main/page-processes.ts`
-and `page-process.ts` in the canvas; code changes and previews: `pageSourceChange` in
+Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pageLinkLine`, `pageLinkPieces`,
+`pageLinksLit`, `landedElsewhere`, `pageMode` and `pageFrameUrl` in `packages/editor/src/route-boards.ts`, with
+`titleTop` in `canvas-labels.ts`; `routeOptions` in `packages/extension-tanstack-router/src/routes.ts`; `providedRoutes`
+in `apps/desktop/src/utility/extensions.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`,
+with `PageGroupView` and `FlowingDashes`; `PageFrame`, `LandedElsewhere` and the title's backdrop in
+`ContainerView.tsx`, and `usePageChannel` in `page-channel.ts`; frozen copies: `RouteBoard` and `withCopyStyle` in
+`RouteBoard.tsx`, the freezer, `useFrozenCopy` and `copySheets` in `freezer.ts`, `copyLayers`, `withCopyEntries` and
+`shownEntry` in `route-pages.ts`, `takeSnapshot` in `packages/page-runtime/src/snapshot.ts`, `freezeOrder` and
+`restartAfter` in `packages/frames/src/freezer.ts`, `frozenSnapshots` in `packages/editor/src/element-layers.ts`,
+`withCopyLayers` in `route-boards.ts`, `fetchPageSheet` in `apps/desktop/src/main/page-sheets.ts`, live boards: the pool
+and `useLiveBoard` in `live-frames.ts`, `LiveLayer` in `LiveLayer.tsx`, `pickLive` and `liveWindowTop` in
+`packages/frames/src/live.ts`, `passesBack` and the runtime's `page.scrolled`, `page.zoom` and `page.key` in
+`packages/page-runtime/src/`, `holdFreezer` in `freezer.ts`, and `pageFrameGuard` in
+`apps/desktop/src/main/page-frames.ts`; the page process's failure: `PageProcesses` and `processFailed` in
+`packages/frames/src/process.ts`, `watchPageProcesses` in `apps/desktop/src/main/page-processes.ts` and
+`page-process.ts` in the canvas; code changes and previews: `pageSourceChange` in
 `packages/project/src/open-project.ts`, the watcher's `filesChanged` in `apps/desktop/src/utility/projects.ts`,
 `page-changes.ts` (`pageFilesChanged`, `previewTokens`), the pool's `filesChanged` in `live-frames.ts`, `staleCopies`,
 `traceHolds`, `groupLeaders`, `sharedMarkup` and `withMarkup` in `packages/frames/src/keys.ts`, `tokenPreviewCss` and
@@ -9292,7 +9345,7 @@ with library mode's wrapped `react-router` and `react-router-dom` in `src/page-w
 resolver, and by `pageWrapRules` in `guest-config.ts`; and `pageEntries` and `pageExternals` in
 `apps/desktop/src/shared/built-in-extensions.ts`, which `apps/desktop/scripts/build.ts` bundles for a packaged app.
 
-Tests: `packages/editor/src/route-boards.test.ts` (35: each layout's pages hung from its index, the root's index at the
+Tests: `packages/editor/src/route-boards.test.ts` (41: each layout's pages hung from its index, the root's index at the
 top, and an index of a deeper path as a page; a layout a group around its pages when its index only redirects, an index
 that redirects but draws staying a page, and a layout without an index a group; a forest without a root index, and
 nothing without routes; each page centered over the pages under it, a level below; a group's pages side by side inside
@@ -9304,25 +9357,27 @@ size of their own; a mode's classes, attributes and scheme as the page draws in 
 own `.localhost` name, and each project a name of its own; the landed path given when it isn't the page's own, and
 nothing for its own with or without a trailing slash; a group's box round its pages' titles; a line curving across above
 the lower page's title and dropping to its board, turning down higher zoomed out, and curving all the way down once the
-title reaches the page above; the lines a page brings forward, up to the top of the tree and down to the pages right
-under it, for several pages at once, and none for no page or a page outside the tree; a line into a group curving
-straight to its top), `canvas-labels.test.ts` (`titleTop`, up close and zoomed out),
-`packages/extension-tanstack-router/src/routes.test.ts` (the example's `/settings` index redirecting to Profile, and a
-route that always redirects told from one that sometimes does), and the page runtime's (PAR-1260):
-`packages/page-runtime/src/runtime.test.ts` (16: nothing in a window Parity didn't name, nor in a frame named in another
-version; the hello to Parity's origin alone; a port taken only from Parity's origin; the scrollbar hidden; the mode the
-frame opens in, changed without a reload, with `prefers-color-scheme` answered and its query told; a `mode.set` it can't
-read refused; the height told in the mode's window, rounded up, and not once the frame has grown; ready once a page
-without a hydration module has gone quiet, or once a hydration module says the app committed; a router that isn't the
-app's passed over; `route.go` moving the app and saying where it ended, a redirect included, without a `page.moved`;
-`route.go` refused without a router; where the page moved told, by its router or its address; `page.used` at most once a
-second), `packages/page-runtime/src/snapshot.test.ts` (17, PAR-1262: the body's tree as plain data without scripts or
-styles; an open shadow root's content and styles, not a closed one's; a canvas as a picture at its drawn size; every URL
-made absolute; svg's namespace and case; a form's state as attributes, never a password; `<html>` without the mode or
-the runtime's style, its `url()`s absolute; sheets by content hash for `sheets.get`, one it can't read by address with
-its media, an unreadable import where it stands inside every condition around it, and an anonymous imported layer kept
-one named layer inside its `supports()`; the same markup hash for the same tree; `url()`s and `image-set()`'s strings
-made absolute; a snapshot and its sheets over the channel; a wait or too many ids refused; the snapshot's deadline),
+title reaches the page above; a short line drawn as one piece, a long one cut into pieces 2,400 screen pixels long at 1,
+60% and 20%, each starting where the last ends, each piece's box round it, and the pieces within half a screen pixel of
+the curve; the lines a page brings forward, up to the top of the tree and down to the pages right under it, for several
+pages at once, and none for no page or a page outside the tree; a line into a group curving straight to its top),
+`canvas-labels.test.ts` (`titleTop`, up close and zoomed out), `packages/extension-tanstack-router/src/routes.test.ts`
+(the example's `/settings` index redirecting to Profile, and a route that always redirects told from one that sometimes
+does), and the page runtime's (PAR-1260): `packages/page-runtime/src/runtime.test.ts` (16: nothing in a window Parity
+didn't name, nor in a frame named in another version; the hello to Parity's origin alone; a port taken only from
+Parity's origin; the scrollbar hidden; the mode the frame opens in, changed without a reload, with
+`prefers-color-scheme` answered and its query told; a `mode.set` it can't read refused; the height told in the mode's
+window, rounded up, and not once the frame has grown; ready once a page without a hydration module has gone quiet, or
+once a hydration module says the app committed; a router that isn't the app's passed over; `route.go` moving the app and
+saying where it ended, a redirect included, without a `page.moved`; `route.go` refused without a router; where the page
+moved told, by its router or its address; `page.used` at most once a second),
+`packages/page-runtime/src/snapshot.test.ts` (17, PAR-1262: the body's tree as plain data without scripts or styles; an
+open shadow root's content and styles, not a closed one's; a canvas as a picture at its drawn size; every URL made
+absolute; svg's namespace and case; a form's state as attributes, never a password; `<html>` without the mode or the
+runtime's style, its `url()`s absolute; sheets by content hash for `sheets.get`, one it can't read by address with its
+media, an unreadable import where it stands inside every condition around it, and an anonymous imported layer kept one
+named layer inside its `supports()`; the same markup hash for the same tree; `url()`s and `image-set()`'s strings made
+absolute; a snapshot and its sheets over the channel; a wait or too many ids refused; the snapshot's deadline),
 `packages/frames/src/freezer.test.ts` (5: nearest route first, each once; nothing with no boards; restarting after 1 s
 and 5 s, stopping after three failures in two minutes, and forgetting older ones), and for code changes and previews
 (PAR-1264, PAR-1298): `packages/frames/src/planners.test.ts` (`staleCopies`: the copies whose traces hold a changed
