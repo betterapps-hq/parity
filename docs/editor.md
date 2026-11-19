@@ -6542,17 +6542,18 @@ the signed-in person's first name.
   frames still drew each edit, as their later settling shows. On 2026-11-18, on the example project, two runs, the
   median and 95th percentile in milliseconds:
 
-  | Edit         | First frame          | Of which the host's share | Settled                |
-  | ------------ | -------------------- | ------------------------- | ---------------------- |
-  | Board drag   | 41 / 104, 37 / 144   | 36 / 88, 33 / 90          | as first frame         |
-  | Style change | 38 / 128, 36 / 125   | 30 / 117, 32 / 121        | 38 / 212, 75 / 274     |
-  | Typing       | 41 / 151, 41 / 88    | 37 / 133, 37 / 82         | 41 / 230, 41 / 222     |
-  | Token change | 487 / 614, 471 / 709 | 480 / 586, 467 / 705      | 614 / 5732, 515 / 5684 |
+  | Edit         | First frame          | Of which the host's share | Settled                          |
+  | ------------ | -------------------- | ------------------------- | -------------------------------- |
+  | Board drag   | 41 / 104, 37 / 144   | 36 / 88, 33 / 90          | as first frame                   |
+  | Style change | 38 / 128, 36 / 125   | 30 / 117, 32 / 121        | 38 / 212, 75 / 274               |
+  | Typing       | 41 / 151, 41 / 88    | 37 / 133, 37 / 82         | 41 / 230, 41 / 222               |
+  | Token change | 487 / 614, 471 / 709 | 480 / 586, 467 / 705      | 614 / over 5000, 515 / over 5000 |
   - **The canvas, not the room, takes the time.** Taking in a change (`window-sync.ts` through `backend.ts`) is about 10
     ms of a style change's 290 ms of the host's main thread, and 20 ms of a token change's 1.2 s. The rest is React, the
     frames drawing again (`frame-changes.ts`, `frame-bitmaps.ts`, `render-job.ts`, `ModeView`, `ContainerView`), reading
     layout (`getBoundingClientRect` alone is a tenth of it), the overlays, and calls to the project service.
-  - **A token change** takes half a second to show and up to six to settle, as every frame draws again.
+  - **A token change** takes half a second to show, and some were still changing the canvas after 5 s, as every frame
+    draws again. The script waited at most 5 s then; it now waits 15 s and counts edits still changing apart.
   - **During a remote drag the host can't keep up.** Over the 6 s it was busy for all but a fraction, with 6 s of long
     tasks, the longest 2 to 3 s, so the drag shows in jumps: frames' median 9 and 25 ms, but their 95th percentile 209
     and 392. Of its 6.9 s of JavaScript, taking the changes in was 2.9 s: Loro reading back and diffing 1.4 s (which

@@ -115,7 +115,7 @@ interface Result {
   busyMs: number
   directions: Direction[]
   /** Edit to screen, by edit, and the watcher's own share, from the change arriving to its frame. */
-  edits?: { edit: string; toScreen: Spread; arrivedToScreen: Spread; toFrame: Spread }[]
+  edits?: { edit: string; toScreen: Spread; arrivedToScreen: Spread; toFrame: Spread; unsettled: number }[]
   /** The watcher's frames and long tasks while the mover dragged a board. */
   drag?: { frames: Spread; longTasks: number; longTaskMs: number; longestTaskMs: number; changes: number }
   /** Where the watcher's main thread spent its time while the edits came in, and during the drag. */
@@ -188,7 +188,8 @@ try {
           edit: each.edit,
           toScreen: spread(each.toScreen),
           arrivedToScreen: spread(each.arrivedToScreen),
-          toFrame: spread(each.toFrame)
+          toFrame: spread(each.toFrame),
+          unsettled: each.unsettled
         })
       }
     }
@@ -633,7 +634,7 @@ function report(result: Result, previous: Result | undefined): void {
 
   for (const each of result.edits ?? []) {
     print(`\n${each.edit}: edit to first frame ${ms(each.toScreen)}; arriving to it ${ms(each.arrivedToScreen)}`)
-    print(`  edit to settled in its frames ${ms(each.toFrame)}`)
+    print(`  edit to settled in its frames ${ms(each.toFrame)}; ${each.unsettled ?? 0} still changing after 15 s`)
   }
 
   if (result.drag) {

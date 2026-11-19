@@ -42,7 +42,12 @@ export interface EditTimes {
    * change: what a person sees settle. A change made only to a stylesheet isn't seen, so it counts as the first frame.
    */
   toFrame: number[]
+  /** Edits whose board was still changing after `settleMs`, left out of `toFrame`. */
+  unsettled: number
 }
+
+/** The longest an edit's board is waited for to be still, in milliseconds. */
+const settleMs = 15_000
 
 export interface DragTimes {
   frames: number[]
@@ -132,7 +137,7 @@ export async function editsToScreen(
   }
 
   for (const kind of kinds) {
-    const times: EditTimes = { edit: kind, toScreen: [], arrivedToScreen: [], toFrame: [] }
+    const times: EditTimes = { edit: kind, toScreen: [], arrivedToScreen: [], toFrame: [], unsettled: 0 }
 
     // A project drawn only from code has no design to edit, but its tokens can still change.
     if (!target && kind !== "token change") {
@@ -158,7 +163,14 @@ export async function editsToScreen(
         times.toScreen.push(shown.shown - made)
         times.arrivedToScreen.push(shown.shown - shown.arrived)
         const settled = await settledAt(watcher)
-        times.toFrame.push(Math.max(shown.shown, settled ?? 0) - made)
+
+        if (settled.still) {
+          times.toFrame.push(Math.max(shown.shown, settled.at ?? 0) - made)
+        } else {
+          // Counted apart rather than timed short, and waited out, so its work doesn't fall into the next edit's.
+          times.unsettled += 1
+          await settledAt(watcher)
+        }
       }
 
       await mover.waitForTimeout(250)
@@ -435,23 +447,26 @@ async function inView(page: Page, key: string): Promise<void> {
   await page.waitForTimeout(1000)
 }
 
-/** Waits until the watched board has been still for 400 ms, at most 5 s, returning when it last changed. */
-async function settledAt(page: Page): Promise<number | undefined> {
-  return page.evaluate(async () => {
+/**
+ * Waits until the watched board has been still for 400 ms, at most `settleMs`, returning when it last changed and
+ * whether it did keep still.
+ */
+async function settledAt(page: Page): Promise<{ at: number | undefined; still: boolean }> {
+  return page.evaluate(async (settleMs) => {
     const began = Date.now()
 
-    while (Date.now() - began < 5000) {
+    while (Date.now() - began < settleMs) {
       const last = window.roomPerfLast
 
       if (performance.timeOrigin + performance.now() - (last ?? began) >= 400) {
-        break
+        return { at: last, still: true }
       }
 
       await new Promise((done) => setTimeout(done, 50))
     }
 
-    return window.roomPerfLast
-  })
+    return { at: window.roomPerfLast, still: false }
+  }, settleMs)
 }
 
 /** Waits for the page to draw a change after the first `seen`, returning its arrival and frame since the epoch. */
