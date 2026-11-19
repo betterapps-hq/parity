@@ -6537,8 +6537,10 @@ the signed-in person's first name.
   after taking it in, which the room measures as `room.changeToScreen`; _settled_ is to the last change it caused in the
   board's frames, or anywhere on the canvas for a token change. The drag writes a board's position every frame for 6 s
   in one gesture, as a drag does. Before each run both windows are put back on top, and the run stops if the host draws
-  slower than a frame every 40 ms, since a covered window draws a frame a second. On 2026-11-18, on the example project,
-  two runs, the median and 95th percentile in milliseconds:
+  slower than a frame every 40 ms, since a covered window draws a frame a second. It also shows the edited board at 100%
+  and waits for its frames to draw live first; the baseline was taken with the whole project in view, where the board's
+  frames still drew each edit, as their later settling shows. On 2026-11-18, on the example project, two runs, the
+  median and 95th percentile in milliseconds:
 
   | Edit         | First frame          | Of which the host's share | Settled                |
   | ------------ | -------------------- | ------------------------- | ---------------------- |
