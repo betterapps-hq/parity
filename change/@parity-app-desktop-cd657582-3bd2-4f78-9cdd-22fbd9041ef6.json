@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Draw others' presence without re-rendering every layer on each message: a store per person, pointers and marquees moved by writing styles, colors claimed once, and a zoom-only camera hook",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -5,20 +5,29 @@ import type { PersonPresence } from "./protocol.ts"
 
 /*
  * Who else is in the room and what each is doing, as the window module hears it: their presence, their gesture, and
- * their palette's number. A store layers read with `useSyncExternalStore`, and pure functions over it, so what's drawn
- * can be tested without a canvas. Each person's pointer positions also go into a trail as they arrive, which their
- * pointer, marquee and drag are drawn from on every frame, a little behind, so all three move together and smoothly.
+ * their palette's number. Stores layers read with `useSyncExternalStore`, and pure functions over them, so what's drawn
+ * can be tested without a canvas. Each person has a store of their own, which changes only when something drawn of
+ * them changes, so one person moving draws nobody else again (PAR-1327). Their pointer positions go into a trail as
+ * they arrive instead, which their pointer, marquee and drag are drawn from on every frame, a little behind, so all
+ * three move together and smoothly without React drawing them again.
  */
 
-/** Someone else in the room, as far as this copy knows. */
-export interface RoomPerson {
+/** Someone in the room, as the avatar stack and their badges name them. */
+export interface Someone {
   peer: string
   name: string
   /** Their palette's number, as the host assigned it. */
   color?: number
-  pointer?: { at: Point; over: boolean }
+}
+
+/** Someone else in the room, as far as this copy knows: all that's drawn of them but where their pointer is. */
+export interface RoomPerson extends Someone {
+  /**
+   * Whether their pointer is over the canvas, once they've sent one. Where it's drawn comes from their trail
+   * (`People.trail`, `People.pointerAt`), which moves with every position without changing this.
+   */
+  pointer?: { over: boolean }
   selection: readonly NodeRef[]
-  camera?: Rect
   viewing: Viewing
   /** What they're doing with the pointer or keyboard, from its start to its end. */
   gesture?: Gesture
@@ -74,14 +83,18 @@ export function yourMember(peer: string, self: Self, palette: Palette): Member {
   return you
 }
 
-/** Who else is here, for layers, the same array until something changes. */
+/** Who's here, everyone's selections, and each person, for layers: each the same until something drawn of it changes. */
 export class People {
   /** Someone's palette now: their assigned one, held for them while they're here. */
   readonly paletteOf: (peer: string) => Palette
   #people = new Map<string, RoomPerson>()
   #trails = new Map<string, PointerTrail>()
-  #list: readonly RoomPerson[] = []
-  readonly #listeners = new Set<() => void>()
+  #cameras = new Map<string, Rect>()
+  #roster: readonly Someone[] = []
+  #everyone: readonly RoomPerson[] = []
+  readonly #rosterListeners = new Set<() => void>()
+  readonly #selectionListeners = new Set<() => void>()
+  readonly #personListeners = new Map<string, Set<() => void>>()
   readonly #now: () => number
 
   constructor(paletteOf: (peer: string) => Palette, now: () => number = () => performance.now()) {
@@ -89,16 +102,34 @@ export class People {
     this.#now = now
   }
 
-  get = (): readonly RoomPerson[] => this.#list
+  /** Who's here, by name and color: changes as someone joins or leaves, or is renamed or given another color. */
+  roster = (): readonly Someone[] => this.#roster
 
-  subscribe = (listener: () => void): (() => void) => {
-    this.#listeners.add(listener)
+  onRoster = (listener: () => void): (() => void) => listen(this.#rosterListeners, listener)
 
-    return () => this.#listeners.delete(listener)
-  }
+  /**
+   * Everyone, for their selections and carets: changes as someone joins or leaves, or their name, color, selection,
+   * view or typing changes, but not as their pointer moves or another gesture starts.
+   */
+  everyone = (): readonly RoomPerson[] => this.#everyone
 
-  person(peer: string): RoomPerson | undefined {
-    return this.#people.get(peer)
+  onSelections = (listener: () => void): (() => void) => listen(this.#selectionListeners, listener)
+
+  person = (peer: string): RoomPerson | undefined => this.#people.get(peer)
+
+  /** Hears changes to what's drawn of one person, and of nobody else. */
+  onPerson = (peer: string, listener: () => void): (() => void) => {
+    const listeners = this.#personListeners.get(peer) ?? new Set()
+    this.#personListeners.set(peer, listeners)
+    listeners.add(listener)
+
+    return () => {
+      listeners.delete(listener)
+
+      if (listeners.size === 0 && this.#personListeners.get(peer) === listeners) {
+        this.#personListeners.delete(peer)
+      }
+    }
   }
 
   /** Someone's pointer positions as they arrived, to draw from, once they've sent one. */
@@ -106,9 +137,14 @@ export class People {
     return this.#trails.get(peer)
   }
 
-  /** Where someone's pointer is drawn at `now`: from their trail, or where it was last sent. */
+  /** Where someone's pointer is drawn at `now`, from their trail. */
   pointerAt(peer: string, now: number): Point | undefined {
-    return this.#trails.get(peer)?.at(now) ?? this.#people.get(peer)?.pointer?.at
+    return this.#trails.get(peer)?.at(now)
+  }
+
+  /** What someone last had in view, to follow them or go to them. */
+  cameraOf(peer: string): Rect | undefined {
+    return this.#cameras.get(peer)
   }
 
   /** How many positions, from everyone, arrived too late to be drawn on time since the last call. */
@@ -143,7 +179,7 @@ export class People {
 
     if (presence.pointer) {
       const { at, over, t } = presence.pointer
-      person.pointer = { at, over }
+      person.pointer = { over }
       const arrived = this.#now()
       const trail = this.#trails.get(peer) ?? new PointerTrail()
       this.#trails.set(peer, trail)
@@ -151,14 +187,19 @@ export class People {
       trail.push({ t: t ?? arrived, at }, arrived)
     } else if (before?.pointer) {
       // Off the canvas, the pointer stays where it was.
-      person.pointer = { ...before.pointer, over: false }
+      person.pointer = { over: false }
     }
 
     if (presence.camera) {
-      person.camera = presence.camera
+      this.#cameras.set(peer, presence.camera)
     }
 
-    this.#set(peer, person)
+    // Only their pointer moved, or their view: their trail draws the one, and the other isn't drawn.
+    if (before && samePerson(before, person)) {
+      return
+    }
+
+    this.#set(peer, person, before)
   }
 
   /** Someone's gesture: kept from its start until it ends or is called off. */
@@ -178,7 +219,9 @@ export class People {
       next.gesture = gesture
     }
 
-    this.#set(peer, next)
+    if (!sameJson(before.gesture, next.gesture)) {
+      this.#set(peer, next, before)
+    }
   }
 
   /** The host's palette numbers, for those here. */
@@ -187,49 +230,114 @@ export class People {
       const before = this.#people.get(peer)
 
       if (before && before.color !== color) {
-        this.#set(peer, { ...before, color })
+        this.#set(peer, { ...before, color }, before)
       }
     }
   }
 
   /** Someone left. */
   remove(peer: string): void {
-    this.#trails.delete(peer)
-
-    if (this.#people.delete(peer)) {
-      this.#changed()
-    }
+    this.keepOnly([...this.#people.keys()].filter((each) => each !== peer))
+    this.#forget(peer)
   }
 
   /** Everyone but those in `here`, as when the connection comes back. */
   keepOnly(here: readonly string[]): void {
-    let changed = false
+    const gone = [...this.#people.keys()].filter((peer) => !here.includes(peer))
 
-    for (const peer of this.#people.keys()) {
-      if (!here.includes(peer)) {
-        this.#people.delete(peer)
-        this.#trails.delete(peer)
-        changed = true
-      }
+    for (const peer of gone) {
+      this.#people.delete(peer)
+      this.#forget(peer)
     }
 
-    if (changed) {
-      this.#changed()
+    if (gone.length === 0) {
+      return
+    }
+
+    this.#everyoneChanged(true)
+
+    for (const peer of gone) {
+      this.#tell(peer)
     }
   }
 
-  #set(peer: string, person: RoomPerson) {
+  #forget(peer: string) {
+    this.#trails.delete(peer)
+    this.#cameras.delete(peer)
+  }
+
+  #set(peer: string, person: RoomPerson, before: RoomPerson | undefined) {
     this.#people.set(peer, person)
-    this.#changed()
+    const renamed = !before || before.name !== person.name || before.color !== person.color
+
+    if (renamed || !sameSelection(before, person)) {
+      this.#everyoneChanged(renamed)
+    }
+
+    this.#tell(peer)
   }
 
-  #changed() {
-    this.#list = [...this.#people.values()]
+  /** Tells those drawing selections, and those drawing who's here when that or what they're called changed. */
+  #everyoneChanged(roster: boolean) {
+    this.#everyone = [...this.#people.values()]
 
-    for (const listener of this.#listeners) {
-      listener()
+    if (roster) {
+      this.#roster = this.#everyone.map(({ peer, name, color }) =>
+        color === undefined ? { peer, name } : { peer, name, color }
+      )
+      tell(this.#rosterListeners)
+    }
+
+    tell(this.#selectionListeners)
+  }
+
+  #tell(peer: string) {
+    const listeners = this.#personListeners.get(peer)
+
+    if (listeners) {
+      tell(listeners)
     }
   }
+}
+
+function listen(listeners: Set<() => void>, listener: () => void): () => void {
+  listeners.add(listener)
+
+  return () => listeners.delete(listener)
+}
+
+function tell(listeners: ReadonlySet<() => void>) {
+  for (const listener of listeners) {
+    listener()
+  }
+}
+
+/** Whether two values are the same plain data. */
+function sameJson<T>(a: T, b: T): boolean {
+  return a === b || JSON.stringify(a) === JSON.stringify(b)
+}
+
+/** Whether the same is drawn of someone: everything but where their pointer is, which their trail draws. */
+function samePerson(a: RoomPerson, b: RoomPerson): boolean {
+  return (
+    a.name === b.name &&
+    a.color === b.color &&
+    a.pointer?.over === b.pointer?.over &&
+    sameJson(a.gesture, b.gesture) &&
+    sameSelection(a, b)
+  )
+}
+
+/** Whether someone's selection, the frame they see it in, and where they're typing are all as they were. */
+function sameSelection(a: RoomPerson | undefined, b: RoomPerson): boolean {
+  const typing = (person: RoomPerson | undefined) => (person?.gesture?.kind === "text" ? person.gesture : undefined)
+
+  return (
+    a !== undefined &&
+    sameJson(a.selection, b.selection) &&
+    sameJson(a.viewing, b.viewing) &&
+    sameJson(typing(a), typing(b))
+  )
 }
 
 /** How much of the letters' box a caret leaves out, at the top and at the bottom, so it's as tall as a text field's. */

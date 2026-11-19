@@ -114,4 +114,21 @@ describe("PointerTrail", () => {
     expect(trail.takeLate()).toBe(1)
     expect(trail.takeLate()).toBe(0)
   })
+
+  it("tells those listening of each position it takes, until they stop", () => {
+    const trail = new PointerTrail()
+    let heard = 0
+
+    const stop = trail.onPush(() => {
+      heard += 1
+    })
+
+    trail.push({ t: 0, at: { x: 0, y: 0 } }, 1000)
+    trail.push({ t: 0, at: { x: 5, y: 0 } }, 1001)
+    stop()
+    trail.push({ t: 33, at: { x: 10, y: 0 } }, 1033)
+
+    // The second is no newer than the first, so it isn't taken.
+    expect(heard).toBe(1)
+  })
 })

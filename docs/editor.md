@@ -6466,6 +6466,15 @@ the signed-in person's first name.
   with their name, with their caret where they're typing (PAR-1275). Their marquee shows as they drag it, whether it
   starts on a frame's background or on the empty canvas (PAR-1311). A drag shows through `parity.canvas.preview`, with
   the lift, carry and settle of a local drag (PAR-1199), and settles on its write.
+- **Drawing presence cheaply** (PAR-1327). Each person has a store of their own (`People.onPerson`), which changes only
+  when something drawn of them does: their name, color, selection, gesture, or their pointer leaving the canvas. Their
+  pointer's positions and their camera don't change it. A pointer and a marquee are moved by writing their styles on
+  every frame from the person's trail, which wakes them as each position arrives (`PointerTrail.onPush`), so a presence
+  message renders nothing in React. The avatar stack reads only who's here (`People.roster`), and the outlines only
+  everyone's selections (`People.everyone`). Page layers read the zoom alone (`useZoom` in `packages/canvas-layer`), so
+  a pan renders none of them. Each person's palette is claimed once, as they're first drawn, and read again only when
+  the host assigns numbers (`HeldPalettes`). Tests: `people.test.ts`, `palettes.test.ts`, `trail.test.ts` and
+  `renders.test.ts`, which holds the renders per message and per pan to their budgets.
 - **Coming back.** A copy whose connection to the relay comes back drops everyone who left meanwhile as if it had heard
   them leave: their pointer, a drag they were showing, following them, and their color (PAR-1282).
 - **Who's here.** The avatar stack sits on the zoom controls' row, just left of them and as tall, with everyone in one
