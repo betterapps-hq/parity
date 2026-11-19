@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Others' edits in a live room apply from Loro's changes instead of re-reading whole designs, and the canvas updates only the boards a change touches",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

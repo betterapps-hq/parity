@@ -1,5 +1,7 @@
 export { applyOp, applyPlain, type DocState, OpProblem } from "./apply.ts"
 
+export { type ChangedBoards, changedBoards } from "./boards.ts"
+
 export {
   addContainer,
   addNote,
@@ -41,9 +43,11 @@ export {
   editFrame,
   type NoteEntry,
   noteEntries,
+  noteEntry,
   type ReferenceEntry,
   reachableLibrary,
-  referenceEntries
+  referenceEntries,
+  referenceEntry
 } from "./lookups.ts"
 
 export { createProjectDoc } from "./project-doc.ts"

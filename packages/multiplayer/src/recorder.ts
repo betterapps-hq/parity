@@ -61,7 +61,10 @@ export class Recorder {
   designAdded(key: DesignKey, path: string): void {
     this.design(key, path)
 
-    if (!this.designsRemoved.delete(key)) {
+    // A design removed and added again under its key was replaced: it's changed, whole, rather than added.
+    if (this.designsRemoved.delete(key)) {
+      this.designField(key, path, "root")
+    } else {
       this.designsAdded.add(key)
     }
   }
@@ -137,10 +140,17 @@ export class Recorder {
       },
       notes: this.notes,
       references: this.references,
+      items: { notes: this.itemKeys("notes"), references: this.itemKeys("references") },
       fileFields: [...this.fileFields.values()],
       modes: this.modes,
       tokens: this.tokens
     }
+  }
+
+  private itemKeys(list: "notes" | "references"): string[] {
+    const prefix = `${list}:`
+
+    return [...this.items].flatMap((item) => (item.startsWith(prefix) ? [item.slice(prefix.length)] : []))
   }
 
   private layer(path: string, address: LayerAddress): void {

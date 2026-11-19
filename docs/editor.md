@@ -6507,28 +6507,30 @@ the signed-in person's first name.
   others' changes costs the copy that takes it in, by stage: Loro's import, reading the touched designs back and diffing
   them (`backend.ts`, reported by the backend's `timings()`), `ProjectDoc` taking the change, and reading the designs
   back as the canvas does. Decoding the relay's message is `decode.bench.ts` in the extension. CI holds each to a budget
-  several times a laptop's (`remote-change.test.ts`, `decode.test.ts`). On 2026-11-18, the median and 95th percentile in
-  milliseconds:
+  several times a laptop's (`remote-change.test.ts`, `decode.test.ts`). Since others' changes apply from Loro's events
+  (PAR-1326), the median and 95th percentile in milliseconds, on 2026-11-18:
 
   | Project    | Edit         | Import      | Read and diff | `ProjectDoc` | Lookups     | Total       |
   | ---------- | ------------ | ----------- | ------------- | ------------ | ----------- | ----------- |
-  | Small      | Board drag   | 0.23 / 0.38 | 5.3 / 8.6     | 0.47 / 0.77  | 0.04 / 0.08 | 6.1 / 9.8   |
-  | Small      | Style change | 0.32 / 0.52 | 7.8 / 10.8    | 0.58 / 0.98  | 0.06 / 0.10 | 8.8 / 12.3  |
-  | Small      | Typing       | 0.37 / 0.49 | 8.2 / 10.1    | 0.74 / 1.00  | 0.06 / 0.09 | 9.4 / 11.5  |
-  | Small      | Token change | 0.09 / 0.20 | 0.02 / 0.04   | 0.01 / 0.02  | 0.00 / 0.00 | 0.13 / 0.27 |
-  | Large      | Board drag   | 0.33 / 0.56 | 18.5 / 22.3   | 1.55 / 1.77  | 0.19 / 0.35 | 20.6 / 24.4 |
-  | Large      | Style change | 0.34 / 0.54 | 18.8 / 22.6   | 1.61 / 2.13  | 0.19 / 0.30 | 20.9 / 25.9 |
-  | Large      | Typing       | 0.39 / 0.51 | 19.1 / 23.1   | 1.72 / 2.02  | 0.25 / 0.30 | 21.3 / 26.0 |
-  | Large      | Token change | 0.09 / 0.18 | 0.02 / 0.03   | 0.01 / 0.02  | 0.00 / 0.00 | 0.12 / 0.23 |
-  | Very large | Board drag   | 0.38 / 0.54 | 46.0 / 60.1   | 4.36 / 5.71  | 0.58 / 0.84 | 51.3 / 66.1 |
-  | Very large | Style change | 0.35 / 0.48 | 39.1 / 48.6   | 3.76 / 4.59  | 0.33 / 0.44 | 43.6 / 53.4 |
-  | Very large | Typing       | 0.37 / 0.65 | 39.0 / 46.3   | 3.83 / 4.83  | 0.41 / 0.51 | 43.7 / 52.3 |
-  | Very large | Token change | 0.09 / 0.16 | 0.02 / 0.03   | 0.01 / 0.02  | 0.00 / 0.00 | 0.11 / 0.22 |
+  | Small      | Board drag   | 0.04 / 0.09 | 0.01 / 0.03   | 0.01 / 0.01  | 0.01 / 0.02 | 0.06 / 0.15 |
+  | Small      | Style change | 0.05 / 0.11 | 0.03 / 0.06   | 0.01 / 0.02  | 0.01 / 0.02 | 0.09 / 0.20 |
+  | Small      | Typing       | 0.11 / 0.15 | 0.07 / 0.10   | 0.05 / 0.08  | 0.02 / 0.03 | 0.25 / 0.34 |
+  | Small      | Token change | 0.07 / 0.10 | 0.02 / 0.02   | 0.01 / 0.01  | 0.00 / 0.00 | 0.10 / 0.13 |
+  | Large      | Board drag   | 0.08 / 0.11 | 0.02 / 0.03   | 0.01 / 0.02  | 0.06 / 0.08 | 0.17 / 0.23 |
+  | Large      | Style change | 0.09 / 0.12 | 0.05 / 0.06   | 0.01 / 0.02  | 0.06 / 0.08 | 0.21 / 0.28 |
+  | Large      | Typing       | 0.10 / 0.14 | 0.07 / 0.09   | 0.06 / 0.08  | 0.06 / 0.08 | 0.29 / 0.38 |
+  | Large      | Token change | 0.06 / 0.08 | 0.01 / 0.02   | 0.01 / 0.01  | 0.00 / 0.00 | 0.09 / 0.11 |
+  | Very large | Board drag   | 0.08 / 0.11 | 0.02 / 0.03   | 0.01 / 0.02  | 0.14 / 0.17 | 0.24 / 0.32 |
+  | Very large | Style change | 0.09 / 0.13 | 0.05 / 0.07   | 0.01 / 0.02  | 0.15 / 0.20 | 0.31 / 0.40 |
+  | Very large | Typing       | 0.10 / 0.13 | 0.08 / 0.10   | 0.06 / 0.08  | 0.15 / 0.18 | 0.39 / 0.48 |
+  | Very large | Token change | 0.07 / 0.10 | 0.01 / 0.02   | 0.01 / 0.01  | 0.00 / 0.00 | 0.09 / 0.13 |
 
-  Reading back and diffing is nearly all of it, and grows with the project, though each edit touches one design: Loro's
-  import stays under half a millisecond. The projects are `packages/multiplayer`'s generated ones, 20, 100 and 250
-  designs. That's the room's own share only, without what the canvas does with the change, which is most of what a
-  person waits for: see the next item.
+  Before, when the touched designs were read back whole and diffed, a board drag took 6.1, 20.6 and 51.3 ms in total, a
+  style change 8.8, 20.9 and 43.6, and typing 9.4, 21.3 and 43.7: reading back was nearly all of it, and grew with the
+  project. Now the lookups, which list every design again when the files change, are the largest part on the very large
+  project. A layer added, moved or removed still reads its design back whole (PAR-1332). The projects are
+  `packages/multiplayer`'s generated ones, 20, 100 and 250 designs. That's the room's own share only, without what the
+  canvas does with the change, which is most of what a person waits for: see the next item.
 
 - **Measuring through the canvas** (PAR-1325). `node apps/desktop/scripts/room-perf.ts --runs "edits, drag, join"`
   measures in two copies side by side, the guest editing and the host watching, and profiles the host's JavaScript while
@@ -6623,7 +6625,12 @@ Tests:
 - `packages/extension-host/src/window-seams.test.ts`: `parity.sync`'s opening, changes, catching up, lineage and the
   room going away.
 - `packages/multiplayer-loro/src/backend.test.ts`: opening on a snapshot as the replica holds it; two documents kept in
-  step through each one's local updates, delivered late as a relay does, with a merge repaired the same on both.
+  step through each one's local updates, delivered late as a relay does, with a merge repaired the same on both; others'
+  field, record key and text changes applied from Loro's events without reading designs back, tree changes and fields
+  repairs follow read back whole and counted, the notes changed named, and undo kept apart from others' changes
+  (PAR-1326).
+- `packages/multiplayer/src/boards.test.ts`: the boards a change names for the canvas to update, none for a change
+  inside a design's layers, and every board checked for a file added, removed or replaced (PAR-1326).
 - `packages/multiplayer-loro/src/takeover-save.test.ts`, "a copy that takes over a live room" (2): a copy opened on the
   host's snapshot takes over and saves an edit, and the text matches a copy that opened the file alone and saved the
   same edit, byte for byte, with only the edited line changed from the file on disk (PAR-1288).

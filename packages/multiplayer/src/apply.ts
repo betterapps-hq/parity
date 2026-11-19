@@ -521,6 +521,13 @@ function removeFile(
     recorder.designRemoved(designKey(op.file, container.id), op.file)
   }
 
+  // Its notes and references go too, which a file added back in the same change doesn't bring back.
+  for (const list of ["notes", "references"] as const) {
+    for (const item of document[list] ?? []) {
+      recorder.item(list, op.file, item.id)
+    }
+  }
+
   return {
     state: { ...state, files },
     inverse: [

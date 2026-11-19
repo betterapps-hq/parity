@@ -25,8 +25,15 @@ interface Placed {
 export class PlacedBoards {
   private readonly placed = new Map<string, Placed[]>()
   private readonly changes = signal()
+  private changing: { tab: string; design: string } | undefined
 
+  /** Told of each board placed, moved or let go, which `changed` names while they're told. */
   subscribe = this.changes.subscribe
+
+  /** The board whose placement the listeners are being told of, so a canvas updates only that one. */
+  changed(): { tab: string; design: string } | undefined {
+    return this.changing
+  }
 
   /** Where the canvas should draw a board instead of its stored position, while it's placed. */
   at(tab: string, design: string): Point | undefined {
@@ -38,7 +45,7 @@ export class PlacedBoards {
     const key = id(tab, design)
     const placed: Placed = { at }
     this.placed.set(key, [...(this.placed.get(key) ?? []), placed])
-    this.changes.notify()
+    this.notify(tab, design)
     let removed = false
 
     return {
@@ -48,7 +55,7 @@ export class PlacedBoards {
         }
 
         placed.at = next
-        this.changes.notify()
+        this.notify(tab, design)
       },
       remove: () => {
         if (removed) {
@@ -64,8 +71,18 @@ export class PlacedBoards {
           this.placed.delete(key)
         }
 
-        this.changes.notify()
+        this.notify(tab, design)
       }
+    }
+  }
+
+  private notify(tab: string, design: string): void {
+    this.changing = { tab, design }
+
+    try {
+      this.changes.notify()
+    } finally {
+      this.changing = undefined
     }
   }
 }

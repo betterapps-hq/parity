@@ -744,7 +744,7 @@ LoroDoc (one per open project)
 | `open`      | `new LoroDoc()`, `getTree("designs").enableFractionalIndex(…)`, builds every node from the files, and `commit({ origin: "load" })`. From another replica's snapshot it imports that and indexes each design's layers only when an operation first needs them, since reading nodes makes Loro decode them                |
 | `files`     | The plain values the backend keeps (below), never read from Loro                                                                                                                                                                                                                                                        |
 | `apply`     | For each operation: `createNode` at the sibling's index for a `before`; `moveBefore` or `move` for a move; `tree.delete`; `node.data.set`; a record's `LoroMap.set` or `delete`; `LoroText.splice`, or `update` for a replace. Then one `commit({ origin })`, with no message, since Loro keeps messages in its history |
-| `subscribe` | With sync: the backend's `receive` imports others' updates, whose events arrive before `import` returns. It repairs the designs they touched (below), reads those back, and turns them into operations on the plain values with `fileOps`, so a `BackendChange` says what changed as `apply`'s does                     |
+| `subscribe` | With sync: the backend's `receive` imports others' updates, whose events arrive before `import` returns. It turns each event into operations on the plain values (below), so a `BackendChange` says what changed as `apply`'s does                                                                                      |
 | `version`   | `doc.frontiers()`, encoded, with a count of changes to drawn files, which Loro doesn't see                                                                                                                                                                                                                              |
 | `dispose`   | Drops the listeners and frees the tree, the maps and the `LoroDoc`                                                                                                                                                                                                                                                      |
 
@@ -777,9 +777,15 @@ one. `receive` keeps what it last repaired for `projectDoc.repaired`, which is r
 
 - **An `apply` updates them from the operations it applied,** making the touched nodes' new values and copying the
   layers above each up to its design and file. Every other design, layer and file stays the same object.
-- **Changes from others update them from what Loro holds:** the designs and files an import touched are read back,
-  compared with the plain values by `fileOps`, and the operations applied with `applyPlain`, so only what changed is
-  copied.
+- **Changes from others update them from Loro's events** (PAR-1326). A change to a design's or a layer's field, a key of
+  a record field, or a text becomes a `setDesign`, `set` or `editText`, applied with `applyPlain`, so only what changed
+  is copied and nothing is read back. Those changes never need a repair.
+- **What the events can't say reads its design back whole:** a tree change (a layer added, moved or removed), a slot
+  node's change, and the fields repairs follow or that change a key: a layer's `id`, `type` or `slot`, and a design's
+  `id`, file, `kind`, `states` or `params`. Those designs are repaired, read back, and compared with the plain values by
+  `fileOps`, as are files whose notes, references or other fields changed. Operations from events that don't fit the
+  plain values, which shouldn't happen, read their designs back the same way, and a merge that operations can't say
+  replaces its files whole. `counts()` says how many designs each way took and how many files were replaced.
 - **Fields are built in the order core's schemas list them,** so saved files keep a steady key order and git diffs stay
   small.
 

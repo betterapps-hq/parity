@@ -269,6 +269,8 @@ export interface DocChange {
   }
   notes: boolean
   references: boolean
+  /** The notes and references added, changed or removed, each by its file and id as `designKey` joins them. */
+  items: { notes: readonly string[]; references: readonly string[] }
   fileFields: readonly { file: string; field: FileField }[]
   modes: boolean
   tokens: boolean
@@ -308,6 +310,7 @@ export type BackendChange = Pick<
   | "layers"
   | "notes"
   | "references"
+  | "items"
   | "fileFields"
   | "modes"
   | "tokens"
