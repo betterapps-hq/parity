@@ -34,8 +34,9 @@ function prefersLessMotion(): boolean {
  * Someone else's pointer, placed on the canvas. Their positions arrive unevenly, so it's drawn a little behind them and
  * moved between them on every frame (`PointerTrail`), so it doesn't stop and jump when one is late. When they leave the
  * canvas it stays where they left it, faded and with only their name; when they come back, it glides from there to where
- * they are, instead of jumping (`pointerFrame`). With reduced motion it jumps back instead. It's drawn for the eye only:
- * the avatar stack says who's here.
+ * they are, instead of jumping (`pointerFrame`). With reduced motion it jumps back instead. It moves by writing its
+ * transform, so a new position draws nothing again in React. It's drawn for the eye only: the avatar stack says who's
+ * here.
  */
 export function RemotePointer({
   member,
@@ -67,32 +68,44 @@ export function RemotePointer({
   }, [given, own, x, y])
 
   // Drawn on every frame while it's on its way somewhere, and once for whatever changed otherwise.
+  const draw = useRef((now: number) => {
+    frame.current = undefined
+    const element = node.current
+    const { trail: from, scale: times, offCanvas: off, at: fallback } = drawing.current
+    const position = from.at(now) ?? fallback
+
+    if (!element || !position) {
+      return
+    }
+
+    const next = pointerFrame(track.current, { at: position, offCanvas: off, now, reduced: prefersLessMotion() })
+    track.current = next.track
+    element.style.transform = `translate(${next.at.x * times}px, ${next.at.y * times}px)`
+
+    if (from.moving || next.gliding) {
+      frame.current = requestAnimationFrame(draw.current)
+    }
+  })
+
   useLayoutEffect(() => {
     drawing.current = { trail, scale, offCanvas, at }
 
-    const draw = (now: number) => {
-      frame.current = undefined
-      const element = node.current
-      const { trail: from, scale: times, offCanvas: off, at: fallback } = drawing.current
-      const position = from.at(now) ?? fallback
-
-      if (!element || !position) {
-        return
-      }
-
-      const next = pointerFrame(track.current, { at: position, offCanvas: off, now, reduced: prefersLessMotion() })
-      track.current = next.track
-      element.style.transform = `translate(${next.at.x * times}px, ${next.at.y * times}px)`
-
-      if (from.moving || next.gliding) {
-        frame.current = requestAnimationFrame(draw)
-      }
+    // Drawn now rather than on the frame asked for, which draws it again from here if it's still on its way.
+    if (frame.current !== undefined) {
+      cancelAnimationFrame(frame.current)
     }
 
-    if (frame.current === undefined) {
-      draw(performance.now())
-    }
+    draw.current(performance.now())
   })
+
+  // Each position taken starts it drawing again, without React drawing it again (PAR-1327).
+  useLayoutEffect(
+    () =>
+      trail.onPush(() => {
+        frame.current ??= requestAnimationFrame(draw.current)
+      }),
+    [trail]
+  )
 
   useLayoutEffect(
     () => () => {

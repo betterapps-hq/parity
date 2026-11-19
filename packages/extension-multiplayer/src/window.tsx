@@ -3,7 +3,6 @@ import {
   defineWindowModule,
   type Gesture,
   LineageError,
-  type Palette,
   type Preview,
   type WindowParity
 } from "@parity-app/extension/internal"
@@ -12,6 +11,7 @@ import type { RelayApi } from "./extension.ts"
 import { Follow } from "./follow.ts"
 import { fileWritesFollowHost } from "./hosting.ts"
 import { Faces, Following, Marquees, Pointers, Selections } from "./layers.tsx"
+import { HeldPalettes } from "./palettes.ts"
 import { assignColors, dragItems, People } from "./people.ts"
 import { fromBase64, type PersonPresence, toBase64 } from "./protocol.ts"
 import { joinRoom, relayTransport, type Room } from "./room.ts"
@@ -51,24 +51,10 @@ export default defineWindowModule({
     ready.catch(() => undefined)
     let leftWhy: "closed" | "lineage" = "closed"
 
-    // Each person's color is held while they're here, so the layers read it without claiming as they draw.
-    const held = new Set<string>()
-
-    const paletteOf = (key: string): Palette => {
-      if (!held.has(key)) {
-        held.add(key)
-
-        return parity.colors.claim(key)
-      }
-
-      // Read without holding it twice: the claim made as they arrived holds it.
-      const palette = parity.colors.claim(key)
-      parity.colors.release(key)
-
-      return palette
-    }
-
-    const people = new People(paletteOf)
+    // Each person's color is claimed once and held while they're here, so the layers read it without claiming as they
+    // draw.
+    const palettes = new HeldPalettes(parity.colors)
+    const people = new People(palettes.of)
     const follow = new Follow(parity.camera)
     let assigned = new Map<string, number>()
 
@@ -79,6 +65,8 @@ export default defineWindowModule({
         parity.colors.assign(key, n)
       }
 
+      // Read again before anyone's drawn in their new color.
+      palettes.reread()
       people.colors(next)
     }
 
@@ -254,10 +242,7 @@ export default defineWindowModule({
         previews.delete(gone)
         heldForWrite.delete(gone)
         people.remove(gone)
-
-        if (held.delete(gone)) {
-          parity.colors.release(gone)
-        }
+        palettes.release(gone)
       },
       hello(from) {
         // Only a copy that opened through the room has a document to give; the snapshot waits until it's open.

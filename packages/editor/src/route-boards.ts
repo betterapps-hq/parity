@@ -510,13 +510,133 @@ const linkClearance = 8
  * curves all the way down to its top edge.
  */
 export function pageLinkLine(above: BoardBox, below: BoardBox, zoom: number, untitled = false): string {
+  const { start, c1, c2, curveEnd, end } = linkCurve(above, below, zoom, untitled)
+  const drop = end ? ` L ${end.x} ${end.y}` : ""
+
+  return `M ${start.x} ${start.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${curveEnd.x} ${curveEnd.y}${drop}`
+}
+
+interface Point {
+  x: number
+  y: number
+}
+
+/** The cubic of a line in the page tree, and the drop after it when there is one (see `pageLinkLine`). */
+function linkCurve(above: BoardBox, below: BoardBox, zoom: number, untitled: boolean) {
   const [x1, y1] = [above.x + above.w / 2, above.y + above.h]
   const x2 = below.x + below.w / 2
   const turn = untitled ? below.y : titleTop(below, zoom) - linkClearance / zoom
-  const [curveEnd, drop] = turn > y1 && !untitled ? [turn, ` L ${x2} ${below.y}`] : [below.y, ""]
+  const dropping = turn > y1 && !untitled
+  const curveEnd = dropping ? turn : below.y
   const bend = (curveEnd - y1) / 2
 
-  return `M ${x1} ${y1} C ${x1} ${y1 + bend}, ${x2} ${curveEnd - bend}, ${x2} ${curveEnd}${drop}`
+  return {
+    start: { x: x1, y: y1 },
+    c1: { x: x1, y: y1 + bend },
+    c2: { x: x2, y: curveEnd - bend },
+    curveEnd: { x: x2, y: curveEnd },
+    end: dropping ? { x: x2, y: below.y } : undefined
+  }
+}
+
+/** A dash and the gap after it in the page tree's lines, in screen pixels. */
+export const pageLinkDash = 6
+
+/** How long each piece of a line in the page tree is at most, in screen pixels: a whole number of dashes and gaps. */
+const linkPieceLength = 200 * 2 * pageLinkDash
+
+/**
+ * The line from a page down to a page under it, as `pageLinkLine` draws it, in pieces for drawing dashed (PAR-1322).
+ * Each piece starts a whole number of dashes and gaps along the line, so every piece starts on a dash and one dash
+ * offset flows them all; and a piece off screen isn't drawn, where one long dashed line had every dash along it worked
+ * out on every frame, on screen or not. The curve is flattened to within half a screen pixel. Each piece comes with
+ * the box round it on the canvas.
+ */
+export function pageLinkPieces(
+  above: BoardBox,
+  below: BoardBox,
+  zoom: number,
+  untitled = false
+): { path: string; box: BoardBox }[] {
+  const { start, c1, c2, curveEnd, end } = linkCurve(above, below, zoom, untitled)
+  const points = [start]
+  flatten(start, c1, c2, curveEnd, 0.5 / zoom, points, 0)
+
+  if (end) {
+    points.push(end)
+  }
+
+  return cut(points, linkPieceLength / zoom).map((piece) => {
+    const xs = piece.map(({ x }) => x)
+    const ys = piece.map(({ y }) => y)
+    const [left, top] = [Math.min(...xs), Math.min(...ys)]
+
+    return {
+      path: `M ${piece.map(({ x, y }) => `${round(x)} ${round(y)}`).join(" L ")}`,
+      box: { x: left, y: top, w: Math.max(...xs) - left, h: Math.max(...ys) - top }
+    }
+  })
+}
+
+const round = (value: number) => Math.round(value * 100) / 100
+
+/** Adds a cubic's points after its start to `points`, halving it until each part is flat within `tolerance`. */
+function flatten(p0: Point, p1: Point, p2: Point, p3: Point, tolerance: number, points: Point[], depth: number) {
+  if (depth >= 16 || (offChord(p1, p0, p3) <= tolerance && offChord(p2, p0, p3) <= tolerance)) {
+    points.push(p3)
+
+    return
+  }
+
+  const mid = (a: Point, b: Point) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
+  const [a, b, c] = [mid(p0, p1), mid(p1, p2), mid(p2, p3)]
+  const [d, e] = [mid(a, b), mid(b, c)]
+  const centre = mid(d, e)
+  flatten(p0, a, d, centre, tolerance, points, depth + 1)
+  flatten(centre, e, c, p3, tolerance, points, depth + 1)
+}
+
+/** How far a point is from the line through a chord's ends. */
+function offChord(point: Point, from: Point, to: Point) {
+  const [dx, dy] = [to.x - from.x, to.y - from.y]
+  const length = Math.hypot(dx, dy)
+
+  return length === 0
+    ? Math.hypot(point.x - from.x, point.y - from.y)
+    : Math.abs(dy * (point.x - from.x) - dx * (point.y - from.y)) / length
+}
+
+/** A polyline cut into polylines `length` long, the last shorter, each starting where the one before ends. */
+function cut(points: readonly Point[], length: number): Point[][] {
+  const pieces: Point[][] = []
+  let piece = [points[0]]
+  let left = length
+
+  for (let i = 1; i < points.length; i++) {
+    let from = points[i - 1]
+    const to = points[i]
+    let span = Math.hypot(to.x - from.x, to.y - from.y)
+
+    while (span > left) {
+      const share = left / span
+      const at = { x: from.x + (to.x - from.x) * share, y: from.y + (to.y - from.y) * share }
+      piece.push(at)
+      pieces.push(piece)
+      piece = [at]
+      from = at
+      span -= left
+      left = length
+    }
+
+    piece.push(to)
+    left -= span
+  }
+
+  if (piece.length > 1) {
+    pieces.push(piece)
+  }
+
+  return pieces
 }
 
 /**

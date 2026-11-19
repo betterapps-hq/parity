@@ -67,7 +67,8 @@ describe("People", () => {
     clock = 1033
     moved(10, 33)
 
-    expect(people.person("a")?.pointer).toEqual({ at: { x: 10, y: 0 }, over: true })
+    expect(people.person("a")?.pointer).toEqual({ over: true })
+    expect(people.trail("a")?.latest).toEqual({ x: 10, y: 0 })
     expect(people.pointerAt("a", 1033)).toEqual({ x: 0, y: 0 })
     expect(people.pointerAt("a", 1150)?.x).toBeGreaterThan(0)
 
@@ -75,28 +76,77 @@ describe("People", () => {
     expect(people.trail("a")).toBeUndefined()
   })
 
-  it("keeps each person's latest presence, their pointer where it left the canvas, and their color", () => {
+  it("keeps each person's latest presence, their pointer off the canvas once it leaves, their color and their view", () => {
     const people = new People(palette.bind(undefined, 0))
-    let told = 0
-    people.subscribe(() => {
-      told += 1
-    })
+    const camera = { x: 0, y: 0, width: 800, height: 600 }
 
     people.presence("a", { name: "Ana", selection: [], viewing: {}, pointer: { at: { x: 5, y: 6 }, over: true } })
     people.colors(new Map([["a", 4]]))
-    people.presence("a", { name: "Ana", selection: [board("Card")], viewing: { design: "Card" } })
+    people.presence("a", { name: "Ana", selection: [board("Card")], viewing: { design: "Card" }, camera })
 
-    expect(people.get()).toEqual([
+    expect(people.everyone()).toEqual([
       {
         peer: "a",
         name: "Ana",
         color: 4,
         selection: [board("Card")],
         viewing: { design: "Card" },
-        pointer: { at: { x: 5, y: 6 }, over: false }
+        pointer: { over: false }
       }
     ])
-    expect(told).toBe(3)
+    expect(people.roster()).toEqual([{ peer: "a", name: "Ana", color: 4 }])
+    expect(people.cameraOf("a")).toEqual(camera)
+  })
+
+  it("tells only the person whose pointer moved, and nobody when only where it is changed", () => {
+    let clock = 0
+    const people = new People(palette.bind(undefined, 0), () => clock)
+    const heard: string[] = []
+    people.presence("a", { name: "Ana", selection: [board("Card")], viewing: {} })
+    people.presence("b", { name: "Bo", selection: [], viewing: {} })
+    people.onRoster(() => heard.push("roster"))
+    people.onSelections(() => heard.push("selections"))
+    people.onPerson("a", () => heard.push("a"))
+    people.onPerson("b", () => heard.push("b"))
+
+    const pointer = (x: number, over = true) => {
+      clock += 33
+      people.presence("a", {
+        name: "Ana",
+        selection: [board("Card")],
+        viewing: {},
+        pointer: { at: { x, y: 0 }, over, t: clock },
+        camera: { x, y: 0, width: 800, height: 600 }
+      })
+    }
+
+    // Their pointer arrives: drawn once. Moving, it's drawn from its trail.
+    pointer(0)
+    pointer(10)
+    pointer(20)
+    expect(heard).toEqual(["a"])
+
+    // It leaves the canvas: drawn faded.
+    pointer(20, false)
+    expect(heard).toEqual(["a", "a"])
+  })
+
+  it("tells those drawing selections only when a selection, view or caret changes, and the roster only for names", () => {
+    const people = new People(palette.bind(undefined, 0))
+    const heard: string[] = []
+    people.presence("a", { name: "Ana", selection: [], viewing: {} })
+    people.onRoster(() => heard.push("roster"))
+    people.onSelections(() => heard.push("selections"))
+
+    people.gesture("a", { kind: "marquee", phase: "start", from: { x: 0, y: 0 } })
+    expect(heard).toEqual([])
+
+    people.presence("a", { name: "Ana", selection: [board("Card")], viewing: {} })
+    expect(heard).toEqual(["selections"])
+
+    people.presence("a", { name: "Ana Lu", selection: [board("Card")], viewing: {} })
+    people.colors(new Map([["a", 2]]))
+    expect(heard).toEqual(["selections", "roster", "selections", "roster", "selections"])
   })
 
   it("keeps a gesture from its start until it ends, and forgets those who left", () => {
@@ -109,8 +159,14 @@ describe("People", () => {
     people.gesture("a", { kind: "marquee", phase: "end", from: { x: 0, y: 0 } })
     expect(people.person("a")?.gesture).toBeUndefined()
 
+    let told = 0
+    people.onPerson("b", () => {
+      told += 1
+    })
     people.keepOnly(["a"])
-    expect(people.get().map((person) => person.peer)).toEqual(["a"])
+    expect(people.roster().map((person) => person.peer)).toEqual(["a"])
+    expect(people.person("b")).toBeUndefined()
+    expect(told).toBe(1)
   })
 })
 
@@ -135,7 +191,7 @@ describe("what's drawn", () => {
     people.presence("a", { name: "Ana", selection: [board("Card")], viewing: {} })
     people.presence("b", { name: "Bo", selection: [board("Card"), board("Nav")], viewing: {} })
 
-    expect(selectionsByNode(people.get()).map(({ ref, by }) => [ref.key, by.map((each) => each.peer)])).toEqual([
+    expect(selectionsByNode(people.everyone()).map(({ ref, by }) => [ref.key, by.map((each) => each.peer)])).toEqual([
       ["Card", ["a", "b"]],
       ["Nav", ["b"]]
     ])

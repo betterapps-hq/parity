@@ -6,4 +6,12 @@
 
 export { createFrameLoop, type Frame, type FrameLoop, type FrameLoopOptions } from "./frame-loop.ts"
 
-export { CanvasLayerContext, type CanvasLayerContextValue, useBox, useCamera, useColor, useFrame } from "./hooks.ts"
+export {
+  CanvasLayerContext,
+  type CanvasLayerContextValue,
+  useBox,
+  useCamera,
+  useColor,
+  useFrame,
+  useZoom
+} from "./hooks.ts"
