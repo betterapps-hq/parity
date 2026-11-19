@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { bodyAttribute } from "@parity-app/core"
 import { describe, expect, it, vi } from "vite-plus/test"
-import { buildCopy } from "./copy.ts"
+import { buildCopy, buildingCopy } from "./copy.ts"
 import type { FrozenElement } from "./snapshot.ts"
 
 const page: FrozenElement = {
@@ -170,5 +170,45 @@ describe("buildCopy", () => {
     const { drawn } = buildCopy(document, wide, registry)
 
     expect(drawn.ids.at(-1)).toBe("39999")
+  })
+})
+
+describe("buildingCopy", () => {
+  // A page as deep as it's wide: 100 sections of 10 cards each.
+  const dense: FrozenElement = {
+    tag: "body",
+    attributes: [],
+    children: Array.from({ length: 100 }, () => ({
+      tag: "section",
+      attributes: [],
+      children: Array.from({ length: 10 }, () => ({ tag: "article", attributes: [], children: ["card"] }))
+    }))
+  }
+
+  it("pauses between steps, and nothing it makes is in the document until the fragment goes in", () => {
+    const steps = buildingCopy(document, dense, registry)
+    const before = document.querySelectorAll("article").length
+    let pauses = 0
+
+    for (let step = steps.next(); !step.done; step = steps.next()) {
+      pauses += 1
+    }
+
+    expect(pauses).toBeGreaterThan(10)
+    expect(document.querySelectorAll("article")).toHaveLength(before)
+  })
+
+  it("builds what buildCopy builds", () => {
+    const steps = buildingCopy(document, dense, registry)
+    let step = steps.next()
+
+    while (!step.done) {
+      step = steps.next()
+    }
+
+    const whole = buildCopy(document, dense, registry)
+
+    expect(step.value.drawn.ids).toEqual(whole.drawn.ids)
+    expect(step.value.fragment.firstElementChild!.outerHTML).toBe(whole.fragment.firstElementChild!.outerHTML)
   })
 })

@@ -1,5 +1,12 @@
 import { colorSchemeAttribute, remProperty, rewriteFrameUnits, rootFontSizeProperty } from "@parity-app/core"
-import { type BuiltCopy, buildCopy, type FrozenElement, type PageMode, type PageRoot } from "@parity-app/frames"
+import {
+  type BuiltCopy,
+  buildingCopy,
+  type FrozenElement,
+  type PageMode,
+  type PageRoot,
+  runSteps
+} from "@parity-app/frames"
 import { copyRootAttribute, copyShadowStyle, type CopySheets, copySheets } from "./copy-sheets.ts"
 import { prepareFrame } from "./frame.ts"
 
@@ -34,6 +41,15 @@ const hostAttributes = new Set([
   "data-state"
 ])
 
+/** A copy built and not yet in its host: its elements and the nodes they draw, its body stand-in, and what puts it in. */
+export interface PreparedCopy {
+  built: BuiltCopy
+  /** The stand-in for `<body>`, which carries its attributes. */
+  body: Element | null
+  /** Puts the copy in its host's shadow root, and gives what takes it out again. */
+  mount: () => () => void
+}
+
 /**
  * Builds `copy` in `host`'s shadow root from `prepareFrame`, with a custom element registry of its own, styled with the
  * page's own stylesheets through `prepareCanvasCss`. `<html>`'s classes and attributes go on the host and on an element
@@ -47,10 +63,25 @@ export function mountCopy(
   registry: CustomElementRegistry,
   sheets: readonly CSSStyleSheet[] = []
 ): MountedCopy {
-  const target = prepareFrame(host, copySheets(copy), { classNames: [], attributes: {}, viewport, registry, sheets })
+  const { built, body, mount } = runSteps(preparingCopy(host, copy, mode, viewport, registry, sheets))
 
+  return { built, body, unmount: mount() }
+}
+
+/**
+ * Builds `copy` as `mountCopy` does, outside any document, pausing between steps so a board can spread it over several
+ * frames while its picture shows (PAR-1336). Only `mount` touches the host.
+ */
+export function* preparingCopy(
+  host: HTMLElement,
+  copy: CopyContent,
+  mode: PageMode,
+  viewport: { width: number; height: number },
+  registry: CustomElementRegistry,
+  sheets: readonly CSSStyleSheet[] = []
+): Generator<void, PreparedCopy> {
   // Inline styles' viewport lengths and `rem` measure the board, as its sheets' do.
-  const built = buildCopy(document, copy.body, registry, {
+  const built = yield* buildingCopy(document, copy.body, registry, {
     sheet: (css) => copyShadowStyle(copy, css, mode.scheme),
     inline: rewriteFrameUnits
   })
@@ -82,19 +113,20 @@ export function mountCopy(
   )
   root.append(built.fragment)
 
-  // The stand-in `prepareFrame` made gives way to the copy's, which carries `<body>`'s attributes.
-  target.parentElement?.replaceWith(root)
-  const unroot = rootOnHost(host, copy.root, mode)
+  const mount = () => {
+    const target = prepareFrame(host, copySheets(copy), { classNames: [], attributes: {}, viewport, registry, sheets })
+    // The stand-in `prepareFrame` made gives way to the copy's, which carries `<body>`'s attributes.
+    target.parentElement?.replaceWith(root)
+    const unroot = rootOnHost(host, copy.root, mode)
 
-  return {
-    built,
-    body,
-    unmount: () => {
+    return () => {
       unroot()
       // Nothing keeps the copy's elements once it's gone, as a sleeping frame keeps none.
       host.shadowRoot?.replaceChildren()
     }
   }
+
+  return { built, body, mount }
 }
 
 /**

@@ -9087,6 +9087,14 @@ A screen is named for the component its route draws, else its path.
   changes the browser rasters what it recorded of the page again, sharp at the new scale, rather than recording every
   element again on every frame. On the heavy benchmark (`scripts/heavy-app.ts`) at 60%, with two dense copies in view,
   painting took 5–6 ms a frame instead of 16–20, and prepainting 0.6 ms instead of 6.5–7.
+- **A copy is built over several frames (PAR-1336).** A board that turns into its copy while the canvas zooms keeps
+  showing its picture while the copy is built a few milliseconds a frame (`windowCopyBuilds`, through `preparingCopy`
+  and `buildingCopy`), outside the page, and swaps it in once it's whole, the nearest board first and one a frame. A
+  copy built again for a new mode, window or code change stays in until the next one is whole. The frame a copy goes in
+  reads the custom properties it would inherit once for each parent, not each time, since reading them laid out the
+  whole page's styles there and then. On the heavy benchmark, zooming between 25% and 45% for 6 seconds, as boards
+  turned into copies and back, ran at 41–42 frames a second with its longest frame 58–75 ms, where it ran at 35–39 with
+  frames of 133–308 ms.
 - **Pictures (PAR-1200).** A board small on screen or away from the view shows a picture of its copy instead of the copy
   itself, as [proposals/route-frames.md](proposals/route-frames.md) sets out. It turns into its copy once it's near the
   view and wider than 440 screen pixels, and back into its picture once it's narrower than 360 or leaves the view

@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Build a route board's frozen copy over several frames while its picture shows, so zooming doesn't stall as boards turn into copies",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
