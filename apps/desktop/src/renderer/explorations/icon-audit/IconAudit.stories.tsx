@@ -198,7 +198,6 @@ const toVerify = new Set([
   "Blocks",
   "ChevronsDownUp",
   "CircleDot",
-  "ClipboardPlus",
   "Component",
   "Contrast",
   "CornerDownLeft",
@@ -207,7 +206,6 @@ const toVerify = new Set([
   "DiamondPlus",
   "Gem",
   "Grid3x3",
-  "Hammer",
   "HandGrab",
   "Heading",
   "ImageDown",
@@ -222,10 +220,8 @@ const toVerify = new Set([
   "MonitorPlay",
   "PenTool",
   "SaveAll",
-  "SearchCheck",
   "SeparatorHorizontal",
   "Server",
-  "SquareArrowOutUpRight",
   "Squircle",
   "StretchHorizontal",
   "SunMoon",
@@ -242,22 +238,16 @@ const toVerify = new Set([
  */
 const lessConfident = new Set([
   "ArrowUpToLine",
-  "Bird",
-  "ClipboardPlus",
   "Component",
   "DiamondPlus",
   "FileJson",
   "GitMerge",
-  "Hammer",
   "HandGrab",
   "Magnet",
   "OctagonAlert",
-  "Route",
-  "SearchCheck",
   "Skull",
   "Squircle",
   "SunMoon",
-  "Swords",
   "Telescope",
   "TextCursor"
 ])
@@ -271,6 +261,33 @@ const reusedPicks = new Set(
     .map((icon) => icon.fluent.name)
     .filter((name, _, names) => names.indexOf(name) !== names.lastIndexOf(name))
 )
+
+/**
+ * Reused Fluent icons whose sharing is in doubt: it hides a difference the app shows, such as moderate and critical
+ * issues both drawing ErrorCircle, or one of the picks is less confident. Lucide names for nearly the same drawing,
+ * such as Link and Link2, share an icon with no doubt.
+ */
+const doubtfulReuse = new Set([
+  "Apps",
+  "ArrowUpload",
+  "Color",
+  "ErrorCircle",
+  "Games",
+  "LayoutColumnThree",
+  "MyLocation",
+  "Rename",
+  "Table"
+])
+
+/** Rows, by Lucide name, whose share of an icon is in doubt even though the icon's other rows are approved. */
+const doubtfulReuseRows = new Set(["ExternalLink", "Grid2x2", "Link", "Replace"])
+
+/** Whether a row's share of its recommended icon is in doubt. */
+const reuseInDoubt = (icon: AuditedIcon) => doubtfulReuse.has(icon.fluent.name) || doubtfulReuseRows.has(icon.lucide)
+
+/** Rows that share a recommended icon, each icon's rows together. */
+const byReusedIcon = (a: (typeof numbered)[number], b: (typeof numbered)[number]) =>
+  a.icon.fluent.name.localeCompare(b.icon.fluent.name) || a.number - b.number
 
 interface AuditTableProps {
   title: string
@@ -411,10 +428,19 @@ function IconAudit({ size, filled, appOnly, toVerifyOnly }: IconAuditProps) {
           filled={filled}
         />
         <AuditTable
-          title="Reused icons"
+          title="Reused icons, confident"
           rows={rows
-            .filter(({ icon }) => reusedPicks.has(icon.fluent.name))
-            .toSorted((a, b) => a.icon.fluent.name.localeCompare(b.icon.fluent.name) || a.number - b.number)}
+            .filter(({ icon }) => reusedPicks.has(icon.fluent.name) && !reuseInDoubt(icon))
+            .toSorted(byReusedIcon)}
+          size={size}
+          filled={filled}
+          grouped
+        />
+        <AuditTable
+          title="Reused icons, less confident"
+          rows={rows
+            .filter(({ icon }) => reusedPicks.has(icon.fluent.name) && reuseInDoubt(icon))
+            .toSorted(byReusedIcon)}
           size={size}
           filled={filled}
           grouped
