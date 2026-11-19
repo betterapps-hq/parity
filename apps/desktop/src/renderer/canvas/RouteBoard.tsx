@@ -22,8 +22,9 @@ import { usePreferences } from "../chrome/preferences.ts"
 import { copyNodeAttribute, copyRootAttribute } from "../copy-sheets.ts"
 import { findFrames, findNodeElements, registerFrame, setDrawnNodes, setInnerNodes } from "../frame.ts"
 import { isText } from "../lens-windows.ts"
-import { mountCopy } from "../page-copy.ts"
+import { preparingCopy } from "../page-copy.ts"
 import { useProject } from "./context.ts"
+import { windowCopyBuilds } from "./copy-builds.ts"
 import { bitmapScale } from "./frame-bitmaps.ts"
 import type { FrameView } from "./frame-view.ts"
 import { type FrozenCopy, useFrozenCopy } from "./freezer.ts"
@@ -42,7 +43,8 @@ import { TierDot } from "./TierDot.tsx"
  * a frame, registered under the page's design with its mode and state, so selection, hit-testing and outlines find the
  * copy's elements by their ids (`buildCopy`'s `DrawnNodes`). It's as tall as the page in the mode's window, unless the
  * frame has a height of its own, which clips it. It's inert, so its links and forms can't be followed or sent, and
- * nothing in it takes focus. Until its copy or picture comes, a placeholder stands in at the window's height. Where the
+ * nothing in it takes focus. Its copy is built a few milliseconds a frame while its picture shows, and swaps in whole
+ * (`windowCopyBuilds`). Until its copy or picture comes, a placeholder stands in at the window's height. Where the
  * page landed, when it isn't the route's own path, goes to the board's warning and Layers; the primary frame's copy gives
  * Layers its layers.
  * Its copy is kept by `CopyKey`, its route, mode and state, and frozen again when the app's code changes (PAR-1264).
@@ -177,26 +179,37 @@ export function RouteBoard({
   }, [id, interactive, project])
 
   const tier = useBoardTier(frame.width * scale, view, { copy: !!copy, live: !!live, pointed: interactive && pointed })
-  const frozen = tier !== "picture" && !asleep && !!copy
+  const wanted = tier !== "picture" && !asleep && !!copy
+  // The copy, built a few milliseconds a frame while the picture shows (PAR-1336), and what puts it in the host. One
+  // built for an earlier copy, mode or window stays in until the next is whole, so the board doesn't fall back to its
+  // picture while it's rebuilt.
+  const [built, setBuilt] = useState<{ mount: () => () => void }>()
+  const frozen = wanted && !!built
 
   // Selecting, outlining and agents find the copy as they find a design's frames.
   useLayoutEffect(() => registerFrame(host.current!, design), [design])
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const element = host.current
 
-    if (!copy || !element || !frozen) {
+    if (!copy || !element || !wanted) {
+      // Nothing keeps a copy's elements once the board stops showing it, as a sleeping frame keeps none.
+      setBuilt(undefined)
+
       return undefined
     }
 
     registry.current ??= new CustomElementRegistry()
+    const steps = preparingBoardCopy(element, copy, drawn, viewport, registry.current, tokenPreviewSheet(project))
 
-    return showCopy(element, copy, drawn, viewport, registry.current, tokenPreviewSheet(project))
-  }, [frozen, copy, drawn, viewport, project])
+    return windowCopyBuilds.build(steps, rank, (mount) => setBuilt({ mount }))
+  }, [wanted, copy, drawn, viewport, project, rank])
+
+  useLayoutEffect(() => (frozen && built ? built.mount() : undefined), [frozen, built])
 
   // A token preview can change the page's height, so the copy measures what it draws while one shows.
   useEffect(() => {
-    if (!copy || !frozen) {
+    if (!frozen) {
       return undefined
     }
 
@@ -209,19 +222,19 @@ export function RouteBoard({
       stop()
       setPreviewed(undefined)
     }
-  }, [frozen, copy, project])
+  }, [frozen, built, project])
 
   // A fixed header shows once, in the live window, rather than again on the copy around it. After the copy is built, so
   // a copy built again while the board is live is hidden too.
   useLayoutEffect(() => {
     const root = host.current?.shadowRoot
 
-    if (!live || !copy || !frozen || !root) {
+    if (!live || !frozen || !root) {
       return undefined
     }
 
     return hideFixed(root)
-  }, [frozen, copy, drawn, live, viewport])
+  }, [frozen, built, live])
 
   // While it's live, where the live page went, or tried to go off the app's origin; otherwise where its copy landed.
   const landed = live?.location ?? copy?.location
@@ -319,25 +332,27 @@ function useBoardTier(
 }
 
 /**
- * Builds `copy` in `host`'s shadow root and has the frame's lookups go through its elements. The project's token values
- * edited and not saved come after the copy's own sheets, in a sheet every copy of its routes shares. Returns what
- * takes the copy's root and mode off the host again.
+ * Builds `copy` for `host`'s shadow root, a few elements at a time (`preparingCopy`), and the lookups that find its
+ * layers. Returns what puts it in the host and has the frame's lookups go through its elements, which gives what takes
+ * them out again. The project's token values edited and not saved come after the copy's own sheets, in a sheet every
+ * copy of its routes shares.
  */
-function showCopy(
+function* preparingBoardCopy(
   host: HTMLElement,
   copy: FrozenCopy,
   mode: PageMode,
   viewport: { width: number; height: number },
   registry: CustomElementRegistry,
   preview: CSSStyleSheet
-): () => void {
-  const { built, body, unmount } = mountCopy(host, copy, mode, viewport, registry, [preview])
+): Generator<void, () => () => void> {
+  const { built, body, mount } = yield* preparingCopy(host, copy, mode, viewport, registry, [preview])
   const nodes = new Map<string, Element | Text>()
   const textParents = new Map<string, string | undefined>()
   const ids: string[] = []
   // Only text that's a layer of its own, beside elements or in a layout such as a button: a paragraph's own text is
   // the paragraph's layer.
   const layers = layerIds(elementLayers(frozenSnapshots(copy.body)))
+  yield
 
   // Text between elements is a layer of its own (`frozenSnapshots`), as `<parent>.t<index>`: its node is found by its
   // place among its parent's children, which `buildCopy` made in the snapshot's order.
@@ -359,7 +374,7 @@ function showCopy(
     texts(body, "body", undefined)
   }
 
-  for (const id of built.drawn.ids) {
+  for (const [index, id] of built.drawn.ids.entries()) {
     const [element] = built.drawn.elements(id)
     ids.push(id)
 
@@ -368,6 +383,10 @@ function showCopy(
       // A style edit's preview finds it by its layer (`StylePreview`).
       element.setAttribute(copyNodeAttribute, id)
       texts(element, id, id)
+    }
+
+    if (index % 64 === 63) {
+      yield
     }
   }
 
@@ -384,13 +403,16 @@ function showCopy(
     nodeOf: (element) => built.drawn.nodeOf(element)
   }
 
-  setInnerNodes(host, nodes)
-  setDrawnNodes(host, () => drawn)
-
   return () => {
-    setDrawnNodes(host, undefined)
-    setInnerNodes(host, new Map())
-    unmount()
+    const unmount = mount()
+    setInnerNodes(host, nodes)
+    setDrawnNodes(host, () => drawn)
+
+    return () => {
+      setDrawnNodes(host, undefined)
+      setInnerNodes(host, new Map())
+      unmount()
+    }
   }
 }
 

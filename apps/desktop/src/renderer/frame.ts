@@ -114,6 +114,9 @@ function frameRootCss(): string {
 }`
 }
 
+/** The elements around hosts whose inherited custom properties `keepOutInherited` has read. */
+const inheritedRead = new WeakSet<Element>()
+
 function frameRootSheet(): CSSStyleSheet {
   if (rootSheet) {
     return rootSheet
@@ -176,13 +179,17 @@ function registerRootFontSize(view: Window): void {
  * frame alone. A property defined on the frame's host, as the project's `:root` rules and its viewport are, still wins.
  * `frameHeightProperty` stays: the canvas's rules read it on the host itself, where a reset would leave a sleeping
  * frame no height to keep, and its board would shrink to its caption (PAR-157).
+ * Each parent is read once: reading its computed style lays out the whole page's styles there and then, which a route
+ * board building its copy again while the canvas zooms paid each time, about 25 ms on a dense page (PAR-1336).
  */
 function keepOutInherited(host: HTMLElement): void {
   const parent = isShadowRoot(host.parentNode) ? host.parentNode.host : host.parentElement
 
-  if (!parent) {
+  if (!parent || inheritedRead.has(parent)) {
     return
   }
+
+  inheritedRead.add(parent)
 
   const style = getComputedStyle(parent)
   let added = false

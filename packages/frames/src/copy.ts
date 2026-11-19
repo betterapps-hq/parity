@@ -38,6 +38,23 @@ export function buildCopy(
   registry: CustomElementRegistry,
   prepare: CopyPreparation = {}
 ): BuiltCopy {
+  return runSteps(buildingCopy(document, body, registry, prepare))
+}
+
+/** How many elements `buildingCopy` makes between the pauses it offers. */
+const elementsPerStep = 32
+
+/**
+ * Builds a copy as `buildCopy` does, pausing after every few elements so a caller can spread it over several frames
+ * (PAR-1336). Nothing it makes is in a document until the caller puts the fragment in one, so a pause leaves no half-built
+ * copy on screen.
+ */
+export function* buildingCopy(
+  document: Document,
+  body: FrozenElement,
+  registry: CustomElementRegistry,
+  prepare: CopyPreparation = {}
+): Generator<void, BuiltCopy> {
   const ids: string[] = []
   const elements = new Map<string, Element>()
   const parents = new Map<string, string>()
@@ -81,11 +98,21 @@ export function buildCopy(
 
   const pending: Pending[] = [{ frozen: body, into: standIn, parent: undefined, unlayered: false }]
 
+  let made = 0
+
   for (let next = pending.pop(); next; next = pending.pop()) {
     let index = 0
     const children: Pending[] = []
 
     for (const child of next.frozen.children) {
+      // Within a parent's children too, so a list of thousands of siblings is built over frames as a deep page is.
+      if (made >= elementsPerStep) {
+        made = 0
+        yield
+      }
+
+      made += 1
+
       if (!(child instanceof Object)) {
         next.into.append(document.createTextNode(child))
         continue
@@ -129,6 +156,17 @@ export function buildCopy(
   fragment.append(standIn)
 
   return { fragment, drawn: drawnCopy(depthFirst(ids, parents), elements, parents, nodes, standIn) }
+}
+
+/** Runs `steps` to the end and gives what they return. */
+export function runSteps<Result>(steps: Generator<void, Result>): Result {
+  for (;;) {
+    const step = steps.next()
+
+    if (step.done) {
+      return step.value
+    }
+  }
 }
 
 /** Sets attributes as the page had them; `xlink:` and `xml:` names go in their namespaces, as the page parsed them. */
