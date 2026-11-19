@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Zooming Pages with many routes is smoother: the page tree's lines are drawn in pieces and only those near the view flow",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
