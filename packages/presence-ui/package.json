@@ -11,7 +11,7 @@
   "dependencies": {
     "@buildkitgg/shadcn": "link:../../apps/desktop/node_modules/.buildkit/shadcn",
     "@parity-app/presence-colors": "workspace:*",
-    "lucide-react": "^1.66.0"
+    "lucide-react": "^1.79.0"
   },
   "peerDependencies": {
     "react": "^19.3.1"
